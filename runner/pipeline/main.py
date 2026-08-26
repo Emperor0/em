@@ -1,6 +1,6 @@
 from __future__ import annotations
 from pathlib import Path
-import json, subprocess, traceback, math
+import json, subprocess, traceback
 from . import config
 from .discover import collect
 from .planner import rank, script
@@ -22,6 +22,16 @@ def media_duration(path:Path)->float:
         "ffprobe","-v","error","-show_entries","format=duration","-of","default=nw=1:nk=1",str(path)
     ],text=True).strip()
     return float(raw)
+
+
+def has_audio_stream(path:Path)->bool:
+    try:
+        raw=subprocess.check_output([
+            "ffprobe","-v","error","-select_streams","a:0","-show_entries","stream=codec_type","-of","csv=p=0",str(path)
+        ],text=True).strip()
+        return raw=="audio"
+    except Exception:
+        return False
 
 
 def normalize_scene_durations(scenes:list[dict], target:float)->list[dict]:
@@ -47,7 +57,7 @@ def normalize_scene_durations(scenes:list[dict], target:float)->list[dict]:
     return out
 
 
-def make_asset(sc:dict, *, kind:str, path:Path|None=None)->dict:
+def make_asset(sc:dict, *, kind:str, path:Path|None=None, use_audio:bool=False, source:str="")->dict:
     item={
         "type":kind,
         "duration":float(sc["duration"]),
@@ -55,7 +65,9 @@ def make_asset(sc:dict, *, kind:str, path:Path|None=None)->dict:
         "voice":sc.get("voice","") ,
         "motion":sc.get("motion","push_in"),
         "transition":sc.get("transition","cut"),
-        "visual_prompt":sc.get("visual_prompt","")
+        "visual_prompt":sc.get("visual_prompt",""),
+        "use_audio":bool(use_audio),
+        "source":source,
     }
     if path is not None:
         item["path"]=str(path.resolve())
@@ -107,20 +119,24 @@ def run():
         for i,sc in enumerate(scenes):
             requested=sc.get("asset_type","stock")
 
-            # Spend scarce free GPU only on hero shots.
+            # Use scarce free ZeroGPU only for the highest-value hero shot.
             if requested=="ai_video" and ai_used < config.HF_MAX_GPU_JOBS:
                 try:
                     p=Path(hf_generate(sc["visual_prompt"],OUT,None,i))
                     if p.exists() and p.stat().st_size>250_000:
-                        assets.append(make_asset(sc,kind="video",path=p))
+                        assets.append(make_asset(
+                            sc,kind="video",path=p,
+                            use_audio=has_audio_stream(p),
+                            source="zerogpu_ai"
+                        ))
                         ai_used+=1
                         continue
                 except Exception as e:
                     asset_errors.append(f"ai_video[{i}]: {e}")
 
-            # Motion graphics are deliberately rendered as animation, never as a static slide.
+            # Motion graphics are true animations, not slides.
             if requested=="motion_graphic":
-                assets.append(make_asset(sc,kind="motion"))
+                assets.append(make_asset(sc,kind="motion",source="remotion_graphic"))
                 continue
 
             q=sc.get("stock_query") or sc.get("visual_prompt") or "technology"
@@ -132,12 +148,11 @@ def run():
             if clips:
                 p=Path(clips[0])
                 if p.exists() and p.stat().st_size>250_000:
-                    assets.append(make_asset(sc,kind="video",path=p))
+                    # Stock audio is intentionally muted to avoid unknown music/dialogue rights.
+                    assets.append(make_asset(sc,kind="video",path=p,use_audio=False,source="pexels"))
                     continue
 
-            # If a moving asset cannot be acquired, use a true animated graphic beat.
-            # The downstream QC still rejects the whole video if motion graphics become dominant.
-            assets.append(make_asset(sc,kind="motion"))
+            assets.append(make_asset(sc,kind="motion",source="remotion_fallback"))
             asset_errors.append(f"motion_fallback[{i}]: no premium moving source acquired")
 
         if len(assets) != len(scenes):
@@ -163,7 +178,7 @@ def run():
         if not raw.exists() or raw.stat().st_size<1_500_000:
             raise RuntimeError("QUALITY_GATE: raw render missing or suspiciously small")
 
-        # Platform-ready voice mastering. Keep the video stream untouched.
+        # Platform-ready audio mastering. AI ambience/foley (if present) is already mixed quietly under narration.
         subprocess.run([
             "ffmpeg","-y","-i",str(raw),
             "-af","loudnorm=I=-14:TP=-1.5:LRA=8",
@@ -174,7 +189,7 @@ def run():
         qc=quality_validate(final,assets)
         (OUT/"quality_report.json").write_text(json.dumps(qc,indent=2),encoding="utf-8")
 
-        # Publishing is downstream of QC. A mediocre render can never reach an account.
+        # Publishing is impossible until the finished file passes every quality gate.
         result["stage"]="PUBLISH"
         yt=youtube(final,content)
         tt=tiktok(final,content)
