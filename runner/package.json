@@ -1,0 +1,15 @@
+{
+  "name": "d7-media-renderer",
+  "private": true,
+  "type": "module",
+  "dependencies": {
+    "@remotion/bundler": "^4.0.354",
+    "@remotion/renderer": "^4.0.354",
+    "remotion": "^4.0.354",
+    "react": "^19.1.1",
+    "react-dom": "^19.1.1"
+  },
+  "devDependencies": {
+    "typescript": "^5.9.2"
+  }
+}
