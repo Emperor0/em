@@ -4,7 +4,8 @@ import json, shutil
 from gradio_client import Client, handle_file
 from . import config
 
-H3_SPACE = "MiniMaxAI/MiniMax-H3-Turbo-Lora"
+# Current public, HF-maintained H3 demo. Supports text-to-video and 9:16 with synchronized soundtrack.
+H3_SPACE = "multimodalart/minimax-h3"
 H3_CANVAS = "768x1344 · 9:16 full"
 
 
@@ -51,7 +52,7 @@ def _save_result(result, outdir:Path, index:int):
 
 
 def _h3(prompt:str, outdir:Path, image_path:Path|None, index:int):
-    """Premium hero-shot adapter: MiniMax H3 Turbo on public Hugging Face ZeroGPU."""
+    """Premium hero-shot adapter: unquantized MiniMax H3 on public Hugging Face ZeroGPU."""
     client=Client(H3_SPACE, token=config.HF_TOKEN or None, verbose=False)
     polished=(
         prompt.strip()+
@@ -61,11 +62,11 @@ def _h3(prompt:str, outdir:Path, image_path:Path|None, index:int):
     )
     image=handle_file(str(image_path)) if image_path else None
 
-    # H3's public API has kept all original inputs positional and appends optional prompt upsampling last.
+    # Current public Space API: prompt, first frame, last frame, canvas, duration, steps, seed, upsample.
     attempts=[
-        [polished,image,None,H3_CANVAS,5,4,42,False],
-        [polished,image,None,H3_CANVAS,5,10,42,False],
-        [polished,image,None,H3_CANVAS,5,10,42],
+        [polished,image,None,H3_CANVAS,5,28,42,False],
+        [polished,image,None,H3_CANVAS,4,20,42,False],
+        [polished,image,None,H3_CANVAS,3,14,42,False],
     ]
     errors=[]
     for args in attempts:
@@ -74,6 +75,10 @@ def _h3(prompt:str, outdir:Path, image_path:Path|None, index:int):
             return _save_result(result,outdir,index)
         except Exception as e:
             errors.append(f"{type(e).__name__}: {e}")
+            # Quota/auth errors won't improve by changing steps.
+            low=str(e).lower()
+            if any(k in low for k in ("quota","gpu quota","login","sign in","authentication","token")):
+                break
     raise RuntimeError("MiniMax H3 ZeroGPU failed: "+" | ".join(errors[-3:]))
 
 
@@ -96,14 +101,17 @@ def _generic(prompt:str, outdir:Path, image_path:Path|None, index:int):
         named=list((info or {}).get("named_endpoints",{}).keys())
         if not named:
             raise RuntimeError("No named Gradio API endpoint discovered")
-        # Prefer generation-like endpoints over helpers/status endpoints.
         named.sort(key=lambda x:("generate" not in x.lower(),"predict" not in x.lower(),x))
-        result=client.predict(api_name=named[0], **base)
+        endpoint=named[0]
+        # Do not blindly call an image-to-video endpoint without a source frame.
+        if image_path is None and "image" in str((info or {}).get("named_endpoints",{}).get(endpoint,{})).lower():
+            raise RuntimeError(f"Secondary provider {endpoint} requires an input image")
+        result=client.predict(api_name=endpoint, **base)
     return _save_result(result,outdir,index)
 
 
 def generate(prompt:str, outdir:Path, image_path:Path|None=None, index:int=0):
-    """Quality router: H3 Turbo first, then a configured ZeroGPU provider."""
+    """Quality router: H3 first, then a configured ZeroGPU provider."""
     errors=[]
     try:
         return _h3(prompt,outdir,image_path,index)
