@@ -20,6 +20,8 @@ type Asset={
   motion?:"push_in"|"pan_left"|"pan_right"|"punch_zoom"|"parallax"|"none";
   transition?:"cut"|"whip"|"flash"|"zoom";
   visual_prompt?:string;
+  use_audio?:boolean;
+  source?:string;
 };
 type Props={voice:string;assets:Asset[];title:string;script:string};
 
@@ -102,7 +104,8 @@ const Shot:React.FC<{asset:Asset;index:number}>=({asset,index})=>{
       <MotionGraphic index={index} caption={caption}/> : asset.type==="video" ?
       <OffthreadVideo
         src={asset.path||""}
-        muted
+        muted={!asset.use_audio}
+        volume={asset.use_audio?0.10:0}
         style={{width:"100%",height:"100%",objectFit:"cover",transform:`translate(${x}px,${y}px) scale(${scale})`}}
       /> :
       <Img
