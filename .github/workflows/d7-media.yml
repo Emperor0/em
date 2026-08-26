@@ -10,7 +10,7 @@ on:
   workflow_dispatch:
 
 permissions:
-  contents: write
+  contents: read
 
 jobs:
   preflight:
@@ -24,8 +24,6 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: "22"
-      - name: Bootstrap D7 runner
-        run: python runner/bootstrap.py
       - name: Install FFmpeg
         run: sudo apt-get update && sudo apt-get install -y ffmpeg
       - name: Install Python dependencies
@@ -51,32 +49,11 @@ jobs:
           path: runner/output/smoke
           retention-days: 1
 
-  materialize:
-    if: github.event_name == 'push'
-    needs: preflight
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
-        with:
-          python-version: "3.12"
-      - name: Expand bundled source
-        run: python runner/bootstrap.py
-      - name: Commit materialized source
-        run: |
-          git config user.name "D7 Media Cloud"
-          git config user.email "actions@users.noreply.github.com"
-          git add runner/pipeline runner/remotion runner/render runner/package.json runner/requirements.txt
-          git diff --cached --quiet && exit 0
-          git commit -m "Materialize D7 Media Cloud runner source"
-          git push
-
   generate:
     if: github.event_name != 'push' && vars.D7_ENABLED == 'true'
     needs: preflight
     runs-on: ubuntu-latest
     timeout-minutes: 60
-
     env:
       D7_JOB_ID: ${{ github.event.client_payload.job_id || github.run_id }}
       D7_CALLBACK_URL: ${{ secrets.D7_CALLBACK_URL }}
@@ -102,7 +79,6 @@ jobs:
       MIN_SCORE: "82"
       MAX_DAILY_POSTS: "2"
       ZERO_COST: "true"
-
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
@@ -111,8 +87,6 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: "22"
-      - name: Bootstrap D7 runner
-        run: python runner/bootstrap.py
       - name: Install FFmpeg
         run: sudo apt-get update && sudo apt-get install -y ffmpeg
       - name: Install Python
@@ -121,10 +95,10 @@ jobs:
       - name: Install Renderer
         working-directory: runner
         run: npm install
-      - name: Generate, render and publish
+      - name: Generate, render, quality-check and publish
         working-directory: runner
         run: python -m pipeline.main
-      - name: Upload debug artifacts
+      - name: Upload production artifacts
         if: always()
         uses: actions/upload-artifact@v4
         with:
