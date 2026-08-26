@@ -17,9 +17,10 @@ await renderMedia({
   codec:"h264",
   outputLocation:m.output,
   inputProps:props,
-  crf:17,
-  videoBitrate:"8M",
-  audioBitrate:"192k",
-  pixelFormat:"yuv420p"
+  crf:16,
+  videoBitrate:"12M",
+  audioBitrate:"256k",
+  pixelFormat:"yuv420p",
+  x264Preset:"medium"
 });
 console.log(m.output);
