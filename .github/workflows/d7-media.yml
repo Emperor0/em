@@ -63,6 +63,10 @@ jobs:
       CF_TEXT_MODEL: "@cf/zai-org/glm-4.7-flash"
       CF_TTS_MODEL: "@cf/myshell-ai/melotts"
       CF_IMAGE_MODEL: "@cf/black-forest-labs/flux-1-schnell"
+      VOICE_ENGINE: "edge"
+      EDGE_VOICE: "en-US-BrianMultilingualNeural"
+      EDGE_RATE: "+4%"
+      EDGE_PITCH: "-2Hz"
       HF_TOKEN: ${{ secrets.HF_TOKEN }}
       HF_VIDEO_SPACE: ${{ vars.HF_VIDEO_SPACE || 'Upsampler/wan-2-2-5b-video' }}
       HF_VIDEO_API_NAME: ${{ vars.HF_VIDEO_API_NAME }}
@@ -76,7 +80,15 @@ jobs:
       TIKTOK_ACCESS_TOKEN: ${{ secrets.TIKTOK_ACCESS_TOKEN }}
       TIKTOK_DIRECT_POST_APPROVED: ${{ vars.TIKTOK_DIRECT_POST_APPROVED || 'false' }}
       TIKTOK_PRIVACY: "SELF_ONLY"
-      MIN_SCORE: "82"
+      MIN_SCORE: "84"
+      MIN_SCENES: "14"
+      MAX_SCENE_SECONDS: "2.6"
+      MIN_VIDEO_ASSET_RATIO: "0.60"
+      MAX_STILL_RATIO: "0.10"
+      MIN_FINAL_WIDTH: "1080"
+      MIN_FINAL_HEIGHT: "1920"
+      MIN_FINAL_FPS: "29"
+      MIN_FINAL_BITRATE: "7000000"
       MAX_DAILY_POSTS: "2"
       ZERO_COST: "true"
     steps:
