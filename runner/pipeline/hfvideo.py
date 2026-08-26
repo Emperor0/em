@@ -62,11 +62,11 @@ def _h3(prompt:str, outdir:Path, image_path:Path|None, index:int):
     )
     image=handle_file(str(image_path)) if image_path else None
 
+    # Hero clips are intentionally 2 seconds: this matches D7's 0.8-2.6s shot cadence and stays inside free GPU budgets.
     # Current public Space API: prompt, first frame, last frame, canvas, duration, steps, seed, upsample.
     attempts=[
-        [polished,image,None,H3_CANVAS,5,28,42,False],
-        [polished,image,None,H3_CANVAS,4,20,42,False],
-        [polished,image,None,H3_CANVAS,3,14,42,False],
+        [polished,image,None,H3_CANVAS,2,14,42,False],
+        [polished,image,None,H3_CANVAS,2,10,42,False],
     ]
     errors=[]
     for args in attempts:
@@ -75,11 +75,10 @@ def _h3(prompt:str, outdir:Path, image_path:Path|None, index:int):
             return _save_result(result,outdir,index)
         except Exception as e:
             errors.append(f"{type(e).__name__}: {e}")
-            # Quota/auth errors won't improve by changing steps.
             low=str(e).lower()
-            if any(k in low for k in ("quota","gpu quota","login","sign in","authentication","token")):
+            if any(k in low for k in ("quota","runs limit","login","sign in","authentication","token")):
                 break
-    raise RuntimeError("MiniMax H3 ZeroGPU failed: "+" | ".join(errors[-3:]))
+    raise RuntimeError("MiniMax H3 ZeroGPU failed: "+" | ".join(errors[-2:]))
 
 
 def _generic(prompt:str, outdir:Path, image_path:Path|None, index:int):
@@ -103,7 +102,6 @@ def _generic(prompt:str, outdir:Path, image_path:Path|None, index:int):
             raise RuntimeError("No named Gradio API endpoint discovered")
         named.sort(key=lambda x:("generate" not in x.lower(),"predict" not in x.lower(),x))
         endpoint=named[0]
-        # Do not blindly call an image-to-video endpoint without a source frame.
         if image_path is None and "image" in str((info or {}).get("named_endpoints",{}).get(endpoint,{})).lower():
             raise RuntimeError(f"Secondary provider {endpoint} requires an input image")
         result=client.predict(api_name=endpoint, **base)
