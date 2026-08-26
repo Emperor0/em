@@ -49,6 +49,30 @@ jobs:
           path: runner/output/smoke
           retention-days: 1
 
+  h3-quality-test:
+    if: github.event_name == 'push' && contains(github.event.head_commit.message, '[h3-smoke]')
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    env:
+      HF_TOKEN: ${{ secrets.HF_TOKEN }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Install ZeroGPU client
+        run: pip install "gradio_client>=1.13.1"
+      - name: Generate one premium H3 hero shot
+        working-directory: runner
+        run: python -m pipeline.h3_smoke
+      - name: Upload H3 hero shot
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: d7-h3-hero-${{ github.run_id }}
+          path: runner/output/h3-smoke
+          retention-days: 1
+
   generate:
     if: github.event_name != 'push' && vars.D7_ENABLED == 'true'
     needs: preflight
@@ -68,7 +92,7 @@ jobs:
       EDGE_RATE: "+4%"
       EDGE_PITCH: "-2Hz"
       HF_TOKEN: ${{ secrets.HF_TOKEN }}
-      HF_VIDEO_SPACE: ${{ vars.HF_VIDEO_SPACE || 'Upsampler/wan-2-2-5b-video' }}
+      HF_VIDEO_SPACE: ${{ vars.HF_VIDEO_SPACE || 'OpenKing/wan2-video-generation' }}
       HF_VIDEO_API_NAME: ${{ vars.HF_VIDEO_API_NAME }}
       HF_VIDEO_ARGS_JSON: ${{ vars.HF_VIDEO_ARGS_JSON || '{}' }}
       HF_MAX_GPU_JOBS: "1"
