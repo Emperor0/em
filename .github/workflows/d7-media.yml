@@ -1,0 +1,80 @@
+name: D7 Media Cloud
+
+on:
+  repository_dispatch:
+    types: [d7_generate]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  generate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+
+    env:
+      D7_JOB_ID: ${{ github.event.client_payload.job_id || github.run_id }}
+      D7_CALLBACK_URL: ${{ secrets.D7_CALLBACK_URL }}
+      D7_CALLBACK_SECRET: ${{ secrets.D7_CALLBACK_SECRET }}
+
+      CF_ACCOUNT_ID: ${{ secrets.CF_ACCOUNT_ID }}
+      CF_AI_TOKEN: ${{ secrets.CF_AI_TOKEN }}
+      CF_TEXT_MODEL: "@cf/zai-org/glm-4.7-flash"
+      CF_TTS_MODEL: "@cf/myshell-ai/melotts"
+      CF_IMAGE_MODEL: "@cf/black-forest-labs/flux-1-schnell"
+
+      HF_TOKEN: ${{ secrets.HF_TOKEN }}
+      HF_VIDEO_SPACE: ${{ vars.HF_VIDEO_SPACE || 'Upsampler/wan-2-2-5b-video' }}
+      HF_VIDEO_API_NAME: ${{ vars.HF_VIDEO_API_NAME }}
+      HF_VIDEO_ARGS_JSON: ${{ vars.HF_VIDEO_ARGS_JSON || '{}' }}
+      HF_MAX_GPU_JOBS: "1"
+
+      PEXELS_API_KEY: ${{ secrets.PEXELS_API_KEY }}
+      PIXABAY_API_KEY: ${{ secrets.PIXABAY_API_KEY }}
+
+      YOUTUBE_CLIENT_JSON: ${{ secrets.YOUTUBE_CLIENT_JSON }}
+      YOUTUBE_TOKEN_JSON: ${{ secrets.YOUTUBE_TOKEN_JSON }}
+      YOUTUBE_PRIVACY: "public"
+
+      TIKTOK_ACCESS_TOKEN: ${{ secrets.TIKTOK_ACCESS_TOKEN }}
+      TIKTOK_DIRECT_POST_APPROVED: ${{ vars.TIKTOK_DIRECT_POST_APPROVED || 'false' }}
+      TIKTOK_PRIVACY: "PUBLIC_TO_EVERYONE"
+
+      MIN_SCORE: "82"
+      MAX_DAILY_POSTS: "2"
+      ZERO_COST: "true"
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+
+      - name: Install FFmpeg
+        run: sudo apt-get update && sudo apt-get install -y ffmpeg
+
+      - name: Install Python
+        working-directory: runner
+        run: pip install -r requirements.txt beautifulsoup4
+
+      - name: Install Renderer
+        working-directory: runner
+        run: npm install
+
+      - name: Generate, render and publish
+        working-directory: runner
+        run: python -m pipeline.main
+
+      - name: Upload debug artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: d7-${{ env.D7_JOB_ID }}
+          path: runner/output/${{ env.D7_JOB_ID }}
+          retention-days: 3
