@@ -101,12 +101,12 @@ const Shot:React.FC<{asset:Asset;index:number}>=({asset,index})=>{
     {asset.type==="motion" ?
       <MotionGraphic index={index} caption={caption}/> : asset.type==="video" ?
       <OffthreadVideo
-        src={"file://"+asset.path}
+        src={asset.path||""}
         muted
         style={{width:"100%",height:"100%",objectFit:"cover",transform:`translate(${x}px,${y}px) scale(${scale})`}}
       /> :
       <Img
-        src={"file://"+asset.path}
+        src={asset.path||""}
         style={{width:"100%",height:"100%",objectFit:"cover",transform:`translate(${x}px,${y}px) scale(${scale})`}}
       />
     }
@@ -150,7 +150,7 @@ export const ViralShort:React.FC<Props>=({voice,assets,title})=>{
         <Shot asset={a} index={i}/>
       </Sequence>;
     })}
-    <Audio src={"file://"+voice}/>
+    <Audio src={voice}/>
     <Hook title={title}/>
     <Progress/>
   </AbsoluteFill>;
