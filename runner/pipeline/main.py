@@ -5,7 +5,7 @@ from . import config
 from .discover import collect
 from .planner import rank, script
 from .research import research
-from .cfai import tts, image
+from .cfai import tts
 from .stock import pexels
 from .hfvideo import generate as hf_generate
 from .publish import youtube, tiktok
@@ -26,23 +26,40 @@ def media_duration(path:Path)->float:
 
 def normalize_scene_durations(scenes:list[dict], target:float)->list[dict]:
     if not scenes:
-        raise RuntimeError("No storyboard scenes")
-    if len(scenes) < math.ceil(target/3.2):
-        raise RuntimeError(f"Storyboard too sparse for {target:.1f}s narration: {len(scenes)} beats")
-    weights=[max(.8,min(3.2,float(s.get("duration",2.0)))) for s in scenes]
+        raise RuntimeError("QUALITY_GATE: no storyboard scenes")
+    if len(scenes) < config.MIN_SCENES:
+        raise RuntimeError(f"QUALITY_GATE: storyboard has {len(scenes)} beats; need {config.MIN_SCENES}+")
+    weights=[max(.8,min(config.MAX_SCENE_SECONDS,float(s.get("duration",1.7)))) for s in scenes]
     total=sum(weights)
     scaled=[w*target/total for w in weights]
-    if max(scaled)>3.4:
-        raise RuntimeError(f"Storyboard pacing too slow: longest beat {max(scaled):.2f}s")
+    if max(scaled)>config.MAX_SCENE_SECONDS+0.20:
+        raise RuntimeError(f"QUALITY_GATE: pacing too slow; longest beat {max(scaled):.2f}s")
     out=[]
     for scene,d in zip(scenes,scaled):
         item=dict(scene)
-        item["duration"]=round(max(.75,d),3)
+        item["duration"]=round(max(.70,d),3)
+        item.setdefault("caption",item.get("voice","")[:48])
+        item.setdefault("motion","push_in")
+        item.setdefault("transition","cut")
         out.append(item)
-    # Correct rounding drift on the final beat.
     drift=target-sum(float(x["duration"]) for x in out)
-    out[-1]["duration"]=round(max(.75,float(out[-1]["duration"])+drift),3)
+    out[-1]["duration"]=round(max(.70,float(out[-1]["duration"])+drift),3)
     return out
+
+
+def make_asset(sc:dict, *, kind:str, path:Path|None=None)->dict:
+    item={
+        "type":kind,
+        "duration":float(sc["duration"]),
+        "caption":sc.get("caption") or sc.get("voice","")[:48],
+        "voice":sc.get("voice","") ,
+        "motion":sc.get("motion","push_in"),
+        "transition":sc.get("transition","cut"),
+        "visual_prompt":sc.get("visual_prompt","")
+    }
+    if path is not None:
+        item["path"]=str(path.resolve())
+    return item
 
 
 def run():
@@ -73,13 +90,12 @@ def run():
         (OUT/"content.json").write_text(json.dumps(content,indent=2,ensure_ascii=False),encoding="utf-8")
 
         result["stage"]="VOICE"
-        voice=tts(content["script"],OUT/"voice.mp3")
-        voice=Path(voice)
-        if not voice.exists() or voice.stat().st_size < 20_000:
-            raise RuntimeError("VOICE_GATE: TTS output missing or too small")
+        voice=Path(tts(content["script"],OUT/"voice.mp3"))
+        if not voice.exists() or voice.stat().st_size < 30_000:
+            raise RuntimeError("QUALITY_GATE: narration output missing or too small")
         voice_duration=media_duration(voice)
-        if not 20 <= voice_duration <= 58:
-            raise RuntimeError(f"VOICE_GATE: narration duration {voice_duration:.2f}s outside production range")
+        if not 25 <= voice_duration <= 55:
+            raise RuntimeError(f"QUALITY_GATE: narration duration {voice_duration:.2f}s outside premium Short range")
 
         scenes=normalize_scene_durations(content.get("scenes") or [],voice_duration)
         content["scenes"]=scenes
@@ -89,37 +105,43 @@ def run():
         ai_used=0
         asset_errors=[]
         for i,sc in enumerate(scenes):
-            typ=sc.get("asset_type","stock")
-            if typ=="ai_video" and ai_used < config.HF_MAX_GPU_JOBS:
+            requested=sc.get("asset_type","stock")
+
+            # Spend scarce free GPU only on hero shots.
+            if requested=="ai_video" and ai_used < config.HF_MAX_GPU_JOBS:
                 try:
                     p=Path(hf_generate(sc["visual_prompt"],OUT,None,i))
-                    if p.exists() and p.stat().st_size>100_000:
-                        assets.append({"type":"video","path":str(p.resolve()),"duration":sc["duration"]})
+                    if p.exists() and p.stat().st_size>250_000:
+                        assets.append(make_asset(sc,kind="video",path=p))
                         ai_used+=1
                         continue
                 except Exception as e:
                     asset_errors.append(f"ai_video[{i}]: {e}")
 
-            q=sc.get("visual_prompt","technology")
+            # Motion graphics are deliberately rendered as animation, never as a static slide.
+            if requested=="motion_graphic":
+                assets.append(make_asset(sc,kind="motion"))
+                continue
+
+            q=sc.get("stock_query") or sc.get("visual_prompt") or "technology"
             try:
                 clips=pexels(q,OUT/"stock"/f"{i}",1)
             except Exception as e:
                 clips=[]
                 asset_errors.append(f"stock[{i}]: {e}")
             if clips:
-                assets.append({"type":"video","path":str(Path(clips[0]).resolve()),"duration":sc["duration"]})
-                continue
+                p=Path(clips[0])
+                if p.exists() and p.stat().st_size>250_000:
+                    assets.append(make_asset(sc,kind="video",path=p))
+                    continue
 
-            # Still fallback is allowed only sparingly; the QC gate rejects slideshow-heavy output.
-            try:
-                still=OUT/f"scene_{i:02}.png"
-                image("premium cinematic vertical editorial image, strong depth and composition, "+q+", no text, no logos",still)
-                assets.append({"type":"image","path":str(still.resolve()),"duration":sc["duration"]})
-            except Exception as e:
-                asset_errors.append(f"image[{i}]: {e}")
+            # If a moving asset cannot be acquired, use a true animated graphic beat.
+            # The downstream QC still rejects the whole video if motion graphics become dominant.
+            assets.append(make_asset(sc,kind="motion"))
+            asset_errors.append(f"motion_fallback[{i}]: no premium moving source acquired")
 
         if len(assets) != len(scenes):
-            raise RuntimeError(f"ASSET_GATE: acquired {len(assets)}/{len(scenes)} visual beats")
+            raise RuntimeError(f"QUALITY_GATE: acquired {len(assets)}/{len(scenes)} visual beats")
 
         raw=OUT/"render_raw.mp4"
         final=OUT/"final.mp4"
@@ -138,20 +160,21 @@ def run():
 
         result["stage"]="RENDER"
         subprocess.run(["node","render/render.mjs",str(OUT/"manifest.json")],cwd=ROOT,check=True)
-        if not raw.exists() or raw.stat().st_size<1_000_000:
-            raise RuntimeError("RENDER_GATE: raw render missing or too small")
+        if not raw.exists() or raw.stat().st_size<1_500_000:
+            raise RuntimeError("QUALITY_GATE: raw render missing or suspiciously small")
 
-        # Normalize speech loudness to a platform-friendly target without re-encoding video.
+        # Platform-ready voice mastering. Keep the video stream untouched.
         subprocess.run([
             "ffmpeg","-y","-i",str(raw),
-            "-af","loudnorm=I=-14:TP=-1.5:LRA=11",
-            "-c:v","copy","-c:a","aac","-b:a","192k","-movflags","+faststart",str(final)
+            "-af","loudnorm=I=-14:TP=-1.5:LRA=8",
+            "-c:v","copy","-c:a","aac","-b:a","256k","-movflags","+faststart",str(final)
         ],check=True,stdout=subprocess.DEVNULL,stderr=subprocess.DEVNULL)
 
         result["stage"]="QUALITY_GATE"
         qc=quality_validate(final,assets)
         (OUT/"quality_report.json").write_text(json.dumps(qc,indent=2),encoding="utf-8")
 
+        # Publishing is downstream of QC. A mediocre render can never reach an account.
         result["stage"]="PUBLISH"
         yt=youtube(final,content)
         tt=tiktok(final,content)
@@ -164,12 +187,14 @@ def run():
             tiktok_publish_id=tt.get("publish_id"),
             ai_video_jobs=ai_used,
             quality=qc,
-            asset_errors=asset_errors[-10:],
+            asset_errors=asset_errors[-20:],
         )
         send(result)
         return result
     except Exception as e:
-        result.update(status="FAILED",error=f"{type(e).__name__}: {e}",traceback=traceback.format_exc())
+        message=f"{type(e).__name__}: {e}"
+        status="REJECTED_QUALITY" if "QUALITY_GATE" in message else "FAILED"
+        result.update(status=status,error=message,traceback=traceback.format_exc())
         try: send(result)
         except Exception: pass
         return result
