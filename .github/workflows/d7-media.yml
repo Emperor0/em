@@ -35,11 +35,11 @@ jobs:
 
       YOUTUBE_CLIENT_JSON: ${{ secrets.YOUTUBE_CLIENT_JSON }}
       YOUTUBE_TOKEN_JSON: ${{ secrets.YOUTUBE_TOKEN_JSON }}
-      YOUTUBE_PRIVACY: "public"
+      YOUTUBE_PRIVACY: "private"
 
       TIKTOK_ACCESS_TOKEN: ${{ secrets.TIKTOK_ACCESS_TOKEN }}
       TIKTOK_DIRECT_POST_APPROVED: ${{ vars.TIKTOK_DIRECT_POST_APPROVED || 'false' }}
-      TIKTOK_PRIVACY: "PUBLIC_TO_EVERYONE"
+      TIKTOK_PRIVACY: "SELF_ONLY"
 
       MIN_SCORE: "82"
       MAX_DAILY_POSTS: "2"
@@ -55,6 +55,9 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: "22"
+
+      - name: Bootstrap D7 runner
+        run: python runner/bootstrap.py
 
       - name: Install FFmpeg
         run: sudo apt-get update && sudo apt-get install -y ffmpeg
