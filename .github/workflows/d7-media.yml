@@ -1,6 +1,8 @@
 name: D7 Media Cloud
 
 on:
+  push:
+    branches: [main]
   repository_dispatch:
     types: [d7_generate]
   workflow_dispatch:
@@ -9,7 +11,32 @@ permissions:
   contents: read
 
 jobs:
+  preflight:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+      - name: Bootstrap D7 runner
+        run: python runner/bootstrap.py
+      - name: Validate Python
+        working-directory: runner
+        run: python -m compileall -q pipeline
+      - name: Install renderer dependencies
+        working-directory: runner
+        run: npm install
+      - name: Validate renderer entry
+        working-directory: runner
+        run: node --check render/render.mjs
+
   generate:
+    if: github.event_name != 'push'
+    needs: preflight
     runs-on: ubuntu-latest
     timeout-minutes: 60
 
