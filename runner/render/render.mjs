@@ -17,7 +17,6 @@ await renderMedia({
   codec:"h264",
   outputLocation:m.output,
   inputProps:props,
-  crf:16,
   videoBitrate:"12M",
   audioBitrate:"256k",
   pixelFormat:"yuv420p",
