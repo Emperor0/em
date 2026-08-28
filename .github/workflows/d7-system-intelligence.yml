@@ -1,0 +1,33 @@
+name: Build D7 System Intelligence
+on:
+  push:
+    branches: [ d7-system-intelligence-build ]
+  workflow_dispatch:
+jobs:
+  build:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '8.0.x'
+      - name: Restore
+        run: dotnet restore D7SystemIntelligence/D7SystemIntelligence.csproj
+      - name: Publish self-contained single EXE
+        run: dotnet publish D7SystemIntelligence/D7SystemIntelligence.csproj -c Release -r win-x64 --self-contained true -o publish
+      - name: Install Inno Setup
+        run: choco install innosetup -y --no-progress
+      - name: Build installer
+        run: '& "C:\Program Files (x86)\Inno Setup 6\ISCC.exe" installer\D7SystemIntelligence.iss'
+      - name: Upload installer
+        uses: actions/upload-artifact@v4
+        with:
+          name: D7-System-Intelligence-Installer
+          path: installer/output/D7-System-Intelligence-Setup.exe
+          if-no-files-found: error
+      - name: Upload portable EXE
+        uses: actions/upload-artifact@v4
+        with:
+          name: D7-System-Intelligence-Portable
+          path: publish/D7SystemIntelligence.exe
+          if-no-files-found: error
