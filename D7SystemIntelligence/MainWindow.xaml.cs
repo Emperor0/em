@@ -11,6 +11,9 @@ public partial class MainWindow : Window
     private readonly DiagnosticsEngine _diagnostics = new();
     private readonly CodAdapter _cod = new();
     private readonly D7Orchestrator _orchestrator = new();
+    private readonly NetworkIntelligence _network = new();
+    private readonly PeripheralIntelligence _peripherals = new();
+    private readonly DriverIntelligence _drivers = new();
     private readonly DispatcherTimer _timer;
     private HardwareSnapshot? _last;
     private bool _observing;
@@ -77,13 +80,20 @@ public partial class MainWindow : Window
 
     private void ShowOnly(UIElement page)
     {
-        foreach (var p in new UIElement[]{DashboardPage,GamesPage,DiagnosticsPage,CodPage,FansPage,UpdatesPage})
+        foreach (var p in new UIElement[]
+        {
+            DashboardPage, GamesPage, DiagnosticsPage, NetworkPage, PeripheralsPage,
+            DriversPage, CodPage, FansPage, UpdatesPage
+        })
             p.Visibility = p == page ? Visibility.Visible : Visibility.Collapsed;
     }
 
     private void ShowDashboard(object s, RoutedEventArgs e)=>ShowOnly(DashboardPage);
     private void ShowGames(object s,RoutedEventArgs e)=>ShowOnly(GamesPage);
     private void ShowDiagnostics(object s,RoutedEventArgs e)=>ShowOnly(DiagnosticsPage);
+    private void ShowNetwork(object s,RoutedEventArgs e)=>ShowOnly(NetworkPage);
+    private void ShowPeripherals(object s,RoutedEventArgs e)=>ShowOnly(PeripheralsPage);
+    private void ShowDrivers(object s,RoutedEventArgs e)=>ShowOnly(DriversPage);
     private void ShowCod(object s,RoutedEventArgs e)=>ShowOnly(CodPage);
     private void ShowFans(object s,RoutedEventArgs e)=>ShowOnly(FansPage);
     private void ShowUpdates(object s,RoutedEventArgs e)=>ShowOnly(UpdatesPage);
@@ -98,7 +108,15 @@ public partial class MainWindow : Window
     }
 
     private async void RescanGames(object s,RoutedEventArgs e)=>await ScanGames();
-    private async void RunAllScan(object s,RoutedEventArgs e){ await ScanGames(); ShowOnly(DiagnosticsPage); await RunDiagnosticCore(); }
+
+    private async void RunAllScan(object s,RoutedEventArgs e)
+    {
+        await ScanGames();
+        await ScanNetworkCore();
+        ShowOnly(DiagnosticsPage);
+        await RunDiagnosticCore();
+    }
+
     private async void RunDiagnostic(object s,RoutedEventArgs e)=>await RunDiagnosticCore();
 
     private async Task RunDiagnosticCore()
@@ -112,8 +130,44 @@ public partial class MainWindow : Window
         if (_orchestrator.LastStatus is { } live)
         {
             foreach (var d in live.Decisions)
-                DiagnosticsList.Items.Add($"[{d.Severity}] D7/{d.Area} — {d.Title}\n{d.Detail}");
+                DiagnosticsList.Items.Add($"[{SeverityArabic(d.Severity)}] {AreaArabic(d.Area)} — {d.Title}\n{d.Detail}");
         }
+    }
+
+    private async void ScanNetwork(object s, RoutedEventArgs e)=>await ScanNetworkCore();
+
+    private async Task ScanNetworkCore()
+    {
+        NetworkNotesText.Text = "جاري قياس الشبكة واللاتنسي…";
+        try
+        {
+            var r = await _network.ScanAsync();
+            NetAdapterText.Text = $"{r.AdapterName}\n{r.IPv4}";
+            NetSpeedText.Text = r.LinkSpeedBps > 0 ? $"{r.LinkSpeedBps / 1_000_000.0:0} Mbps" : "غير متاح";
+            NetLatencyText.Text = $"{FormatMs(r.InternetLatencyMs)} / {FormatMs(r.JitterMs)}";
+            NetLossText.Text = $"{r.PacketLossPercent:0.#}%";
+            NetworkNotesText.Text = $"زمن الوصول للبوابة: {FormatMs(r.GatewayLatencyMs)}\n{r.Notes}";
+        }
+        catch (Exception ex)
+        {
+            NetworkNotesText.Text = "تعذر إكمال فحص الشبكة: " + ex.Message;
+        }
+    }
+
+    private async void ScanPeripherals(object s, RoutedEventArgs e)
+    {
+        StatusText.Text = "جاري فحص الماوس والكيبورد واليد والشاشة والصوت…";
+        var list = await _peripherals.ScanAsync();
+        PeripheralsGrid.ItemsSource = list;
+        StatusText.Text = $"تم اكتشاف {list.Count} جهاز طرفي / HID حاضر";
+    }
+
+    private async void ScanDrivers(object s, RoutedEventArgs e)
+    {
+        DriverSummaryText.Text = "جاري قراءة التعريفات الفعلية…";
+        var list = await _drivers.ScanAsync();
+        DriversGrid.ItemsSource = list;
+        DriverSummaryText.Text = list.Count == 0 ? "تعذر قراءة قائمة التعريفات." : DriverIntelligence.BuildSummary(list);
     }
 
     private void ScanCod(object s,RoutedEventArgs e)
@@ -124,6 +178,7 @@ public partial class MainWindow : Window
 
     private void ApplyCodBalanced(object s,RoutedEventArgs e)=>ApplyCod("Balanced");
     private void ApplyCodQuality(object s,RoutedEventArgs e)=>ApplyCod("Quality");
+
     private void ApplyCod(string mode)
     {
         var cores=Math.Max(1, Environment.ProcessorCount/2);
@@ -162,4 +217,27 @@ public partial class MainWindow : Window
         UpdatesOutput.Text="جاري تشغيل DISM ScanHealth و SFC VerifyOnly…";
         UpdatesOutput.Text=await SystemActions.RunWindowsRepairScanAsync();
     }
+
+    private static string FormatMs(double? value)=>value.HasValue ? $"{value.Value:0.0} ms" : "غير متاح";
+
+    private static string SeverityArabic(string value)=>value.ToLowerInvariant() switch
+    {
+        "critical" => "حرج",
+        "warning" => "تحذير",
+        "info" => "معلومة",
+        "ok" => "سليم",
+        _ => value
+    };
+
+    private static string AreaArabic(string value)=>value.ToLowerInvariant() switch
+    {
+        "thermal" => "الحرارة",
+        "memory" => "الذاكرة",
+        "performance" => "الأداء",
+        "streaming" => "البث",
+        "fans" => "المراوح",
+        "profile" => "الوضع",
+        "stability" => "الاستقرار",
+        _ => value
+    };
 }
