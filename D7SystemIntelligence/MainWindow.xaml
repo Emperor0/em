@@ -1,47 +1,49 @@
 <Window x:Class="D7SystemIntelligence.MainWindow"
         xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-        Title="D7 System Intelligence" Height="780" Width="1220" MinHeight="700" MinWidth="1040"
+        Title="D7 System Intelligence" Height="820" Width="1320" MinHeight="720" MinWidth="1100"
         WindowStartupLocation="CenterScreen" FlowDirection="RightToLeft" FontFamily="Segoe UI"
         Background="{StaticResource Bg}" Foreground="{StaticResource Text}">
-    <Grid Margin="20" Background="{StaticResource Bg}">
-        <Grid.ColumnDefinitions><ColumnDefinition Width="215"/><ColumnDefinition Width="16"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
+    <Grid Margin="18" Background="{StaticResource Bg}">
+        <Grid.ColumnDefinitions><ColumnDefinition Width="230"/><ColumnDefinition Width="16"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
 
         <Border Grid.Column="0" Background="{StaticResource Panel}" CornerRadius="16" Padding="14">
-            <StackPanel>
-                <TextBlock Text="D7" FontSize="34" FontWeight="Bold"/>
-                <TextBlock Text="ذكاء وإدارة الجهاز" Foreground="{StaticResource Muted}" Margin="0,0,0,22"/>
+            <ScrollViewer VerticalScrollBarVisibility="Auto">
+                <StackPanel>
+                    <TextBlock Text="D7" FontSize="34" FontWeight="Bold"/>
+                    <TextBlock Text="ذكاء وإدارة الجهاز" Foreground="{StaticResource Muted}" Margin="0,0,0,20"/>
 
-                <Button Content="الرئيسية" Click="ShowDashboard"/>
-                <Button Content="الألعاب والمنصات" Click="ShowGames"/>
-                <Button Content="التشخيص الذكي" Click="ShowDiagnostics"/>
-                <Button Content="إعدادات Call of Duty" Click="ShowCod"/>
-                <Button Content="الحرارة والمراوح" Click="ShowFans"/>
-                <Button Content="التحديثات والإصلاح" Click="ShowUpdates"/>
+                    <Button Content="الرئيسية" Click="ShowDashboard"/>
+                    <Button Content="الألعاب والمنصات" Click="ShowGames"/>
+                    <Button Content="التشخيص الذكي" Click="ShowDiagnostics"/>
+                    <Button Content="الشبكة واللاتنسي" Click="ShowNetwork"/>
+                    <Button Content="الأجهزة الطرفية" Click="ShowPeripherals"/>
+                    <Button Content="التعريفات" Click="ShowDrivers"/>
+                    <Button Content="إعدادات Call of Duty" Click="ShowCod"/>
+                    <Button Content="الحرارة والمراوح" Click="ShowFans"/>
+                    <Button Content="التحديثات والإصلاح" Click="ShowUpdates"/>
 
-                <Separator Margin="6,18"/>
-                <TextBlock Text="الطيار الآلي" Foreground="{StaticResource Muted}"/>
-                <ComboBox x:Name="AutopilotBox" Margin="4,8" SelectedIndex="2">
-                    <ComboBoxItem Content="آمن"/>
-                    <ComboBoxItem Content="متوازن"/>
-                    <ComboBoxItem Content="أقصى أداء"/>
-                </ComboBox>
-                <TextBlock x:Name="StatusText" Text="جاري تشغيل محرك D7…" Foreground="{StaticResource Muted}" TextWrapping="Wrap" Margin="4,18,4,0"/>
-            </StackPanel>
+                    <Separator Margin="6,16"/>
+                    <TextBlock Text="الطيار الآلي" Foreground="{StaticResource Muted}"/>
+                    <ComboBox x:Name="AutopilotBox" Margin="4,8" SelectedIndex="2">
+                        <ComboBoxItem Content="آمن"/>
+                        <ComboBoxItem Content="متوازن"/>
+                        <ComboBoxItem Content="أقصى أداء"/>
+                    </ComboBox>
+                    <TextBlock x:Name="StatusText" Text="جاري تشغيل محرك D7…" Foreground="{StaticResource Muted}" TextWrapping="Wrap" Margin="4,16,4,0"/>
+                </StackPanel>
+            </ScrollViewer>
         </Border>
 
         <Grid Grid.Column="2" Background="{StaticResource Bg}">
             <Grid x:Name="DashboardPage" Background="{StaticResource Bg}">
                 <Grid.RowDefinitions>
-                    <RowDefinition Height="Auto"/>
-                    <RowDefinition Height="Auto"/>
-                    <RowDefinition Height="Auto"/>
-                    <RowDefinition Height="*"/>
+                    <RowDefinition Height="Auto"/><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/><RowDefinition Height="*"/>
                 </Grid.RowDefinitions>
 
                 <StackPanel>
                     <TextBlock Text="مركز قيادة D7" FontSize="30" FontWeight="SemiBold"/>
-                    <TextBlock Text="D7 يراقب الجهاز ويتعرف على وضع الاستخدام ويتخذ قراراته من القياسات الفعلية." Foreground="{StaticResource Muted}" Margin="0,6,0,0"/>
+                    <TextBlock Text="مدير ذكي يراقب الجهاز ويجهزه للألعاب والبث والعمل ويعتمد على القياسات الفعلية." Foreground="{StaticResource Muted}" Margin="0,6,0,0"/>
                 </StackPanel>
 
                 <UniformGrid Grid.Row="1" Columns="4" Margin="0,18,0,12">
@@ -59,9 +61,9 @@
 
                 <Border Grid.Row="3" Background="{StaticResource Panel}" CornerRadius="12" Padding="18">
                     <StackPanel>
-                        <TextBlock Text="المدير الذكي للجهاز" FontSize="21" FontWeight="SemiBold"/>
-                        <TextBlock Text="النسخة الحالية بدأت تسجل تاريخ Telemetry محليًا، وتتعرف على اللعب والبث والخمول، وتجمع قرارات الحرارة والذاكرة والاختناق تحت محرك Policy واحد. هذه البنية ستكون أساس الشبكة والتعريفات والبث والأجهزة الطرفية والتحديث الذاتي." Foreground="{StaticResource Muted}" TextWrapping="Wrap" Margin="0,8,0,14"/>
-                        <Button Content="تشغيل فحص سريع كامل" HorizontalAlignment="Right" Click="RunAllScan"/>
+                        <TextBlock Text="إدارة الجهاز من مكان واحد" FontSize="21" FontWeight="SemiBold"/>
+                        <TextBlock Text="D7 يسجل Telemetry محليًا، يكتشف وضع اللعب والبث، يفحص الشبكة واللاتنسي، يجرد الأجهزة الطرفية والتعريفات، ويربط كل ذلك بمحرك قرارات واحد. أي تغيير حساس سيبقى قابلاً للتحقق والرجوع." Foreground="{StaticResource Muted}" TextWrapping="Wrap" Margin="0,8,0,14"/>
+                        <Button Content="تشغيل فحص شامل سريع" HorizontalAlignment="Right" Click="RunAllScan"/>
                     </StackPanel>
                 </Border>
             </Grid>
@@ -70,7 +72,7 @@
                 <Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="*"/></Grid.RowDefinitions>
                 <StackPanel Orientation="Horizontal"><TextBlock Text="الألعاب والمنصات" FontSize="28" FontWeight="SemiBold"/><Button Content="إعادة الفحص" Click="RescanGames" Margin="20,0,0,0"/></StackPanel>
                 <DataGrid Grid.Row="1" x:Name="GamesGrid" Margin="0,18,0,0" AutoGenerateColumns="False" IsReadOnly="True" FlowDirection="LeftToRight">
-                    <DataGrid.Columns><DataGridTextColumn Header="Game" Binding="{Binding Name}" Width="2*"/><DataGridTextColumn Header="Launcher" Binding="{Binding Launcher}" Width="*"/><DataGridTextColumn Header="Install path" Binding="{Binding InstallPath}" Width="3*"/><DataGridTextColumn Header="Executable" Binding="{Binding ExecutablePath}" Width="3*"/></DataGrid.Columns>
+                    <DataGrid.Columns><DataGridTextColumn Header="اللعبة" Binding="{Binding Name}" Width="2*"/><DataGridTextColumn Header="المنصة" Binding="{Binding Launcher}" Width="*"/><DataGridTextColumn Header="مسار التثبيت" Binding="{Binding InstallPath}" Width="3*"/><DataGridTextColumn Header="الملف التنفيذي" Binding="{Binding ExecutablePath}" Width="3*"/></DataGrid.Columns>
                 </DataGrid>
             </Grid>
 
@@ -78,45 +80,67 @@
                 <Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/><RowDefinition Height="*"/></Grid.RowDefinitions>
                 <TextBlock Text="التشخيص الذكي" FontSize="28" FontWeight="SemiBold"/>
                 <Button Grid.Row="1" Content="تشغيل التشخيص" HorizontalAlignment="Right" Margin="0,16" Click="RunDiagnostic"/>
-                <ListBox Grid.Row="2" x:Name="DiagnosticsList" BorderThickness="0"/>
+                <ListBox Grid.Row="2" x:Name="DiagnosticsList" BorderThickness="0">
+                    <ListBox.ItemTemplate><DataTemplate><TextBlock Text="{Binding}" TextWrapping="Wrap" Padding="8"/></DataTemplate></ListBox.ItemTemplate>
+                </ListBox>
+            </Grid>
+
+            <Grid x:Name="NetworkPage" Visibility="Collapsed" Background="{StaticResource Bg}">
+                <Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/><RowDefinition Height="*"/></Grid.RowDefinitions>
+                <StackPanel><TextBlock Text="ذكاء الشبكة واللاتنسي" FontSize="28" FontWeight="SemiBold"/><TextBlock Text="يقيس الاتصال الفعلي والبوابة والبنق والتذبذب وفقد الحزم. لا يستخدم تعديلات وهمية لخفض البنق." Foreground="{StaticResource Muted}" Margin="0,6,0,0" TextWrapping="Wrap"/></StackPanel>
+                <Button Grid.Row="1" Content="فحص الشبكة الآن" HorizontalAlignment="Right" Margin="0,16" Click="ScanNetwork"/>
+                <UniformGrid Grid.Row="2" Columns="4" Margin="0,0,0,14">
+                    <Border Background="{StaticResource Panel}" CornerRadius="12" Margin="4" Padding="14"><StackPanel><TextBlock Text="المحول" Foreground="{StaticResource Muted}"/><TextBlock x:Name="NetAdapterText" Text="—" FontWeight="SemiBold" TextWrapping="Wrap"/></StackPanel></Border>
+                    <Border Background="{StaticResource Panel}" CornerRadius="12" Margin="4" Padding="14"><StackPanel><TextBlock Text="سرعة الرابط" Foreground="{StaticResource Muted}"/><TextBlock x:Name="NetSpeedText" Text="—" FontSize="18" FontWeight="Bold" FlowDirection="LeftToRight"/></StackPanel></Border>
+                    <Border Background="{StaticResource Panel}" CornerRadius="12" Margin="4" Padding="14"><StackPanel><TextBlock Text="Latency / Jitter" Foreground="{StaticResource Muted}"/><TextBlock x:Name="NetLatencyText" Text="—" FontSize="18" FontWeight="Bold" FlowDirection="LeftToRight"/></StackPanel></Border>
+                    <Border Background="{StaticResource Panel}" CornerRadius="12" Margin="4" Padding="14"><StackPanel><TextBlock Text="فقد الحزم" Foreground="{StaticResource Muted}"/><TextBlock x:Name="NetLossText" Text="—" FontSize="18" FontWeight="Bold" FlowDirection="LeftToRight"/></StackPanel></Border>
+                </UniformGrid>
+                <Border Grid.Row="3" Background="{StaticResource Panel}" CornerRadius="12" Padding="18"><TextBlock x:Name="NetworkNotesText" Text="اضغط فحص الشبكة للحصول على القياسات." TextWrapping="Wrap"/></Border>
+            </Grid>
+
+            <Grid x:Name="PeripheralsPage" Visibility="Collapsed" Background="{StaticResource Bg}">
+                <Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/><RowDefinition Height="*"/></Grid.RowDefinitions>
+                <StackPanel><TextBlock Text="الأجهزة الطرفية والاحتراف" FontSize="28" FontWeight="SemiBold"/><TextBlock Text="جرد الماوس والكيبورد واليد والشاشة والصوت وHID. هذه هي قاعدة مختبر Polling وDeadzone وUSB Latency في الإصدارات التالية." Foreground="{StaticResource Muted}" Margin="0,6,0,0" TextWrapping="Wrap"/></StackPanel>
+                <Button Grid.Row="1" Content="فحص الأجهزة الطرفية" HorizontalAlignment="Right" Margin="0,16" Click="ScanPeripherals"/>
+                <DataGrid Grid.Row="2" x:Name="PeripheralsGrid" AutoGenerateColumns="False" IsReadOnly="True">
+                    <DataGrid.Columns><DataGridTextColumn Header="الفئة" Binding="{Binding Category}" Width="*"/><DataGridTextColumn Header="الجهاز" Binding="{Binding Name}" Width="3*"/><DataGridTextColumn Header="الحالة" Binding="{Binding Status}" Width="*"/><DataGridTextColumn Header="المعرف" Binding="{Binding InstanceId}" Width="4*"/></DataGrid.Columns>
+                </DataGrid>
+            </Grid>
+
+            <Grid x:Name="DriversPage" Visibility="Collapsed" Background="{StaticResource Bg}">
+                <Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/><RowDefinition Height="*"/></Grid.RowDefinitions>
+                <StackPanel><TextBlock Text="ذكاء التعريفات" FontSize="28" FontWeight="SemiBold"/><TextBlock Text="يقرأ التعريفات الفعلية وإصداراتها أولًا. التثبيت التلقائي لن يُفعّل قبل اكتمال التحقق من المصدر والتوافق والـRollback." Foreground="{StaticResource Muted}" Margin="0,6,0,0" TextWrapping="Wrap"/></StackPanel>
+                <Button Grid.Row="1" Content="فحص التعريفات" HorizontalAlignment="Right" Margin="0,16" Click="ScanDrivers"/>
+                <Border Grid.Row="2" Background="{StaticResource Panel}" CornerRadius="10" Padding="12" Margin="0,0,0,12"><TextBlock x:Name="DriverSummaryText" Text="اضغط فحص التعريفات." TextWrapping="Wrap"/></Border>
+                <DataGrid Grid.Row="3" x:Name="DriversGrid" AutoGenerateColumns="False" IsReadOnly="True" FlowDirection="LeftToRight">
+                    <DataGrid.Columns><DataGridTextColumn Header="Device" Binding="{Binding DeviceName}" Width="3*"/><DataGridTextColumn Header="Class" Binding="{Binding DeviceClass}" Width="*"/><DataGridTextColumn Header="Version" Binding="{Binding DriverVersion}" Width="2*"/><DataGridTextColumn Header="Manufacturer" Binding="{Binding Manufacturer}" Width="2*"/><DataGridTextColumn Header="INF" Binding="{Binding InfName}" Width="*"/></DataGrid.Columns>
+                </DataGrid>
             </Grid>
 
             <Grid x:Name="CodPage" Visibility="Collapsed" Background="{StaticResource Bg}">
                 <StackPanel>
                     <TextBlock Text="ذكاء إعدادات Call of Duty" FontSize="28" FontWeight="SemiBold"/>
-                    <TextBlock Text="D7 لا يعدل مفاتيح مجهولة. يتم أخذ نسخة احتياطية، الكتابة إلى ملف مؤقت، التحقق من النتيجة ثم استبدال الملف الأصلي." Foreground="{StaticResource Muted}" TextWrapping="Wrap" Margin="0,12"/>
+                    <TextBlock Text="D7 لا يعدل مفاتيح مجهولة. يأخذ نسخة احتياطية ويكتب ملفًا مؤقتًا ويتحقق قبل استبدال الأصل." Foreground="{StaticResource Muted}" TextWrapping="Wrap" Margin="0,12"/>
                     <TextBox x:Name="CodInfo" Height="290" BorderThickness="0" IsReadOnly="True" TextWrapping="Wrap" VerticalScrollBarVisibility="Auto" FlowDirection="LeftToRight"/>
-                    <StackPanel Orientation="Horizontal" Margin="0,12">
-                        <Button Content="فحص إعدادات COD" Click="ScanCod"/>
-                        <Button Content="تطبيق أقصى FPS" Click="ApplyCodBalanced"/>
-                        <Button Content="تطبيق هدف 165 FPS" Click="ApplyCodQuality"/>
-                    </StackPanel>
+                    <StackPanel Orientation="Horizontal" Margin="0,12"><Button Content="فحص إعدادات COD" Click="ScanCod"/><Button Content="تطبيق أقصى FPS" Click="ApplyCodBalanced"/><Button Content="تطبيق هدف 165 FPS" Click="ApplyCodQuality"/></StackPanel>
                 </StackPanel>
             </Grid>
 
             <Grid x:Name="FansPage" Visibility="Collapsed" Background="{StaticResource Bg}">
                 <Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/><RowDefinition Height="*"/></Grid.RowDefinitions>
                 <TextBlock Text="الحرارة والتحكم بالمراوح" FontSize="28" FontWeight="SemiBold"/>
-                <TextBlock Grid.Row="1" Text="D7 يتحكم فقط بالقنوات التي يعرضها الهاردوير كقنوات كتابة حقيقية. إذا كانت اللوحة للقراءة فقط فلن نفرض PWM غير مدعوم، وعند الإغلاق يعيد التحكم الافتراضي." Foreground="{StaticResource Muted}" TextWrapping="Wrap" Margin="0,12"/>
+                <TextBlock Grid.Row="1" Text="D7 يتحكم فقط بالقنوات التي يعرضها الهاردوير كقنوات كتابة حقيقية. القنوات للقراءة فقط لن يتم إجبارها على PWM غير مدعوم." Foreground="{StaticResource Muted}" TextWrapping="Wrap" Margin="0,12"/>
                 <DataGrid Grid.Row="2" x:Name="FansGrid" AutoGenerateColumns="False" IsReadOnly="True">
                     <DataGrid.Columns><DataGridTextColumn Header="المروحة" Binding="{Binding Name}" Width="2*"/><DataGridTextColumn Header="RPM" Binding="{Binding Rpm}" Width="*"/><DataGridCheckBoxColumn Header="قابلة للتحكم" Binding="{Binding Controllable}" Width="*"/><DataGridTextColumn Header="التحكم %" Binding="{Binding ControlPercent}" Width="*"/></DataGrid.Columns>
                 </DataGrid>
-                <StackPanel Grid.Row="2" VerticalAlignment="Bottom" Orientation="Horizontal" Background="#EE0B0E14">
-                    <Button Content="45% للقنوات المدعومة" Click="Fans45"/>
-                    <Button Content="70% للقنوات المدعومة" Click="Fans70"/>
-                    <Button Content="استعادة BIOS / AUTO" Click="FansRestore"/>
-                </StackPanel>
+                <StackPanel Grid.Row="2" VerticalAlignment="Bottom" Orientation="Horizontal" Background="#EE0B0E14"><Button Content="45% للقنوات المدعومة" Click="Fans45"/><Button Content="70% للقنوات المدعومة" Click="Fans70"/><Button Content="استعادة BIOS / AUTO" Click="FansRestore"/></StackPanel>
             </Grid>
 
             <Grid x:Name="UpdatesPage" Visibility="Collapsed" Background="{StaticResource Bg}">
                 <StackPanel>
                     <TextBlock Text="التحديثات والإصلاح" FontSize="28" FontWeight="SemiBold"/>
-                    <TextBlock Text="حاليًا يدعم D7 فحص وتحديث التطبيقات عبر Windows Package Manager وفحص سلامة Windows. مدير تعريفات D7 والتحديث الذاتي الآمن سيتم ربطهما فوق نفس محرك السياسات والـRollback." Foreground="{StaticResource Muted}" Margin="0,12" TextWrapping="Wrap"/>
-                    <StackPanel Orientation="Horizontal">
-                        <Button Content="فحص تحديثات التطبيقات" Click="CheckUpdates"/>
-                        <Button Content="تحديث التطبيقات" Click="UpdateApps"/>
-                        <Button Content="فحص سلامة Windows" Click="WindowsRepairScan"/>
-                    </StackPanel>
+                    <TextBlock Text="يدعم D7 حاليًا تحديث التطبيقات عبر Windows Package Manager وفحص سلامة Windows. مدير تعريفات D7 والتحديث الذاتي سيتم ربطهما بمحرك التحقق والرجوع." Foreground="{StaticResource Muted}" Margin="0,12" TextWrapping="Wrap"/>
+                    <StackPanel Orientation="Horizontal"><Button Content="فحص تحديثات التطبيقات" Click="CheckUpdates"/><Button Content="تحديث التطبيقات" Click="UpdateApps"/><Button Content="فحص سلامة Windows" Click="WindowsRepairScan"/></StackPanel>
                     <TextBox x:Name="UpdatesOutput" Height="470" Margin="0,12,0,0" BorderThickness="0" IsReadOnly="True" VerticalScrollBarVisibility="Auto" TextWrapping="Wrap" FlowDirection="LeftToRight"/>
                 </StackPanel>
             </Grid>
