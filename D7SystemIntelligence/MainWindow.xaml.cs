@@ -1,5 +1,7 @@
 using D7SystemIntelligence.Core;
 using System.Windows;
+using System.Windows.Controls;
+using System.Windows.Media;
 using System.Windows.Threading;
 
 namespace D7SystemIntelligence;
@@ -14,19 +16,83 @@ public partial class MainWindow : Window
     private readonly NetworkIntelligence _network = new();
     private readonly PeripheralIntelligence _peripherals = new();
     private readonly DriverIntelligence _drivers = new();
+    private readonly D7UpdateService _d7Updates = new();
     private readonly DispatcherTimer _timer;
     private HardwareSnapshot? _last;
     private bool _observing;
+    private Button? _d7UpdateButton;
+    private TextBlock? _d7UpdateStatus;
+    private D7UpdateInfo? _pendingD7Update;
 
     public MainWindow()
     {
         InitializeComponent();
+        BuildSelfUpdatePanel();
+
         _timer = new DispatcherTimer { Interval = TimeSpan.FromSeconds(2) };
         _timer.Tick += (_,_) => RefreshHardware();
         _timer.Start();
         RefreshHardware();
-        Loaded += async (_,_) => await ScanGames();
+
+        Loaded += async (_,_) =>
+        {
+            await ScanGames();
+            await CheckD7UpdateSilently();
+        };
+
         Closed += (_,_) => _hardware.Dispose();
+    }
+
+    private void BuildSelfUpdatePanel()
+    {
+        if (UpdatesPage.Children.OfType<StackPanel>().FirstOrDefault() is not { } root) return;
+
+        if (root.Children.Count > 1 && root.Children[1] is TextBlock description)
+            description.Text = "من هنا يدير D7 تحديث نفسه، تحديث التطبيقات عبر Windows Package Manager، وفحوصات سلامة Windows. تحديث D7 يتحقق من الإصدار وSHA-256 قبل تشغيل المثبت.";
+
+        var panel = new Border
+        {
+            Background = (Brush)FindResource("Panel"),
+            CornerRadius = new CornerRadius(12),
+            Padding = new Thickness(16),
+            Margin = new Thickness(0, 6, 0, 14)
+        };
+
+        var stack = new StackPanel();
+        stack.Children.Add(new TextBlock
+        {
+            Text = "تحديث D7",
+            FontSize = 20,
+            FontWeight = FontWeights.SemiBold
+        });
+        stack.Children.Add(new TextBlock
+        {
+            Text = "زر واحد: فحص الإصدار الجديد ← تنزيله ← التحقق من البصمة ← التثبيت ← إعادة تشغيل D7.",
+            Foreground = (Brush)FindResource("Muted"),
+            TextWrapping = TextWrapping.Wrap,
+            Margin = new Thickness(0, 5, 0, 10)
+        });
+
+        _d7UpdateStatus = new TextBlock
+        {
+            Text = $"الإصدار الحالي: {_d7Updates.CurrentVersionText}",
+            Foreground = (Brush)FindResource("Muted"),
+            TextWrapping = TextWrapping.Wrap,
+            Margin = new Thickness(0, 0, 0, 8)
+        };
+
+        _d7UpdateButton = new Button
+        {
+            Content = "التحقق وتحديث D7",
+            HorizontalAlignment = HorizontalAlignment.Right,
+            MinWidth = 170
+        };
+        _d7UpdateButton.Click += CheckAndInstallD7Update;
+
+        stack.Children.Add(_d7UpdateStatus);
+        stack.Children.Add(_d7UpdateButton);
+        panel.Child = stack;
+        root.Children.Insert(Math.Min(2, root.Children.Count), panel);
     }
 
     private void RefreshHardware()
@@ -96,7 +162,11 @@ public partial class MainWindow : Window
     private void ShowDrivers(object s,RoutedEventArgs e)=>ShowOnly(DriversPage);
     private void ShowCod(object s,RoutedEventArgs e)=>ShowOnly(CodPage);
     private void ShowFans(object s,RoutedEventArgs e)=>ShowOnly(FansPage);
-    private void ShowUpdates(object s,RoutedEventArgs e)=>ShowOnly(UpdatesPage);
+    private void ShowUpdates(object s,RoutedEventArgs e)
+    {
+        ShowOnly(UpdatesPage);
+        _ = CheckD7UpdateSilently();
+    }
 
     private async Task ScanGames()
     {
@@ -125,7 +195,7 @@ public partial class MainWindow : Window
         DiagnosticsList.Items.Clear();
 
         foreach(var f in await _diagnostics.RunAsync(_last!))
-            DiagnosticsList.Items.Add($"[{f.Severity}] {f.Area} — {f.Title}\n{f.Detail}\n{f.Recommendation}");
+            DiagnosticsList.Items.Add($"[{SeverityArabic(f.Severity)}] {AreaArabic(f.Area)} — {f.Title}\n{f.Detail}\n{f.Recommendation}");
 
         if (_orchestrator.LastStatus is { } live)
         {
@@ -200,6 +270,84 @@ public partial class MainWindow : Window
     private void Fans70(object s,RoutedEventArgs e)=>SetAllFans(70);
     private void FansRestore(object s,RoutedEventArgs e){_hardware.RestoreFans();RefreshHardware();}
 
+    private async Task CheckD7UpdateSilently()
+    {
+        if (_d7UpdateStatus == null || _d7UpdateButton == null) return;
+        try
+        {
+            var update = await _d7Updates.CheckAsync();
+            _pendingD7Update = update;
+            if (update.UpdateAvailable)
+            {
+                _d7UpdateStatus.Text = $"يتوفر تحديث جديد: v{update.LatestVersion.ToString(3)} • إصدارك {_d7Updates.CurrentVersionText}";
+                _d7UpdateButton.Content = $"تحديث إلى v{update.LatestVersion.ToString(3)}";
+            }
+            else
+            {
+                _d7UpdateStatus.Text = $"أنت على أحدث إصدار: {_d7Updates.CurrentVersionText}";
+                _d7UpdateButton.Content = "التحقق من تحديث D7";
+            }
+        }
+        catch
+        {
+            _d7UpdateStatus.Text = $"الإصدار الحالي: {_d7Updates.CurrentVersionText} • تعذر التحقق الآن";
+        }
+    }
+
+    private async void CheckAndInstallD7Update(object? sender, RoutedEventArgs e)
+    {
+        if (_d7UpdateStatus == null || _d7UpdateButton == null) return;
+
+        _d7UpdateButton.IsEnabled = false;
+        _d7UpdateStatus.Text = "جاري التحقق من أحدث إصدار D7…";
+
+        try
+        {
+            var update = await _d7Updates.CheckAsync();
+            _pendingD7Update = update;
+
+            if (!update.UpdateAvailable)
+            {
+                _d7UpdateStatus.Text = $"D7 محدث بالفعل • {_d7Updates.CurrentVersionText}";
+                _d7UpdateButton.Content = "التحقق من تحديث D7";
+                _d7UpdateButton.IsEnabled = true;
+                return;
+            }
+
+            var notes = TrimReleaseNotes(update.ReleaseNotes);
+            var message = $"يتوفر D7 v{update.LatestVersion.ToString(3)}.\n\n" +
+                          (string.IsNullOrWhiteSpace(notes) ? string.Empty : notes + "\n\n") +
+                          "سيتم تنزيل المثبت والتحقق من SHA-256 ثم تثبيته وإعادة فتح D7. هل تريد المتابعة؟";
+
+            if (MessageBox.Show(message, "تحديث D7", MessageBoxButton.YesNo, MessageBoxImage.Information) != MessageBoxResult.Yes)
+            {
+                _d7UpdateButton.IsEnabled = true;
+                _d7UpdateStatus.Text = $"التحديث v{update.LatestVersion.ToString(3)} جاهز متى ما أردت.";
+                return;
+            }
+
+            var progress = new Progress<double>(p =>
+            {
+                _d7UpdateStatus.Text = $"جاري تنزيل D7 v{update.LatestVersion.ToString(3)}… {p:0}%";
+                _d7UpdateButton.Content = $"تنزيل {p:0}%";
+            });
+
+            var installer = await _d7Updates.DownloadAndVerifyAsync(update, progress);
+            _d7UpdateStatus.Text = "تم التنزيل والتحقق من SHA-256. جاري تشغيل التحديث…";
+            _d7UpdateButton.Content = "جاري التثبيت…";
+
+            D7UpdateService.LaunchInstaller(installer);
+            await Task.Delay(350);
+            Application.Current.Shutdown();
+        }
+        catch (Exception ex)
+        {
+            _d7UpdateStatus.Text = "فشل تحديث D7: " + ex.Message;
+            _d7UpdateButton.Content = "إعادة محاولة تحديث D7";
+            _d7UpdateButton.IsEnabled = true;
+        }
+    }
+
     private async void CheckUpdates(object s,RoutedEventArgs e)
     {
         UpdatesOutput.Text="جاري فحص تحديثات التطبيقات…";
@@ -216,6 +364,12 @@ public partial class MainWindow : Window
     {
         UpdatesOutput.Text="جاري تشغيل DISM ScanHealth و SFC VerifyOnly…";
         UpdatesOutput.Text=await SystemActions.RunWindowsRepairScanAsync();
+    }
+
+    private static string TrimReleaseNotes(string notes)
+    {
+        var clean = (notes ?? string.Empty).Trim();
+        return clean.Length <= 900 ? clean : clean[..900] + "…";
     }
 
     private static string FormatMs(double? value)=>value.HasValue ? $"{value.Value:0.0} ms" : "غير متاح";
@@ -238,6 +392,11 @@ public partial class MainWindow : Window
         "fans" => "المراوح",
         "profile" => "الوضع",
         "stability" => "الاستقرار",
+        "system" => "النظام",
+        "storage" => "التخزين",
+        "startup" => "بدء التشغيل",
+        "gpu driver" => "تعريف كرت الشاشة",
+        "vram" => "ذاكرة كرت الشاشة",
         _ => value
     };
 }
