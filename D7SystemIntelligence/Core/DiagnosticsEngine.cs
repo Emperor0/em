@@ -10,39 +10,74 @@ public sealed class DiagnosticsEngine
         return await Task.Run(() =>
         {
             var f = new List<DiagnosticFinding>();
-            if (hw.CpuTemp >= 90) f.Add(new("Critical","Thermal","CPU temperature is too high",$"CPU reached {hw.CpuTemp:0} °C.","Check cooler mounting, paste, airflow and fan curve."));
-            else if (hw.CpuTemp >= 82) f.Add(new("Warning","Thermal","CPU running hot",$"CPU is {hw.CpuTemp:0} °C.","Inspect fan curve and sustained load."));
-            if (hw.GpuTemp >= 86) f.Add(new("Warning","Thermal","GPU running hot",$"GPU is {hw.GpuTemp:0} °C.","Inspect GPU fan curve and case airflow."));
-            if (hw.RamLoad >= 88) f.Add(new("Warning","Memory","RAM pressure detected",$"Memory usage is {hw.RamLoad:0}%.","Close nonessential apps or consider more RAM."));
-            if ((hw.VramLoad ?? 0) >= 92) f.Add(new("Warning","VRAM","VRAM pressure detected",$"VRAM load is {hw.VramLoad:0}%.","Reduce texture/streaming budget before lowering everything else."));
+
+            if (hw.CpuTemp >= 90)
+                f.Add(new("حرج","الحرارة","حرارة المعالج مرتفعة جدًا",$"وصل المعالج إلى {hw.CpuTemp:0}°C.","افحص تركيب المشتت والمعجون وتدفق الهواء ومنحنى المراوح."));
+            else if (hw.CpuTemp >= 82)
+                f.Add(new("تحذير","الحرارة","حرارة المعالج مرتفعة",$"حرارة المعالج الحالية {hw.CpuTemp:0}°C.","راقب الحمل المستمر ومنحنى المراوح."));
+
+            if (hw.GpuTemp >= 86)
+                f.Add(new("تحذير","الحرارة","حرارة كرت الشاشة مرتفعة",$"حرارة كرت الشاشة الحالية {hw.GpuTemp:0}°C.","افحص تبريد الكرت وتدفق الهواء داخل الكيس."));
+
+            if (hw.RamLoad >= 88)
+                f.Add(new("تحذير","الذاكرة","ضغط RAM مرتفع",$"استخدام الذاكرة وصل إلى {hw.RamLoad:0}%.","أغلق البرامج غير المهمة أو ارفع سعة الذاكرة إذا تكرر الضغط أثناء اللعب."));
+
+            if ((hw.VramLoad ?? 0) >= 92)
+                f.Add(new("تحذير","ذاكرة الكرت","ضغط VRAM مرتفع",$"استخدام VRAM وصل إلى {hw.VramLoad:0}%.","اخفض استهلاك الخامات أو Streaming Budget قبل تخفيض كل الإعدادات."));
+
             try
             {
                 using var log = new EventLog("System");
-                var recent = log.Entries.Cast<EventLogEntry>().Reverse().Take(1200).Where(e => e.TimeGenerated > DateTime.Now.AddDays(-3)).ToArray();
+                var recent = log.Entries.Cast<EventLogEntry>()
+                    .Reverse()
+                    .Take(1200)
+                    .Where(e => e.TimeGenerated > DateTime.Now.AddDays(-3))
+                    .ToArray();
+
                 var whea = recent.Count(e => e.Source.Contains("WHEA", StringComparison.OrdinalIgnoreCase));
                 var disk = recent.Count(e => e.Source.Contains("disk", StringComparison.OrdinalIgnoreCase) && e.EntryType == EventLogEntryType.Error);
                 var nv = recent.Count(e => e.Source.Contains("nvlddmkm", StringComparison.OrdinalIgnoreCase));
-                if (whea > 0) f.Add(new("Critical","Stability","WHEA hardware errors found",$"{whea} recent WHEA entries in System log.","Return CPU/RAM overclock to last known stable profile before further tuning."));
-                if (nv > 0) f.Add(new("Warning","GPU Driver","NVIDIA driver errors found",$"{nv} recent nvlddmkm entries.","Check GPU overclock and driver stability."));
-                if (disk > 0) f.Add(new("Warning","Storage","Disk errors found",$"{disk} recent disk errors.","Check SMART data, cable/connection and filesystem health."));
-            } catch { }
+
+                if (whea > 0)
+                    f.Add(new("حرج","الاستقرار","تم العثور على أخطاء WHEA",$"تم رصد {whea} سجل WHEA حديث خلال آخر 3 أيام.","ارجع كسر سرعة المعالج أو الذاكرة إلى آخر إعداد مستقر قبل أي تعديل جديد."));
+
+                if (nv > 0)
+                    f.Add(new("تحذير","تعريف كرت الشاشة","تم العثور على أخطاء NVIDIA",$"تم رصد {nv} سجل nvlddmkm حديث.","افحص استقرار كسر سرعة الكرت والتعريف الحالي."));
+
+                if (disk > 0)
+                    f.Add(new("تحذير","التخزين","تم العثور على أخطاء للقرص",$"تم رصد {disk} خطأ Disk حديث.","افحص SMART والاتصال وسلامة نظام الملفات."));
+            }
+            catch { }
+
             foreach (var drive in DriveInfo.GetDrives().Where(d => d.IsReady && d.DriveType == DriveType.Fixed))
             {
                 var freePct = drive.TotalSize == 0 ? 100 : drive.TotalFreeSpace * 100.0 / drive.TotalSize;
-                if (freePct < 8) f.Add(new("Warning","Storage",$"Low space on {drive.Name}",$"Only {freePct:0.0}% free.","Free space to reduce update, cache and paging failures."));
+                if (freePct < 8)
+                    f.Add(new("تحذير","التخزين",$"المساحة منخفضة في {drive.Name}",$"المتاح فقط {freePct:0.0}%.","وفر مساحة لتقليل مشاكل التحديثات والكاش والـPagefile."));
             }
+
             var startup = CountStartupEntries();
-            if (startup > 18) f.Add(new("Info","Startup","Heavy startup set",$"{startup} startup entries detected.","D7 can review startup impact instead of disabling services blindly."));
-            if (f.Count == 0) f.Add(new("OK","System","No critical issue detected","Quick diagnostic did not find an obvious fault.","Run a game/benchmark for load-based diagnosis."));
+            if (startup > 18)
+                f.Add(new("معلومة","بدء التشغيل","عدد برامج بدء التشغيل مرتفع",$"تم اكتشاف {startup} عنصر بدء تشغيل.","D7 يراجع أثرها على الأداء بدل تعطيل الخدمات عشوائيًا."));
+
+            if (f.Count == 0)
+                f.Add(new("سليم","النظام","لا توجد مشكلة حرجة ظاهرة","الفحص السريع لم يجد عطلًا واضحًا في حالة الخمول الحالية.","شغّل لعبة أو Benchmark ثم أعد الفحص للحصول على تشخيص تحت الحمل."));
+
             return f;
         });
     }
+
     private static int CountStartupEntries()
     {
-        int c = 0;
+        var c = 0;
         foreach (var hive in new[] { Registry.CurrentUser, Registry.LocalMachine })
         foreach (var p in new[] { @"Software\Microsoft\Windows\CurrentVersion\Run", @"Software\Microsoft\Windows\CurrentVersion\RunOnce" })
-            try { using var k = hive.OpenSubKey(p); c += k?.GetValueNames().Length ?? 0; } catch { }
+            try
+            {
+                using var k = hive.OpenSubKey(p);
+                c += k?.GetValueNames().Length ?? 0;
+            }
+            catch { }
         return c;
     }
 }
