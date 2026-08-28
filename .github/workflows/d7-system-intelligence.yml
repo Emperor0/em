@@ -1,33 +1,87 @@
 name: Build D7 System Intelligence
+
 on:
   push:
     branches: [ d7-system-intelligence-build ]
   workflow_dispatch:
+
+permissions:
+  contents: write
+
 jobs:
   build:
     runs-on: windows-latest
     steps:
       - uses: actions/checkout@v4
+
       - uses: actions/setup-dotnet@v4
         with:
           dotnet-version: '8.0.x'
+
+      - name: Read D7 version
+        shell: pwsh
+        run: |
+          [xml]$project = Get-Content 'D7SystemIntelligence/D7SystemIntelligence.csproj'
+          $version = $project.Project.PropertyGroup.Version | Where-Object { $_ } | Select-Object -First 1
+          if (-not $version) { throw 'D7 version is missing from csproj.' }
+          "D7_VERSION=$version" | Out-File -FilePath $env:GITHUB_ENV -Append -Encoding utf8
+          Write-Host "Building D7 v$version"
+
       - name: Restore
         run: dotnet restore D7SystemIntelligence/D7SystemIntelligence.csproj
+
       - name: Publish self-contained single EXE
         run: dotnet publish D7SystemIntelligence/D7SystemIntelligence.csproj -c Release -r win-x64 --self-contained true -o publish
+
       - name: Install Inno Setup
         run: choco install innosetup -y --no-progress
+
       - name: Build installer
-        run: '& "C:\Program Files (x86)\Inno Setup 6\ISCC.exe" installer\D7SystemIntelligence.iss'
-      - name: Upload installer
+        shell: pwsh
+        run: '& "C:\Program Files (x86)\Inno Setup 6\ISCC.exe" "/DMyAppVersion=$env:D7_VERSION" installer\D7SystemIntelligence.iss'
+
+      - name: Upload installer artifact
         uses: actions/upload-artifact@v4
         with:
           name: D7-System-Intelligence-Installer
           path: installer/output/D7-System-Intelligence-Setup.exe
           if-no-files-found: error
+
       - name: Upload portable EXE
         uses: actions/upload-artifact@v4
         with:
           name: D7-System-Intelligence-Portable
           path: publish/D7SystemIntelligence.exe
           if-no-files-found: error
+
+      - name: Generate release checksum
+        if: startsWith(github.event.head_commit.message, 'Release D7 ')
+        shell: pwsh
+        run: |
+          $installer = 'installer/output/D7-System-Intelligence-Setup.exe'
+          $checksum = 'installer/output/D7-System-Intelligence-Setup.exe.sha256'
+          $hash = (Get-FileHash $installer -Algorithm SHA256).Hash.ToLowerInvariant()
+          "$hash  D7-System-Intelligence-Setup.exe" | Set-Content $checksum -Encoding ascii
+          Write-Host "SHA-256: $hash"
+
+      - name: Publish self-update release
+        if: startsWith(github.event.head_commit.message, 'Release D7 ')
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          $tag = "d7-v$env:D7_VERSION"
+          $installer = 'installer/output/D7-System-Intelligence-Setup.exe'
+          $checksum = 'installer/output/D7-System-Intelligence-Setup.exe.sha256'
+          $repo = '${{ github.repository }}'
+          $title = "D7 System Intelligence v$env:D7_VERSION"
+          $notes = "تحديث D7 مستقر. يمكن تنزيله وتثبيته من داخل التطبيق عبر زر تحديث D7. يتم التحقق من SHA-256 قبل التثبيت."
+
+          gh release view $tag --repo $repo *> $null
+          if ($LASTEXITCODE -eq 0) {
+            gh release upload $tag $installer $checksum --clobber --repo $repo
+            gh release edit $tag --repo $repo --title $title --notes $notes
+          }
+          else {
+            gh release create $tag $installer $checksum --repo $repo --target '${{ github.sha }}' --title $title --notes $notes
+          }
