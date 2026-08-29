@@ -14,10 +14,9 @@ public static class WindowsCredentialStore
         if (string.IsNullOrEmpty(secret)) return Delete(target);
 
         var bytes = Encoding.Unicode.GetBytes(secret);
-        var blob = Marshal.AllocCoTaskMem(bytes.Length);
+        var blob = Marshal.StringToCoTaskMemUni(secret);
         try
         {
-            Marshal.Copy(bytes, 0, blob, bytes.Length);
             var credential = new CREDENTIAL
             {
                 Type = CredTypeGeneric,
