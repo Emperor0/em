@@ -116,14 +116,17 @@ public sealed class BenchmarkLabService
         var low = PercentDelta(baseline.AverageOnePercentLow, candidate.AverageOnePercentLow);
         // Lower P99 is better, so invert the sign for an intuitive "positive = improvement".
         var p99Raw = PercentDelta(baseline.AverageP99FrameMs, candidate.AverageP99FrameMs);
-        var p99 = p99Raw.HasValue ? -p99Raw.Value : null;
+        double? p99 = p99Raw.HasValue ? -p99Raw.Value : null;
         var cpu = candidate.AverageCpuLoad - baseline.AverageCpuLoad;
         var gpu = candidate.AverageGpuLoad - baseline.AverageGpuLoad;
         var cpuTemp = candidate.MaxCpuTemp - baseline.MaxCpuTemp;
         var gpuTemp = candidate.MaxGpuTemp - baseline.MaxGpuTemp;
 
-        var scoreParts = new[] { fps, low, p99 }.Where(x => x.HasValue).Select(x => x!.Value).ToArray();
-        var score = scoreParts.Length > 0 ? scoreParts.Average() : 0;
+        var scoreParts = new double?[] { fps, low, p99 }
+            .Where(x => x.HasValue)
+            .Select(x => x.GetValueOrDefault())
+            .ToArray();
+        var score = scoreParts.Length > 0 ? scoreParts.Average() : 0d;
         var verdict = score switch
         {
             >= 5 => "تحسن واضح — Candidate أفضل في القياسات الأساسية.",
