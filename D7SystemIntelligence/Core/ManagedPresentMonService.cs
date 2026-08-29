@@ -84,6 +84,7 @@ public sealed class FrameMetricsMonitor:IAsyncDisposable
     private int _pid;
     private string _processName=string.Empty;
     private DateTime _updated;
+    private string? _sessionName;
 
     internal FrameMetricsMonitor(ManagedPresentMonService backend)=>_backend=backend;
     public bool IsRunning=>_process is{HasExited:false};
@@ -96,7 +97,8 @@ public sealed class FrameMetricsMonitor:IAsyncDisposable
         var exe=await _backend.GetExecutableAsync(cancellationToken);
         _cts=CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
         lock(_gate)_frames.Clear();
-        _process=new Process{StartInfo=new ProcessStartInfo{FileName=exe,Arguments=$"--process_id {processId} --output_stdout --no_console_stats --session_name D7_{processId} --stop_existing_session",UseShellExecute=false,RedirectStandardOutput=true,RedirectStandardError=true,CreateNoWindow=true}};
+        _sessionName=$"D7_{processId}_{Guid.NewGuid():N}";
+        _process=new Process{StartInfo=new ProcessStartInfo{FileName=exe,Arguments=$"--process_id {processId} --output_stdout --no_console_stats --session_name {_sessionName}",UseShellExecute=false,RedirectStandardOutput=true,RedirectStandardError=true,CreateNoWindow=true}};
         _process.Start();
         _=Task.Run(()=>ReadLoopAsync(_process,_cts.Token));
         await Task.Delay(250,cancellationToken);
@@ -116,7 +118,7 @@ public sealed class FrameMetricsMonitor:IAsyncDisposable
         var cts=_cts;_cts=null;if(cts!=null){try{cts.Cancel();}catch{}}
         var p=_process;_process=null;
         if(p!=null){try{if(!p.HasExited){p.Kill(true);await p.WaitForExitAsync();}}catch{}p.Dispose();}
-        cts?.Dispose();
+        cts?.Dispose();_sessionName=null;
     }
 
     private async Task ReadLoopAsync(Process p,CancellationToken token)
