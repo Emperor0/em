@@ -35,14 +35,15 @@ public partial class MainWindow
         _modern2026Applied = true;
 
         Title = "D7 NEXUS • System Intelligence";
-        Width = Math.Max(Width, 1420);
-        Height = Math.Max(Height, 860);
+        Width = Math.Max(Width, 1460);
+        Height = Math.Max(Height, 880);
 
         var sidebar = FindVisualChildren<StackPanel>(this)
             .FirstOrDefault(stack => stack.Children.OfType<Button>().Any());
         if (sidebar != null)
         {
             ModernizeBrand(sidebar);
+            GroupNavigation(sidebar);
             ModernizeNavigation(sidebar);
             WrapLiveStatus(sidebar);
 
@@ -53,13 +54,18 @@ public partial class MainWindow
                 sidebarBorder.BorderBrush = (Brush)FindResource("Border");
                 sidebarBorder.Background = new LinearGradientBrush(
                     Color.FromRgb(16, 21, 31),
-                    Color.FromRgb(12, 17, 26),
+                    Color.FromRgb(10, 14, 22),
                     90);
                 sidebarBorder.Padding = new Thickness(12);
+
+                if (sidebarBorder.Parent is Grid shell && shell.ColumnDefinitions.Count >= 2)
+                {
+                    shell.ColumnDefinitions[0].Width = new GridLength(272);
+                    shell.ColumnDefinitions[1].Width = new GridLength(18);
+                }
             }
         }
 
-        // Upgrade legacy cards without introducing blur or GPU-heavy effects.
         foreach (var border in FindVisualChildren<Border>(this))
         {
             if (border == sidebar?.Parent) continue;
@@ -73,7 +79,6 @@ public partial class MainWindow
             }
         }
 
-        // Dashboard typography: modern hierarchy, still Arabic-first.
         foreach (var text in FindVisualChildren<TextBlock>(this))
         {
             if (text.Text == "مركز قيادة D7")
@@ -117,17 +122,81 @@ public partial class MainWindow
         }
     }
 
+    private void GroupNavigation(StackPanel sidebar)
+    {
+        var buttons = sidebar.Children.OfType<Button>()
+            .Where(x => x.Content is string)
+            .ToDictionary(x => x.Content!.ToString()!, StringComparer.Ordinal);
+        if (buttons.Count == 0) return;
+
+        foreach (var button in buttons.Values) sidebar.Children.Remove(button);
+
+        var separator = sidebar.Children.OfType<Separator>().FirstOrDefault();
+        var insert = separator != null ? sidebar.Children.IndexOf(separator) : Math.Min(2, sidebar.Children.Count);
+
+        var groups = new (string Header, string[] Items)[]
+        {
+            ("PLAY", new[] { "الرئيسية", "Mission Control", "Auto Scene", "Performance Contract", "الألعاب والمنصات", "إعدادات Call of Duty", "Benchmark Lab", "جلسات اللعب", "تشغيل D7 HUD", "إيقاف D7 HUD", "تصوير المقاطع", "مكتبة المقاطع", "Stream Director" }),
+            ("HARDWARE", new[] { "الأجهزة الطرفية", "مختبر الإدخال", "الشاشة والتحكم", "RGB Studio", "Audio Studio", "الحرارة والمراوح", "التخزين والأقراص", "التعريفات" }),
+            ("SYSTEM", new[] { "الشبكة واللاتنسي", "التشخيص الذكي", "Full Health Check", "Crash Investigator", "Restore Vault", "برامج بدء التشغيل", "تطبيقات الخلفية", "الحذف الذكي من الجذور", "التحديثات والإصلاح" })
+        };
+
+        var used = new HashSet<Button>();
+        foreach (var group in groups)
+        {
+            var groupButtons = group.Items.Where(buttons.ContainsKey).Select(x => buttons[x]).ToArray();
+            if (groupButtons.Length == 0) continue;
+            sidebar.Children.Insert(insert++, SectionLabel(group.Header));
+            foreach (var button in groupButtons)
+            {
+                sidebar.Children.Insert(insert++, button);
+                used.Add(button);
+            }
+        }
+
+        var leftovers = buttons.Values.Where(x => !used.Contains(x)).ToArray();
+        if (leftovers.Length > 0)
+        {
+            sidebar.Children.Insert(insert++, SectionLabel("TOOLS"));
+            foreach (var button in leftovers) sidebar.Children.Insert(insert++, button);
+        }
+    }
+
+    private TextBlock SectionLabel(string text) => new()
+    {
+        Text = text,
+        FontSize = 10,
+        FontWeight = FontWeights.Bold,
+        Foreground = (Brush)FindResource("Muted"),
+        Margin = new Thickness(8, 14, 8, 5),
+        CharacterSpacing = 120,
+        FlowDirection = FlowDirection.LeftToRight
+    };
+
     private void ModernizeNavigation(StackPanel sidebar)
     {
         var glyphs = new Dictionary<string, string>(StringComparer.Ordinal)
         {
             ["الرئيسية"] = "\uE80F",
+            ["Mission Control"] = "\uE713",
+            ["Auto Scene"] = "\uE83E",
+            ["Performance Contract"] = "\uE9D9",
             ["الألعاب والمنصات"] = "\uE7FC",
+            ["إعدادات Call of Duty"] = "\uE7FC",
+            ["Benchmark Lab"] = "\uE9D2",
+            ["جلسات اللعب"] = "\uE823",
+            ["تشغيل D7 HUD"] = "\uE9D2",
+            ["إيقاف D7 HUD"] = "\uE9D2",
+            ["تصوير المقاطع"] = "\uE714",
+            ["مكتبة المقاطع"] = "\uE8B7",
+            ["Stream Director"] = "\uE93E",
             ["التشخيص الذكي"] = "\uE9D9",
+            ["Full Health Check"] = "\uE95E",
+            ["Crash Investigator"] = "\uEA39",
+            ["Restore Vault"] = "\uE8D7",
             ["الشبكة واللاتنسي"] = "\uE968",
             ["الأجهزة الطرفية"] = "\uE962",
             ["التعريفات"] = "\uE895",
-            ["إعدادات Call of Duty"] = "\uE7FC",
             ["الحرارة والمراوح"] = "\uE9CA",
             ["مختبر الإدخال"] = "\uE961",
             ["الشاشة والتحكم"] = "\uE7F4",
@@ -137,10 +206,6 @@ public partial class MainWindow
             ["برامج بدء التشغيل"] = "\uE768",
             ["تطبيقات الخلفية"] = "\uECAA",
             ["الحذف الذكي من الجذور"] = "\uE74D",
-            ["تشغيل D7 HUD"] = "\uE9D2",
-            ["إيقاف D7 HUD"] = "\uE9D2",
-            ["D7 Shadow Capture"] = "\uE714",
-            ["Stream Director"] = "\uE93E",
             ["التحديثات والإصلاح"] = "\uE895"
         };
 
@@ -149,9 +214,9 @@ public partial class MainWindow
             var label = button.Content?.ToString();
             if (string.IsNullOrWhiteSpace(label)) continue;
 
-            button.Margin = new Thickness(0, 3, 0, 3);
-            button.Padding = new Thickness(13, 10, 13, 10);
-            button.MinHeight = 43;
+            button.Margin = new Thickness(0, 2, 0, 2);
+            button.Padding = new Thickness(12, 9, 12, 9);
+            button.MinHeight = 41;
             button.HorizontalContentAlignment = HorizontalAlignment.Stretch;
             button.BorderThickness = new Thickness(1);
 
@@ -173,7 +238,7 @@ public partial class MainWindow
             var title = new TextBlock
             {
                 Text = label,
-                FontSize = 13.5,
+                FontSize = 13,
                 FontWeight = FontWeights.SemiBold,
                 VerticalAlignment = VerticalAlignment.Center,
                 Foreground = (Brush)FindResource("Text")
