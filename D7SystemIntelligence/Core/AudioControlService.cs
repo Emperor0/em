@@ -135,33 +135,36 @@ public sealed class AudioControlService
         DefaultIds defaults,
         List<AudioEndpointRecord> result)
     {
-        using var devices = enumerator.EnumerateAudioEndPoints(flow, DeviceState.Active);
+        var devices = enumerator.EnumerateAudioEndPoints(flow, DeviceState.Active);
         foreach (var device in devices)
         {
-            try
+            using (device)
             {
-                var volume = device.AudioEndpointVolume.MasterVolumeLevelScalar * 100f;
-                var muted = device.AudioEndpointVolume.Mute;
-                var format = device.AudioClient.MixFormat;
-                var id = device.ID;
-                result.Add(new AudioEndpointRecord(
-                    id,
-                    direction,
-                    device.FriendlyName,
-                    id.Equals(flow == DataFlow.Render ? defaults.RenderConsole : defaults.CaptureConsole, StringComparison.OrdinalIgnoreCase),
-                    id.Equals(flow == DataFlow.Render ? defaults.RenderMultimedia : defaults.CaptureMultimedia, StringComparison.OrdinalIgnoreCase),
-                    id.Equals(flow == DataFlow.Render ? defaults.RenderCommunications : defaults.CaptureCommunications, StringComparison.OrdinalIgnoreCase),
-                    volume,
-                    muted,
-                    format.SampleRate,
-                    format.Channels,
-                    format.BitsPerSample));
-            }
-            catch
-            {
-                result.Add(new AudioEndpointRecord(
-                    device.ID, direction, device.FriendlyName,
-                    false, false, false, 0, false, 0, 0, 0));
+                try
+                {
+                    var volume = device.AudioEndpointVolume.MasterVolumeLevelScalar * 100f;
+                    var muted = device.AudioEndpointVolume.Mute;
+                    var format = device.AudioClient.MixFormat;
+                    var id = device.ID;
+                    result.Add(new AudioEndpointRecord(
+                        id,
+                        direction,
+                        device.FriendlyName,
+                        id.Equals(flow == DataFlow.Render ? defaults.RenderConsole : defaults.CaptureConsole, StringComparison.OrdinalIgnoreCase),
+                        id.Equals(flow == DataFlow.Render ? defaults.RenderMultimedia : defaults.CaptureMultimedia, StringComparison.OrdinalIgnoreCase),
+                        id.Equals(flow == DataFlow.Render ? defaults.RenderCommunications : defaults.CaptureCommunications, StringComparison.OrdinalIgnoreCase),
+                        volume,
+                        muted,
+                        format.SampleRate,
+                        format.Channels,
+                        format.BitsPerSample));
+                }
+                catch
+                {
+                    result.Add(new AudioEndpointRecord(
+                        device.ID, direction, device.FriendlyName,
+                        false, false, false, 0, false, 0, 0, 0));
+                }
             }
         }
     }
