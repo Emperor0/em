@@ -63,7 +63,14 @@ public partial class MainWindow
         {
             var display = new Button { Content = "الشاشة والتحكم" };
             display.Click += (_, _) => new DisplayControlWindow { Owner = this }.ShowDialog();
-            sidebar.Children.Insert(insertIndex, display);
+            sidebar.Children.Insert(insertIndex++, display);
+        }
+
+        if (!sidebar.Children.OfType<Button>().Any(x => Equals(x.Content, "RGB Studio")))
+        {
+            var rgb = new Button { Content = "RGB Studio" };
+            rgb.Click += (_, _) => new RgbStudioWindow(_hardware) { Owner = this }.ShowDialog();
+            sidebar.Children.Insert(insertIndex, rgb);
         }
     }
 
