@@ -7,7 +7,7 @@ public sealed class DriverIntelligence
 {
     public async Task<List<DriverRecord>> ScanAsync()
     {
-        const string script = "Get-CimInstance Win32_PnPSignedDriver | Where-Object {$_.DeviceClass -in @('DISPLAY','NET','MEDIA','HDC','SCSIADAPTER','USB','SYSTEM')} | Select-Object DeviceName,DeviceClass,DriverVersion,DriverDate,Manufacturer,InfName | ConvertTo-Json -Depth 3 -Compress";
+        const string script = "Get-CimInstance Win32_PnPSignedDriver | Where-Object {($_.DeviceClass -in @('DISPLAY','NET','MEDIA','BLUETOOTH')) -or ($_.DeviceClass -eq 'SYSTEM' -and $_.DeviceName -match 'AMD|SMBus|PCI|GPIO|PSP|Chipset') -or ($_.DeviceClass -eq 'USB' -and $_.DeviceName -match 'Host Controller|Root Hub')} | Select-Object DeviceName,DeviceClass,DriverVersion,DriverDate,Manufacturer,InfName | ConvertTo-Json -Depth 3 -Compress";
         var json = await RunPowerShellAsync(script);
         if (string.IsNullOrWhiteSpace(json)) return [];
 
@@ -28,7 +28,7 @@ public sealed class DriverIntelligence
                 .Where(x => !string.IsNullOrWhiteSpace(x.DeviceName))
                 .GroupBy(x => $"{x.DeviceName}|{x.InfName}", StringComparer.OrdinalIgnoreCase)
                 .Select(g => g.First())
-                .OrderBy(x => x.DeviceClass)
+                .OrderBy(x => Rank(x.DeviceClass))
                 .ThenBy(x => x.DeviceName)
                 .ToList();
         }
@@ -42,9 +42,21 @@ public sealed class DriverIntelligence
     {
         var display = drivers.FirstOrDefault(d => d.DeviceClass.Equals("DISPLAY", StringComparison.OrdinalIgnoreCase));
         var net = drivers.Count(d => d.DeviceClass.Equals("NET", StringComparison.OrdinalIgnoreCase));
-        if (display == null) return $"تمت قراءة {drivers.Count} تعريفًا رئيسيًا • تعريفات الشبكة: {net}";
-        return $"GPU: {display.DeviceName} • الإصدار {display.DriverVersion} • تمت قراءة {drivers.Count} تعريفًا رئيسيًا";
+        var audio = drivers.Count(d => d.DeviceClass.Equals("MEDIA", StringComparison.OrdinalIgnoreCase));
+        if (display == null) return $"تمت قراءة {drivers.Count} تعريفًا مهمًا • شبكة {net} • صوت {audio}";
+        return $"GPU: {display.DeviceName} • الإصدار {display.DriverVersion} • شبكة {net} • صوت {audio} • إجمالي مهم {drivers.Count}";
     }
+
+    private static int Rank(string cls) => cls.ToUpperInvariant() switch
+    {
+        "DISPLAY" => 0,
+        "NET" => 1,
+        "MEDIA" => 2,
+        "BLUETOOTH" => 3,
+        "SYSTEM" => 4,
+        "USB" => 5,
+        _ => 9
+    };
 
     private static void Add(JsonElement e, List<DriverRecord> list)
     {
