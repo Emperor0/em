@@ -1,0 +1,84 @@
+<Window x:Class="D7SystemIntelligence.ShadowCaptureWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="D7 Shadow Capture" Height="650" Width="760" MinHeight="600" MinWidth="700"
+        WindowStartupLocation="CenterOwner" FlowDirection="RightToLeft" FontFamily="Segoe UI"
+        Background="{StaticResource Bg}" Foreground="{StaticResource Text}">
+    <ScrollViewer VerticalScrollBarVisibility="Auto">
+        <StackPanel Margin="22">
+            <TextBlock Text="D7 Shadow Capture" FontSize="28" FontWeight="SemiBold"/>
+            <TextBlock Text="حفظ آخر مدة تختارها عبر Replay Buffer الحقيقي في OBS. لا يشغّل D7 مسجل فيديو ثاني فوق OBS، لذلك نتجنب ازدواج الـCapture والـEncoder قدر الإمكان." Foreground="{StaticResource Muted}" TextWrapping="Wrap" Margin="0,6,0,18"/>
+
+            <Border Background="{StaticResource Panel}" CornerRadius="12" Padding="16" Margin="0,0,0,14">
+                <StackPanel>
+                    <TextBlock Text="الحالة" FontSize="18" FontWeight="SemiBold"/>
+                    <TextBlock x:Name="StatusText" Text="جاري قراءة الحالة…" TextWrapping="Wrap" Margin="0,6,0,8"/>
+                    <Button x:Name="RefreshButton" Content="تحديث الحالة" HorizontalAlignment="Right" Click="RefreshStatus"/>
+                </StackPanel>
+            </Border>
+
+            <Border Background="{StaticResource Panel}" CornerRadius="12" Padding="16" Margin="0,0,0,14">
+                <Grid>
+                    <Grid.ColumnDefinitions><ColumnDefinition Width="150"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto"/><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/>
+                    </Grid.RowDefinitions>
+
+                    <TextBlock Grid.Row="0" Grid.Column="0" Text="مدة المقطع" VerticalAlignment="Center"/>
+                    <ComboBox Grid.Row="0" Grid.Column="1" x:Name="ReplaySecondsBox" IsEditable="True" Margin="8,4" FlowDirection="LeftToRight">
+                        <ComboBoxItem Content="15"/><ComboBoxItem Content="30"/><ComboBoxItem Content="45"/><ComboBoxItem Content="60"/><ComboBoxItem Content="120"/><ComboBoxItem Content="300"/>
+                    </ComboBox>
+
+                    <TextBlock Grid.Row="1" Grid.Column="0" Text="مجلد الحفظ" VerticalAlignment="Center"/>
+                    <Grid Grid.Row="1" Grid.Column="1" Margin="8,4">
+                        <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
+                        <TextBox x:Name="SaveFolderBox" Grid.Column="0" FlowDirection="LeftToRight"/>
+                        <Button Grid.Column="1" Content="اختيار…" Margin="8,0,0,0" Click="BrowseFolder"/>
+                    </Grid>
+
+                    <TextBlock Grid.Row="2" Grid.Column="0" Text="حجم مكتبة المقاطع" VerticalAlignment="Center"/>
+                    <StackPanel Grid.Row="2" Grid.Column="1" Orientation="Horizontal" Margin="8,4">
+                        <TextBox x:Name="MaxLibraryBox" Width="90" FlowDirection="LeftToRight"/>
+                        <TextBlock Text="GB — يحذف الأقدم تلقائيًا بعد تجاوز الحد" VerticalAlignment="Center" Foreground="{StaticResource Muted}" Margin="8,0,0,0"/>
+                    </StackPanel>
+
+                    <TextBlock Grid.Row="3" Grid.Column="0" Text="Hotkey" VerticalAlignment="Center"/>
+                    <ComboBox Grid.Row="3" Grid.Column="1" x:Name="HotkeyBox" Margin="8,4" FlowDirection="LeftToRight">
+                        <ComboBoxItem Content="F6"/><ComboBoxItem Content="F7"/><ComboBoxItem Content="F8"/><ComboBoxItem Content="F9"/><ComboBoxItem Content="F10"/><ComboBoxItem Content="F11"/><ComboBoxItem Content="F12"/>
+                    </ComboBox>
+                </Grid>
+            </Border>
+
+            <Border Background="{StaticResource Panel}" CornerRadius="12" Padding="16" Margin="0,0,0,14">
+                <StackPanel>
+                    <TextBlock Text="اتصال OBS WebSocket" FontSize="18" FontWeight="SemiBold"/>
+                    <TextBlock Text="OBS 28+ يحتوي WebSocket مدمج. كلمة المرور تُحفظ في Windows Credential Manager وليست داخل ملف إعدادات D7." Foreground="{StaticResource Muted}" TextWrapping="Wrap" Margin="0,5,0,10"/>
+                    <Grid>
+                        <Grid.ColumnDefinitions><ColumnDefinition Width="110"/><ColumnDefinition Width="*"/><ColumnDefinition Width="80"/><ColumnDefinition Width="120"/></Grid.ColumnDefinitions>
+                        <TextBlock Grid.Column="0" Text="Host" VerticalAlignment="Center"/>
+                        <TextBox Grid.Column="1" x:Name="ObsHostBox" Margin="6" FlowDirection="LeftToRight"/>
+                        <TextBlock Grid.Column="2" Text="Port" VerticalAlignment="Center" Margin="8,0"/>
+                        <TextBox Grid.Column="3" x:Name="ObsPortBox" Margin="6" FlowDirection="LeftToRight"/>
+                    </Grid>
+                    <Grid>
+                        <Grid.ColumnDefinitions><ColumnDefinition Width="110"/><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
+                        <TextBlock Grid.Column="0" Text="Password" VerticalAlignment="Center"/>
+                        <PasswordBox Grid.Column="1" x:Name="ObsPasswordBox" Margin="6" FlowDirection="LeftToRight"/>
+                        <Button Grid.Column="2" Content="مسح المحفوظ" Margin="8,6,0,6" Click="ClearObsPassword"/>
+                    </Grid>
+                    <CheckBox x:Name="AutoStartObsBox" Content="شغّل OBS تلقائيًا بالخلفية إذا كان مقفلاً" Margin="4,8"/>
+                </StackPanel>
+            </Border>
+
+            <WrapPanel HorizontalAlignment="Right">
+                <Button Content="حفظ الإعدادات" Click="SaveSettings"/>
+                <Button Content="تشغيل Shadow Capture" Click="StartCapture"/>
+                <Button Content="حفظ آخر مقطع الآن" Click="SaveReplayNow"/>
+                <Button Content="إيقاف" Click="StopCapture"/>
+                <Button Content="فتح مجلد المقاطع" Click="OpenClipsFolder"/>
+            </WrapPanel>
+
+            <TextBlock x:Name="ActionOutput" TextWrapping="Wrap" Margin="0,14,0,0"/>
+        </StackPanel>
+    </ScrollViewer>
+</Window>
