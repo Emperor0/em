@@ -70,8 +70,10 @@ public sealed class GameSessionService : IAsyncDisposable
     private DateTimeOffset _lastNetwork;
 
     public event Action<string>? StatusChanged;
+    public event Action<GameSessionSample>? SampleUpdated;
     public bool IsRunning => _cts is { IsCancellationRequested: false };
     public string? ActiveGame => IsRunning ? _game : null;
+    public GameSessionSample? LatestSample { get; private set; }
 
     public GameSessionService(HardwareEngine hardware)
     {
@@ -94,6 +96,7 @@ public sealed class GameSessionService : IAsyncDisposable
         _game = processName;
         _started = DateTimeOffset.Now;
         _lastNetwork = DateTimeOffset.MinValue;
+        LatestSample = null;
         lock (_gate) { _samples.Clear(); _stutters.Clear(); }
 
         _frames = _presentMon.CreateMonitor();
@@ -135,6 +138,7 @@ public sealed class GameSessionService : IAsyncDisposable
         }
         _game = string.Empty;
         _pid = 0;
+        LatestSample = null;
         return report;
     }
 
@@ -191,11 +195,13 @@ public sealed class GameSessionService : IAsyncDisposable
                     _ping,
                     _jitter);
 
+                LatestSample = sample;
                 lock (_gate)
                 {
                     _samples.Add(sample);
-                    if (_samples.Count > 14400) _samples.RemoveRange(0, _samples.Count - 14400); // ~4h @1Hz
+                    if (_samples.Count > 14400) _samples.RemoveRange(0, _samples.Count - 14400);
                 }
+                try { SampleUpdated?.Invoke(sample); } catch { }
 
                 if (recent.Length > 0)
                 {
