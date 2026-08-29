@@ -72,7 +72,10 @@ $ErrorActionPreference='Stop'
 $session = New-Object -ComObject Microsoft.Update.Session
 $searcher = $session.CreateUpdateSearcher()
 $result = $searcher.Search(""IsInstalled=0 and Type='Driver' and IsHidden=0"")
-if($result.Updates.Count -eq 0){ Write-Output '{"Installed":0,"ResultCode":0,"RebootRequired":false,"Titles":[]}' ; exit 0 }
+if($result.Updates.Count -eq 0){
+  [pscustomobject]@{Installed=0;ResultCode=0;RebootRequired=$false;Titles=@()} | ConvertTo-Json -Depth 5 -Compress
+  exit 0
+}
 $collection = New-Object -ComObject Microsoft.Update.UpdateColl
 $titles = @()
 foreach($u in $result.Updates){
@@ -106,7 +109,7 @@ $installResult = $installer.Install()
             var titles = new List<string>();
             if (doc.RootElement.TryGetProperty("Titles", out var t) && t.ValueKind == JsonValueKind.Array)
                 titles.AddRange(t.EnumerateArray().Select(x => x.ToString()));
-            var success = code is 0 or 2 or 3; // NotStarted/Success/SuccessWithErrors semantics from WU API; 2/3 are usable outcomes.
+            var success = code is 0 or 2 or 3;
             var detail = installed == 0
                 ? "لا توجد Driver Updates متاحة عبر Windows Update."
                 : $"Windows Update عالج {installed} تعريف/تعريفات. ResultCode={code}.\n" + string.Join(Environment.NewLine, titles.Select(x => "• " + x));
