@@ -169,7 +169,6 @@ public partial class MainWindow
         FontWeight = FontWeights.Bold,
         Foreground = (Brush)FindResource("Muted"),
         Margin = new Thickness(8, 14, 8, 5),
-        CharacterSpacing = 120,
         FlowDirection = FlowDirection.LeftToRight
     };
 
