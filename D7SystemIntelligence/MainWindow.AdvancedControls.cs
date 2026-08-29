@@ -25,7 +25,7 @@ public partial class MainWindow
     private readonly NetworkGamingProfileService _networkGamingProfile = new();
     private TextBlock? _fanAutoStatus;
 
-    private void InitializeAdvancedControls()
+    internal void InitializeAdvancedControls()
     {
         if (_advancedControlsInjected) return;
         _advancedControlsInjected = true;
