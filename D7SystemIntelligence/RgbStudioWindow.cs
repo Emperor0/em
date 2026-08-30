@@ -19,33 +19,33 @@ public sealed class RgbStudioWindow : Window
     }
 
     private readonly HardwareEngine _hardware;
-    private readonly Func<string?>? _gameProvider;
-    private readonly Func<D7Mission>? _missionProvider;
+    private readonly Func<string?> _gameProvider;
+    private readonly Func<D7Mission> _missionProvider;
     private readonly ManagedOpenRgbService _rgb = new();
     private readonly TemperatureRgbController _temperature;
     private readonly RgbSceneStore _scenes = new();
-    private readonly TextBlock _status = new();
-    private readonly StackPanel _deviceEditors = new();
+    private readonly StackPanel _deviceRows = new();
     private readonly List<DeviceEditor> _editors = [];
-    private readonly ComboBox _sceneList = new() { MinWidth = 190 };
-    private readonly TextBox _sceneName = new() { MinWidth = 190, Text = "D7KT Scene" };
-    private readonly ComboBox _intelligenceMode = new() { MinWidth = 210 };
+    private readonly TextBlock _status = new();
     private readonly TextBlock _intelligenceState = new();
+    private readonly ComboBox _intelligenceMode = new() { MinWidth = 210 };
+    private readonly ComboBox _sceneList = new() { MinWidth = 180 };
+    private readonly TextBox _sceneName = new() { MinWidth = 180, Text = "D7KT Scene" };
     private readonly DispatcherTimer _intelligenceTimer = new() { Interval = TimeSpan.FromSeconds(3) };
-    private string? _lastIntelligenceColor;
+    private string? _lastIntelligenceSignature;
     private bool _intelligenceBusy;
 
     public RgbStudioWindow(HardwareEngine hardware, Func<string?>? gameProvider = null, Func<D7Mission>? missionProvider = null)
     {
         _hardware = hardware;
-        _gameProvider = gameProvider;
-        _missionProvider = missionProvider;
+        _gameProvider = gameProvider ?? (() => D7RuntimeBus.Context?.PrimaryGame);
+        _missionProvider = missionProvider ?? (() => D7RuntimeBus.Mission);
         _temperature = new TemperatureRgbController(hardware, _rgb);
         _temperature.StatusChanged += message => Dispatcher.Invoke(() => _status.Text = message);
 
         Title = "D7KT — RGB Intelligence Studio";
-        Width = 1120;
-        Height = 800;
+        Width = 1140;
+        Height = 820;
         MinWidth = 920;
         MinHeight = 660;
         WindowStartupLocation = WindowStartupLocation.CenterOwner;
@@ -54,7 +54,7 @@ public sealed class RgbStudioWindow : Window
         Foreground = Brush("Text", Brushes.White);
 
         Content = BuildUi();
-        _intelligenceTimer.Tick += async (_, _) => await RunIntelligenceTickAsync();
+        _intelligenceTimer.Tick += async (_, _) => await IntelligenceTickAsync();
         Loaded += async (_, _) => await InitializeAsync();
         Closed += (_, _) =>
         {
@@ -66,130 +66,18 @@ public sealed class RgbStudioWindow : Window
     private UIElement BuildUi()
     {
         var root = new StackPanel { Margin = new Thickness(22) };
-
-        var title = new StackPanel();
-        title.Children.Add(new TextBlock { Text = "RGB Intelligence Studio", FontSize = 30, FontWeight = FontWeights.Bold });
-        title.Children.Add(new TextBlock
+        root.Children.Add(new TextBlock { Text = "RGB Intelligence Studio", FontSize = 30, FontWeight = FontWeights.Bold });
+        root.Children.Add(new TextBlock
         {
-            Text = "مو مجرد ألوان جاهزة: تحكم مستقل بكل جهاز، Mode/Brightness/Color، Scenes محفوظة، وربط الإضاءة بحرارة الجهاز والحمل واللعبة والـMission.",
-            TextWrapping = TextWrapping.Wrap,
-            Foreground = Brush("Muted", Brushes.Gray),
-            Margin = new Thickness(0, 6, 0, 12)
+            Text = "تحكم مستقل بكل جهاز + Scenes + Mode/Brightness + ربط الإضاءة بحرارة الجهاز والحمل واللعبة والـMission. ما يدعمه الهاردوير فقط — بدون أزرار وهمية.",
+            TextWrapping = TextWrapping.Wrap, Foreground = Brush("Muted", Brushes.Gray), Margin = new Thickness(0, 6, 0, 12)
         });
-        root.Children.Add(title);
 
-        var backend = Card();
-        var backendGrid = new Grid();
-        backendGrid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
-        backendGrid.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
-        var backendText = new StackPanel();
-        backendText.Children.Add(new TextBlock { Text = "OpenRGB Hardware Backend", FontSize = 17, FontWeight = FontWeights.SemiBold });
-        _status.TextWrapping = TextWrapping.Wrap;
-        _status.Foreground = Brush("Muted", Brushes.Gray);
-        _status.Margin = new Thickness(0, 6, 0, 0);
-        backendText.Children.Add(_status);
-        Grid.SetColumn(backendText, 0);
-        backendGrid.Children.Add(backendText);
-
-        var backendButtons = new WrapPanel { VerticalAlignment = VerticalAlignment.Center };
-        backendButtons.Children.Add(Button("تجهيز / تحديث Backend", PrepareBackendAsync));
-        backendButtons.Children.Add(Button("فتح Advanced Studio", () =>
-        {
-            _status.Text = _rgb.LaunchAdvancedStudio();
-            return Task.CompletedTask;
-        }, true));
-        Grid.SetColumn(backendButtons, 1);
-        backendGrid.Children.Add(backendButtons);
-        backend.Child = backendGrid;
-        root.Children.Add(backend);
-
-        var devicesCard = Card();
-        var devicesStack = new StackPanel();
-        var devicesHeader = new Grid();
-        devicesHeader.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
-        devicesHeader.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
-        devicesHeader.Children.Add(new TextBlock { Text = "Device Matrix", FontSize = 20, FontWeight = FontWeights.SemiBold, VerticalAlignment = VerticalAlignment.Center });
-        var refresh = Button("إعادة فحص الأجهزة", RefreshDevicesAsync);
-        Grid.SetColumn(refresh, 1);
-        devicesHeader.Children.Add(refresh);
-        devicesStack.Children.Add(devicesHeader);
-        devicesStack.Children.Add(new TextBlock
-        {
-            Text = "كل صف جهاز مستقل: تقدر تخلي الكيبورد أحمر، الماوس أبيض، الرام بنفسجي، والمراوح Rainbow — حسب ما يدعمه الجهاز نفسه.",
-            TextWrapping = TextWrapping.Wrap,
-            Foreground = Brush("Muted", Brushes.Gray),
-            Margin = new Thickness(0, 6, 0, 10)
-        });
-        _deviceEditors.Children.Add(Empty("جاري اكتشاف أجهزة RGB…"));
-        devicesStack.Children.Add(_deviceEditors);
-        devicesCard.Child = devicesStack;
-        root.Children.Add(devicesCard);
-
-        var sceneCard = Card();
-        var sceneStack = new StackPanel();
-        sceneStack.Children.Add(new TextBlock { Text = "D7KT Scenes", FontSize = 20, FontWeight = FontWeights.SemiBold });
-        sceneStack.Children.Add(new TextBlock
-        {
-            Text = "Scene تحفظ إعداد كل جهاز بشكل مستقل. مثال: Red Ranked / White Desktop / Horror / Stream.",
-            Foreground = Brush("Muted", Brushes.Gray), TextWrapping = TextWrapping.Wrap, Margin = new Thickness(0, 5, 0, 9)
-        });
-        var sceneRow = new WrapPanel();
-        sceneRow.Children.Add(_sceneName);
-        sceneRow.Children.Add(Button("حفظ Scene الحالية", SaveSceneAsync, true));
-        sceneRow.Children.Add(_sceneList);
-        sceneRow.Children.Add(Button("تحميل وتطبيق", LoadSceneAsync));
-        sceneRow.Children.Add(Button("حذف", DeleteSceneAsync));
-        sceneStack.Children.Add(sceneRow);
-        sceneCard.Child = sceneStack;
-        root.Children.Add(sceneCard);
-
-        var intelligenceCard = Card();
-        var intelligenceStack = new StackPanel();
-        intelligenceStack.Children.Add(new TextBlock { Text = "RGB Intelligence", FontSize = 20, FontWeight = FontWeights.SemiBold });
-        intelligenceStack.Children.Add(new TextBlock
-        {
-            Text = "هذه نقطة D7KT المختلفة: الإضاءة تتفاعل مع حالة الجهاز بدل مؤثر شكلي فقط. الأوامر ترسل فقط عند تغير الحالة لتجنب حمل غير ضروري.",
-            Foreground = Brush("Muted", Brushes.Gray), TextWrapping = TextWrapping.Wrap, Margin = new Thickness(0, 5, 0, 9)
-        });
-        foreach (var item in new[]
-                 {
-                     "Off / Manual",
-                     "Temperature Guard",
-                     "Performance Load",
-                     "Game Presence",
-                     "Mission Sync"
-                 })
-            _intelligenceMode.Items.Add(item);
-        _intelligenceMode.SelectedIndex = 0;
-        _intelligenceMode.SelectionChanged += (_, _) => ConfigureIntelligenceMode();
-        var intelligenceRow = new WrapPanel();
-        intelligenceRow.Children.Add(_intelligenceMode);
-        intelligenceRow.Children.Add(Button("تطبيق Manual على الكل", ApplyAllManualAsync, true));
-        intelligenceRow.Children.Add(Button("إطفاء الكل", async () => _status.Text = await _rgb.TurnOffAsync()));
-        intelligenceStack.Children.Add(intelligenceRow);
-        _intelligenceState.Foreground = Brush("Muted", Brushes.Gray);
-        _intelligenceState.TextWrapping = TextWrapping.Wrap;
-        _intelligenceState.Margin = new Thickness(0, 8, 0, 0);
-        _intelligenceState.Text = "Manual: كل جهاز يعمل بإعداد صفه.";
-        intelligenceStack.Children.Add(_intelligenceState);
-        intelligenceCard.Child = intelligenceStack;
-        root.Children.Add(intelligenceCard);
-
-        var capabilities = Card();
-        var capStack = new StackPanel();
-        capStack.Children.Add(new TextBlock { Text = "Advanced Effects / Zones / Per‑LED", FontSize = 20, FontWeight = FontWeights.SemiBold });
-        capStack.Children.Add(new TextBlock
-        {
-            Text = "للأجهزة التي تدعم Direct Mode أو Zones/Per‑LED، افتح Advanced Studio. D7KT يتعمد عدم ادعاء دعم Per‑LED لجهاز لا يعلنه OpenRGB. هناك تقدر تستخدم Visual Map وEffects Plugins وAmbilight/Audio/Shader حسب الـplugins المثبتة، بينما D7KT يدير الـAutomation والScenes الذكية.",
-            Foreground = Brush("Muted", Brushes.Gray), TextWrapping = TextWrapping.Wrap, Margin = new Thickness(0, 6, 0, 8)
-        });
-        capStack.Children.Add(Button("فتح OpenRGB Advanced Studio", () =>
-        {
-            _status.Text = _rgb.LaunchAdvancedStudio();
-            return Task.CompletedTask;
-        }, true));
-        capabilities.Child = capStack;
-        root.Children.Add(capabilities);
+        root.Children.Add(BackendCard());
+        root.Children.Add(DeviceMatrixCard());
+        root.Children.Add(SceneCard());
+        root.Children.Add(IntelligenceCard());
+        root.Children.Add(AdvancedCard());
 
         return new ScrollViewer
         {
@@ -199,150 +87,245 @@ public sealed class RgbStudioWindow : Window
         };
     }
 
-    private async Task InitializeAsync()
+    private Border BackendCard()
     {
-        var detected = _rgb.Detect();
-        _status.Text = detected.Detail;
-        RefreshSceneList();
-        if (detected.Available)
-            await RefreshDevicesAsync();
-        else
-            _deviceEditors.Children.Clear();
+        var card = Card();
+        var grid = new Grid();
+        grid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
+        grid.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
+        var text = new StackPanel();
+        text.Children.Add(new TextBlock { Text = "OpenRGB Hardware Backend", FontSize = 18, FontWeight = FontWeights.SemiBold });
+        _status.Foreground = Brush("Muted", Brushes.Gray);
+        _status.TextWrapping = TextWrapping.Wrap;
+        _status.Margin = new Thickness(0, 6, 0, 0);
+        text.Children.Add(_status);
+        grid.Children.Add(text);
+        var buttons = new WrapPanel { VerticalAlignment = VerticalAlignment.Center };
+        buttons.Children.Add(ActionButton("تجهيز / تحديث Backend", PrepareAsync));
+        buttons.Children.Add(ActionButton("Advanced Studio", () =>
+        {
+            _status.Text = _rgb.LaunchAdvancedStudio();
+            return Task.CompletedTask;
+        }, true));
+        Grid.SetColumn(buttons, 1);
+        grid.Children.Add(buttons);
+        card.Child = grid;
+        return card;
     }
 
-    private async Task PrepareBackendAsync()
+    private Border DeviceMatrixCard()
     {
-        try
+        var card = Card();
+        var stack = new StackPanel();
+        var head = new Grid();
+        head.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
+        head.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
+        head.Children.Add(new TextBlock { Text = "Device Matrix", FontSize = 20, FontWeight = FontWeights.SemiBold, VerticalAlignment = VerticalAlignment.Center });
+        var refresh = ActionButton("إعادة فحص الأجهزة", RefreshDevicesAsync);
+        Grid.SetColumn(refresh, 1);
+        head.Children.Add(refresh);
+        stack.Children.Add(head);
+        stack.Children.Add(new TextBlock
         {
-            var progress = new Progress<double>(p => _status.Text = $"جاري تجهيز OpenRGB الرسمي… {p:0}%");
-            var info = await _rgb.EnsureAsync(progress);
-            _status.Text = info.Detail;
-            await RefreshDevicesAsync();
+            Text = "كل جهاز مستقل. مثال: الكيبورد أحمر، الماوس أبيض، الرام بنفسجي، والمراوح Mode مختلف — إذا OpenRGB يعلن أن الجهاز يدعمه.",
+            Foreground = Brush("Muted", Brushes.Gray), TextWrapping = TextWrapping.Wrap, Margin = new Thickness(0, 5, 0, 10)
+        });
+        _deviceRows.Children.Add(Empty("جاري اكتشاف أجهزة RGB…"));
+        stack.Children.Add(_deviceRows);
+        card.Child = stack;
+        return card;
+    }
+
+    private Border SceneCard()
+    {
+        var card = Card();
+        var stack = new StackPanel();
+        stack.Children.Add(new TextBlock { Text = "D7KT Scenes", FontSize = 20, FontWeight = FontWeights.SemiBold });
+        stack.Children.Add(new TextBlock
+        {
+            Text = "Scene تحفظ لون/Mode/Brightness لكل جهاز. مثال: Ranked / Desktop / Horror / Stream.",
+            Foreground = Brush("Muted", Brushes.Gray), TextWrapping = TextWrapping.Wrap, Margin = new Thickness(0, 5, 0, 8)
+        });
+        var row = new WrapPanel();
+        row.Children.Add(_sceneName);
+        row.Children.Add(ActionButton("حفظ الحالية", SaveSceneAsync, true));
+        row.Children.Add(_sceneList);
+        row.Children.Add(ActionButton("تحميل وتطبيق", LoadSceneAsync));
+        row.Children.Add(ActionButton("حذف", DeleteSceneAsync));
+        stack.Children.Add(row);
+        card.Child = stack;
+        return card;
+    }
+
+    private Border IntelligenceCard()
+    {
+        var card = Card();
+        var stack = new StackPanel();
+        stack.Children.Add(new TextBlock { Text = "RGB Intelligence", FontSize = 20, FontWeight = FontWeights.SemiBold });
+        stack.Children.Add(new TextBlock
+        {
+            Text = "هذه ميزة D7KT الحقيقية فوق برامج RGB: الإضاءة تعرف حالة الجهاز واللعبة والـMission. لا يرسل أمر جديد إلا عندما تتغير الحالة.",
+            Foreground = Brush("Muted", Brushes.Gray), TextWrapping = TextWrapping.Wrap, Margin = new Thickness(0, 5, 0, 8)
+        });
+        foreach (var item in new[] { "Off / Manual", "Temperature Guard", "Performance Load", "Game Presence", "Mission Sync" })
+            _intelligenceMode.Items.Add(item);
+        _intelligenceMode.SelectedIndex = 0;
+        _intelligenceMode.SelectionChanged += (_, _) => ConfigureIntelligence();
+        var row = new WrapPanel();
+        row.Children.Add(_intelligenceMode);
+        row.Children.Add(ActionButton("تطبيق Manual على الكل", ApplyAllManualAsync, true));
+        row.Children.Add(ActionButton("إطفاء الكل", async () => _status.Text = await _rgb.TurnOffAsync()));
+        stack.Children.Add(row);
+        _intelligenceState.Text = "Manual: كل جهاز يعمل بإعداد صفه.";
+        _intelligenceState.Foreground = Brush("Muted", Brushes.Gray);
+        _intelligenceState.TextWrapping = TextWrapping.Wrap;
+        _intelligenceState.Margin = new Thickness(0, 8, 0, 0);
+        stack.Children.Add(_intelligenceState);
+        card.Child = stack;
+        return card;
+    }
+
+    private Border AdvancedCard()
+    {
+        var card = Card();
+        var stack = new StackPanel();
+        stack.Children.Add(new TextBlock { Text = "Zones / Per‑LED / Effects", FontSize = 20, FontWeight = FontWeights.SemiBold });
+        stack.Children.Add(new TextBlock
+        {
+            Text = "للـZones وPer‑LED وVisual Map وEffects Plugins نستخدم OpenRGB Advanced Studio بدل بناء نسخة ناقصة منه. D7KT يضيف فوقه الـAutomation والScenes وربط الأداء واللعبة. إذا الجهاز لا يعلن هذه القدرات فلن ندعي دعمها.",
+            Foreground = Brush("Muted", Brushes.Gray), TextWrapping = TextWrapping.Wrap, Margin = new Thickness(0, 6, 0, 8)
+        });
+        stack.Children.Add(ActionButton("فتح Advanced Studio", () =>
+        {
+            _status.Text = _rgb.LaunchAdvancedStudio();
+            return Task.CompletedTask;
+        }, true));
+        card.Child = stack;
+        return card;
+    }
+
+    private async Task InitializeAsync()
+    {
+        _status.Text = _rgb.Detect().Detail;
+        RefreshScenes();
+        if (_rgb.Detect().Available) await RefreshDevicesAsync();
+        else
+        {
+            _deviceRows.Children.Clear();
+            _deviceRows.Children.Add(Empty("Backend غير مجهز. اضغط تجهيز / تحديث Backend أولًا."));
         }
-        catch (Exception ex) { _status.Text = "OpenRGB: " + ex.Message; }
+    }
+
+    private async Task PrepareAsync()
+    {
+        var progress = new Progress<double>(p => _status.Text = $"جاري تجهيز OpenRGB الرسمي… {p:0}%");
+        var result = await _rgb.EnsureAsync(progress);
+        _status.Text = result.Detail;
+        await RefreshDevicesAsync();
     }
 
     private async Task RefreshDevicesAsync()
     {
-        _deviceEditors.Children.Clear();
-        _deviceEditors.Children.Add(Empty("جاري قراءة الأجهزة والمودات المدعومة…"));
+        _deviceRows.Children.Clear();
+        _deviceRows.Children.Add(Empty("جاري قراءة الأجهزة والمودات…"));
         _editors.Clear();
         try
         {
             var devices = await _rgb.GetDevicesAsync();
-            _deviceEditors.Children.Clear();
+            _deviceRows.Children.Clear();
             if (devices.Count == 0)
             {
-                _deviceEditors.Children.Add(Empty("OpenRGB لم يكتشف أجهزة RGB مدعومة. هذا ليس معناه أن الجهاز بلا إضاءة؛ قد يحتاج دعم/صلاحية/تعريف خاص بالهاردوير."));
+                _deviceRows.Children.Add(Empty("OpenRGB لم يكتشف جهاز RGB مدعوم. D7KT لن يعرض تحكمًا وهميًا."));
                 return;
             }
-
             foreach (var device in devices)
             {
-                var editor = CreateDeviceEditor(device);
+                var editor = CreateEditor(device);
                 _editors.Add(editor);
-                _deviceEditors.Children.Add(DeviceRow(editor));
+                _deviceRows.Children.Add(DeviceRow(editor));
             }
-            _status.Text = $"تم اكتشاف {devices.Count} جهاز RGB. التحكم الآن مستقل لكل جهاز.";
+            _status.Text = $"تم اكتشاف {devices.Count} جهاز RGB • التحكم مستقل لكل جهاز.";
         }
         catch (Exception ex)
         {
-            _deviceEditors.Children.Clear();
-            _deviceEditors.Children.Add(Empty("فشل فحص RGB: " + ex.Message));
+            _deviceRows.Children.Clear();
+            _deviceRows.Children.Add(Empty("فشل اكتشاف RGB: " + ex.Message));
         }
     }
 
-    private DeviceEditor CreateDeviceEditor(OpenRgbDevice device)
+    private DeviceEditor CreateEditor(OpenRgbDevice device)
     {
-        var mode = new ComboBox { MinWidth = 150 };
-        var modes = device.Modes.Count > 0 ? device.Modes : ["static"];
-        foreach (var item in modes.Distinct(StringComparer.OrdinalIgnoreCase)) mode.Items.Add(item);
-        if (!modes.Any(x => x.Equals("static", StringComparison.OrdinalIgnoreCase))) mode.Items.Insert(0, "static");
-        mode.SelectedIndex = 0;
-
-        var hex = new TextBox { Text = DefaultColorFor(device), Width = 96, FlowDirection = FlowDirection.LeftToRight };
-        var brightness = new Slider { Minimum = 0, Maximum = 100, Value = 100, Width = 120, TickFrequency = 5, IsSnapToTickEnabled = false };
-        var preview = new Border { Width = 32, Height = 32, CornerRadius = new CornerRadius(8), BorderBrush = Brush("Border", Brushes.Gray), BorderThickness = new Thickness(1) };
+        var modes = new ComboBox { MinWidth = 145 };
+        foreach (var item in (device.Modes.Count > 0 ? device.Modes : ["static"]).Distinct(StringComparer.OrdinalIgnoreCase))
+            modes.Items.Add(item);
+        if (!modes.Items.Cast<object>().Any(x => string.Equals(x?.ToString(), "static", StringComparison.OrdinalIgnoreCase)))
+            modes.Items.Insert(0, "static");
+        modes.SelectedIndex = 0;
+        var hex = new TextBox { Text = DefaultColor(device), Width = 92, FlowDirection = FlowDirection.LeftToRight };
+        var preview = new Border { Width = 30, Height = 30, CornerRadius = new CornerRadius(7), BorderBrush = Brush("Border", Brushes.Gray), BorderThickness = new Thickness(1) };
         UpdatePreview(preview, hex.Text);
         hex.TextChanged += (_, _) => UpdatePreview(preview, hex.Text);
-
         return new DeviceEditor
         {
             Device = device,
-            Mode = mode,
+            Mode = modes,
             Hex = hex,
-            Brightness = brightness,
+            Brightness = new Slider { Minimum = 0, Maximum = 100, Value = 100, Width = 110 },
             Preview = preview,
             Enabled = new CheckBox { IsChecked = true, VerticalAlignment = VerticalAlignment.Center }
         };
     }
 
-    private UIElement DeviceRow(DeviceEditor editor)
+    private UIElement DeviceRow(DeviceEditor e)
     {
-        var border = new Border
+        var box = new Border
         {
-            Background = Brush("Panel2", Brushes.DimGray),
-            BorderBrush = Brush("Border", Brushes.Gray),
-            BorderThickness = new Thickness(1),
-            CornerRadius = new CornerRadius(12),
-            Padding = new Thickness(12),
-            Margin = new Thickness(0, 4, 0, 4)
+            Background = Brush("Panel2", Brushes.DimGray), BorderBrush = Brush("Border", Brushes.Gray), BorderThickness = new Thickness(1),
+            CornerRadius = new CornerRadius(12), Padding = new Thickness(12), Margin = new Thickness(0, 4, 0, 4)
         };
         var grid = new Grid();
-        grid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(34) });
+        grid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(32) });
         grid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
         grid.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
-
-        Grid.SetColumn(editor.Enabled, 0);
-        grid.Children.Add(editor.Enabled);
-
+        grid.Children.Add(e.Enabled);
         var info = new StackPanel();
-        info.Children.Add(new TextBlock { Text = $"#{editor.Device.Index}  {editor.Device.Name}", FontSize = 15, FontWeight = FontWeights.SemiBold, FlowDirection = FlowDirection.LeftToRight });
-        info.Children.Add(new TextBlock
-        {
-            Text = string.IsNullOrWhiteSpace(editor.Device.Type) ? "OpenRGB device" : editor.Device.Type,
-            FontSize = 10.5, Foreground = Brush("Muted", Brushes.Gray), FlowDirection = FlowDirection.LeftToRight
-        });
+        info.Children.Add(new TextBlock { Text = $"#{e.Device.Index}  {e.Device.Name}", FontSize = 15, FontWeight = FontWeights.SemiBold, FlowDirection = FlowDirection.LeftToRight });
+        info.Children.Add(new TextBlock { Text = string.IsNullOrWhiteSpace(e.Device.Type) ? "OpenRGB device" : e.Device.Type, Foreground = Brush("Muted", Brushes.Gray), FontSize = 10.5, FlowDirection = FlowDirection.LeftToRight });
         Grid.SetColumn(info, 1);
         grid.Children.Add(info);
-
         var controls = new WrapPanel { FlowDirection = FlowDirection.LeftToRight, VerticalAlignment = VerticalAlignment.Center };
-        controls.Children.Add(new TextBlock { Text = "Mode", VerticalAlignment = VerticalAlignment.Center, Foreground = Brush("Muted", Brushes.Gray) });
-        controls.Children.Add(editor.Mode);
-        controls.Children.Add(editor.Preview);
-        controls.Children.Add(editor.Hex);
-        controls.Children.Add(new TextBlock { Text = "Brightness", VerticalAlignment = VerticalAlignment.Center, Foreground = Brush("Muted", Brushes.Gray), Margin = new Thickness(8, 0, 2, 0) });
-        controls.Children.Add(editor.Brightness);
-        controls.Children.Add(Button("تطبيق", async () => await ApplyEditorAsync(editor), true));
-        controls.Children.Add(Button("إطفاء", async () => _status.Text = await _rgb.TurnOffDeviceAsync(editor.Device.Index)));
+        controls.Children.Add(e.Mode);
+        controls.Children.Add(e.Preview);
+        controls.Children.Add(e.Hex);
+        controls.Children.Add(new TextBlock { Text = "Brightness", Foreground = Brush("Muted", Brushes.Gray), VerticalAlignment = VerticalAlignment.Center, Margin = new Thickness(7, 0, 2, 0) });
+        controls.Children.Add(e.Brightness);
+        controls.Children.Add(ActionButton("تطبيق", async () => await ApplyEditorAsync(e), true));
+        controls.Children.Add(ActionButton("إطفاء", async () => _status.Text = await _rgb.TurnOffDeviceAsync(e.Device.Index)));
         Grid.SetColumn(controls, 2);
         grid.Children.Add(controls);
-        border.Child = grid;
-        return border;
+        box.Child = grid;
+        return box;
     }
 
-    private async Task ApplyEditorAsync(DeviceEditor editor)
+    private async Task ApplyEditorAsync(DeviceEditor e)
     {
-        if (editor.Enabled.IsChecked != true) return;
+        if (e.Enabled.IsChecked != true) return;
         _status.Text = await _rgb.SetDeviceModeAsync(
-            editor.Device.Index,
-            editor.Mode.SelectedItem?.ToString() ?? "static",
-            editor.Hex.Text,
-            (int)Math.Round(editor.Brightness.Value));
+            e.Device.Index,
+            e.Mode.SelectedItem?.ToString() ?? "static",
+            e.Hex.Text,
+            (int)Math.Round(e.Brightness.Value));
     }
 
     private async Task ApplyAllManualAsync()
     {
-        var results = new List<string>();
-        foreach (var editor in _editors.Where(x => x.Enabled.IsChecked == true))
+        var count = 0;
+        foreach (var e in _editors.Where(x => x.Enabled.IsChecked == true))
         {
-            results.Add(await _rgb.SetDeviceModeAsync(
-                editor.Device.Index,
-                editor.Mode.SelectedItem?.ToString() ?? "static",
-                editor.Hex.Text,
-                (int)Math.Round(editor.Brightness.Value)));
+            await ApplyEditorAsync(e);
+            count++;
         }
-        _status.Text = results.Count == 0 ? "لا يوجد جهاز مفعّل للتطبيق." : $"تم تطبيق Manual Scene على {results.Count} جهاز.";
+        _status.Text = count == 0 ? "لا يوجد جهاز مفعّل." : $"تم تطبيق Manual Scene على {count} جهاز.";
     }
 
     private Task SaveSceneAsync()
@@ -361,66 +344,63 @@ public sealed class RgbStudioWindow : Window
             }).ToList()
         };
         _scenes.Save(scene);
-        RefreshSceneList();
+        RefreshScenes();
         _sceneList.SelectedItem = scene.Name;
-        _status.Text = $"تم حفظ Scene «{scene.Name}» بكل إعدادات الأجهزة.";
+        _status.Text = $"تم حفظ Scene «{scene.Name}» لكل الأجهزة.";
         return Task.CompletedTask;
     }
 
     private async Task LoadSceneAsync()
     {
         var name = _sceneList.SelectedItem?.ToString();
-        if (string.IsNullOrWhiteSpace(name)) { _status.Text = "اختر Scene أولًا."; return; }
+        if (string.IsNullOrWhiteSpace(name)) { _status.Text = "اختر Scene."; return; }
         var scene = _scenes.Load(name);
-        if (scene == null) { _status.Text = "Scene غير موجودة أو تالفة."; return; }
-
+        if (scene == null) { _status.Text = "Scene غير قابلة للقراءة."; return; }
         var applied = 0;
-        foreach (var item in scene.Devices)
+        foreach (var d in scene.Devices)
         {
-            var editor = _editors.FirstOrDefault(e =>
-                e.Device.Index == item.DeviceIndex || e.Device.Name.Equals(item.DeviceName, StringComparison.OrdinalIgnoreCase));
-            if (editor == null) continue;
-            editor.Enabled.IsChecked = item.Enabled;
-            editor.Hex.Text = item.Color;
-            editor.Brightness.Value = item.Brightness;
-            var mode = editor.Mode.Items.Cast<object>().FirstOrDefault(x => string.Equals(x?.ToString(), item.Mode, StringComparison.OrdinalIgnoreCase));
-            if (mode != null) editor.Mode.SelectedItem = mode;
-            if (!item.Enabled) continue;
-            await ApplyEditorAsync(editor);
+            var e = _editors.FirstOrDefault(x => x.Device.Index == d.DeviceIndex || x.Device.Name.Equals(d.DeviceName, StringComparison.OrdinalIgnoreCase));
+            if (e == null) continue;
+            e.Enabled.IsChecked = d.Enabled;
+            e.Hex.Text = d.Color;
+            e.Brightness.Value = d.Brightness;
+            var mode = e.Mode.Items.Cast<object>().FirstOrDefault(x => string.Equals(x?.ToString(), d.Mode, StringComparison.OrdinalIgnoreCase));
+            if (mode != null) e.Mode.SelectedItem = mode;
+            if (!d.Enabled) continue;
+            await ApplyEditorAsync(e);
             applied++;
         }
         _sceneName.Text = scene.Name;
-        _status.Text = $"تم تحميل Scene «{scene.Name}» وتطبيقها على {applied} جهاز متوافق.";
+        _status.Text = $"Scene «{scene.Name}» طُبقت على {applied} جهاز متوافق.";
     }
 
     private Task DeleteSceneAsync()
     {
         var name = _sceneList.SelectedItem?.ToString();
-        if (string.IsNullOrWhiteSpace(name)) return Task.CompletedTask;
-        if (_scenes.Delete(name)) _status.Text = $"تم حذف Scene «{name}».";
-        RefreshSceneList();
+        if (!string.IsNullOrWhiteSpace(name) && _scenes.Delete(name)) _status.Text = $"تم حذف Scene «{name}».";
+        RefreshScenes();
         return Task.CompletedTask;
     }
 
-    private void RefreshSceneList()
+    private void RefreshScenes()
     {
         var selected = _sceneList.SelectedItem?.ToString();
         _sceneList.Items.Clear();
-        foreach (var name in _scenes.List()) _sceneList.Items.Add(name);
+        foreach (var scene in _scenes.List()) _sceneList.Items.Add(scene);
         if (!string.IsNullOrWhiteSpace(selected) && _sceneList.Items.Contains(selected)) _sceneList.SelectedItem = selected;
         else if (_sceneList.Items.Count > 0) _sceneList.SelectedIndex = 0;
     }
 
-    private void ConfigureIntelligenceMode()
+    private void ConfigureIntelligence()
     {
         _temperature.Stop();
         _intelligenceTimer.Stop();
-        _lastIntelligenceColor = null;
+        _lastIntelligenceSignature = null;
         var mode = _intelligenceMode.SelectedItem?.ToString() ?? "Off / Manual";
         if (mode == "Temperature Guard")
         {
             _temperature.Start();
-            _intelligenceState.Text = "Temperature Guard ON • اللون يمثل أعلى حرارة CPU/GPU.";
+            _intelligenceState.Text = "Temperature Guard ON • أعلى حرارة CPU/GPU تقود اللون.";
             return;
         }
         if (mode == "Off / Manual")
@@ -429,42 +409,32 @@ public sealed class RgbStudioWindow : Window
             return;
         }
         _intelligenceTimer.Start();
-        _intelligenceState.Text = mode + " ON • D7KT يرسل تغييرًا فقط عندما تتغير الحالة.";
-        _ = RunIntelligenceTickAsync();
+        _intelligenceState.Text = mode + " ON • مرتبط بمحرك D7KT الحي.";
+        _ = IntelligenceTickAsync();
     }
 
-    private async Task RunIntelligenceTickAsync()
+    private async Task IntelligenceTickAsync()
     {
         if (_intelligenceBusy) return;
         _intelligenceBusy = true;
         try
         {
             var mode = _intelligenceMode.SelectedItem?.ToString() ?? "Off / Manual";
-            var h = _hardware.Read();
-            var game = _gameProvider?.Invoke();
-            var mission = _missionProvider?.Invoke() ?? D7Mission.None;
+            var hardware = _hardware.Read();
+            var game = _gameProvider();
+            var mission = _missionProvider();
             string color;
             string description;
-
             switch (mode)
             {
                 case "Performance Load":
-                {
-                    var load = Math.Max(h.CpuLoad, h.GpuLoad);
-                    color = load switch
-                    {
-                        < 30 => "00BFFF",
-                        < 55 => "00FF88",
-                        < 75 => "FFE000",
-                        < 90 => "FF7A00",
-                        _ => "FF1635"
-                    };
-                    description = $"Performance Load • CPU {h.CpuLoad:0}% • GPU {h.GpuLoad:0}% • #{color}";
+                    var load = Math.Max(hardware.CpuLoad, hardware.GpuLoad);
+                    color = load switch { < 30 => "00BFFF", < 55 => "00FF88", < 75 => "FFE000", < 90 => "FF7A00", _ => "FF1635" };
+                    description = $"CPU {hardware.CpuLoad:0}% • GPU {hardware.GpuLoad:0}% • #{color}";
                     break;
-                }
                 case "Game Presence":
-                    color = string.IsNullOrWhiteSpace(game) ? "242424" : "D70F25";
-                    description = string.IsNullOrWhiteSpace(game) ? "Desktop • RGB dim" : $"Gaming • {game} • D7KT red";
+                    color = string.IsNullOrWhiteSpace(game) ? "202020" : "D70F25";
+                    description = string.IsNullOrWhiteSpace(game) ? "Desktop • Dim" : $"Gaming • {game} • D7KT red";
                     break;
                 case "Mission Sync":
                     color = mission switch
@@ -476,28 +446,27 @@ public sealed class RgbStudioWindow : Window
                         D7Mission.Silent => "FFD7A0",
                         _ => "303030"
                     };
-                    description = $"Mission Sync • {D7MissionEngine.MissionArabic(mission)} • #{color}";
+                    description = $"{D7MissionEngine.MissionArabic(mission)} • #{color}";
                     break;
                 default:
                     return;
             }
 
-            _intelligenceState.Text = description;
-            if (string.Equals(color, _lastIntelligenceColor, StringComparison.OrdinalIgnoreCase)) return;
-            _lastIntelligenceColor = color;
+            var signature = mode + "|" + color + "|" + (game ?? "") + "|" + mission;
+            _intelligenceState.Text = mode + " • " + description;
+            if (string.Equals(signature, _lastIntelligenceSignature, StringComparison.Ordinal)) return;
+            _lastIntelligenceSignature = signature;
             _status.Text = await _rgb.SetColorAsync(color);
         }
         catch (Exception ex) { _intelligenceState.Text = "RGB Intelligence: " + ex.Message; }
         finally { _intelligenceBusy = false; }
     }
 
-    private static string DefaultColorFor(OpenRgbDevice device)
+    private static string DefaultColor(OpenRgbDevice device)
     {
         var text = (device.Name + " " + device.Type).ToLowerInvariant();
-        if (text.Contains("keyboard")) return "D70F25";
         if (text.Contains("mouse")) return "FFFFFF";
         if (text.Contains("ram") || text.Contains("memory")) return "7A20FF";
-        if (text.Contains("gpu")) return "E00020";
         if (text.Contains("fan") || text.Contains("cooler")) return "FF3300";
         return "D70F25";
     }
@@ -509,32 +478,24 @@ public sealed class RgbStudioWindow : Window
             var raw = hex.Trim().TrimStart('#');
             if (raw.Length != 6) return;
             preview.Background = new SolidColorBrush(Color.FromRgb(
-                Convert.ToByte(raw[0..2], 16),
-                Convert.ToByte(raw[2..4], 16),
-                Convert.ToByte(raw[4..6], 16)));
+                Convert.ToByte(raw[..2], 16), Convert.ToByte(raw[2..4], 16), Convert.ToByte(raw[4..6], 16)));
         }
         catch { }
     }
 
     private Border Card() => new()
     {
-        Background = Brush("Panel", Brushes.DimGray),
-        BorderBrush = Brush("Border", Brushes.Gray),
-        BorderThickness = new Thickness(1),
-        CornerRadius = new CornerRadius(14),
-        Padding = new Thickness(15),
-        Margin = new Thickness(0, 8, 0, 8)
+        Background = Brush("Panel", Brushes.DimGray), BorderBrush = Brush("Border", Brushes.Gray), BorderThickness = new Thickness(1),
+        CornerRadius = new CornerRadius(14), Padding = new Thickness(15), Margin = new Thickness(0, 7, 0, 7)
     };
 
     private Border Empty(string text) => new()
     {
-        Background = Brush("Panel2", Brushes.DimGray),
-        CornerRadius = new CornerRadius(10),
-        Padding = new Thickness(15),
+        Background = Brush("Panel2", Brushes.DimGray), CornerRadius = new CornerRadius(10), Padding = new Thickness(14),
         Child = new TextBlock { Text = text, Foreground = Brush("Muted", Brushes.Gray), TextWrapping = TextWrapping.Wrap }
     };
 
-    private Button Button(string text, Func<Task> action, bool accent = false)
+    private Button ActionButton(string text, Func<Task> action, bool accent = false)
     {
         var button = new Button
         {
