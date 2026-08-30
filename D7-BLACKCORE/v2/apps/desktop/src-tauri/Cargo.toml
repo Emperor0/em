@@ -1,6 +1,6 @@
 [package]
 name="d7-blackcore"
-version="2.0.0-dev.11"
+version="2.0.0-dev.12"
 description="D7 BLACKCORE Personal Autonomous OS"
 authors=["D7"]
 edition="2021"
@@ -13,5 +13,6 @@ tauri-build={version="2",features=[]}
 tauri={version="2",features=[]}
 serde={version="1",features=["derive"]}
 serde_json="1"
+sha2="0.10"
 sysinfo="0.33"
 windows-sys={version="0.61",features=["Win32_System_Pipes"]}
