@@ -17,7 +17,7 @@ public sealed class MissionControlWindow : Window
     {
         _engine = engine;
         _gameProvider = gameProvider;
-        Title = "D7 NEXUS • Mission Control";
+        Title = "D7KT • Mission Control";
         Width = 980;
         Height = 720;
         MinWidth = 860;
@@ -45,11 +45,11 @@ public sealed class MissionControlWindow : Window
             Text = "MISSION CONTROL",
             FontSize = 30,
             FontWeight = FontWeights.Bold,
-            Foreground = new LinearGradientBrush(Color.FromRgb(247, 249, 252), Color.FromRgb(124, 140, 255), 0)
+            Foreground = (Brush)Application.Current.FindResource("Accent")
         });
         header.Children.Add(new TextBlock
         {
-            Text = "اختيار واحد ينسق الطاقة، الشاشة، الشبكة، المراوح، البث والتسجيل مع Restore حقيقي.",
+            Text = "كل خطوة تصنف الآن: Applied / Verified / Already Optimal / Unsupported / Skipped / Failed. النجاح لا يعني أن D7KT غيّر شيئًا إذا لم يتغير شيء فعلًا.",
             Foreground = (Brush)Application.Current.FindResource("Muted"),
             TextWrapping = TextWrapping.Wrap,
             Margin = new Thickness(0, 6, 0, 0)
@@ -74,15 +74,15 @@ public sealed class MissionControlWindow : Window
         root.Children.Add(statusCard);
 
         var missions = new UniformGrid { Columns = 3, Margin = new Thickness(0, 0, 0, 16) };
-        missions.Children.Add(MissionCard("PRO RANKED", "أقصى استجابة للرانك: High Performance + أعلى Hz + Gaming Network + تنظيف خلفية آمن + Smart Fans.", D7Mission.ProRanked));
-        missions.Children.Add(MissionCard("STREAM + RANKED", "اللعب والبث معًا: Priorities محسوبة + Network + أعلى Hz + Fans، ويستخدم Replay الموجود بدون مسجل ثانٍ.", D7Mission.StreamRanked));
-        missions.Children.Add(MissionCard("RECORDING", "تسجيل المقاطع: Shadow Capture الحقيقي + High Performance + Smart Fans، مع الحفاظ على Replay Buffer واحد.", D7Mission.Recording));
-        missions.Children.Add(MissionCard("STORY / ULTRA", "للألعاب القصصية: High Performance + أعلى Refresh مدعوم + تبريد تلقائي إذا الهاردوير يسمح.", D7Mission.Story));
-        missions.Children.Add(MissionCard("SILENT", "للخمول والعمل الهادئ: Balanced Power وإرجاع أي Fan override إلى BIOS/AUTO.", D7Mission.Silent));
+        missions.Children.Add(MissionCard("PRO RANKED", "High Performance + أعلى Hz + Gaming Network + تنظيف خلفية آمن + Smart Fans فقط إن كانت writable.", D7Mission.ProRanked));
+        missions.Children.Add(MissionCard("STREAM + RANKED", "Priority Governor + Network + Display + Replay الموجود، بدون duplicate recorder.", D7Mission.StreamRanked));
+        missions.Children.Add(MissionCard("RECORDING", "Shadow Capture + Power + Display/Fans المدعومة مع تحقق بعد التطبيق.", D7Mission.Recording));
+        missions.Children.Add(MissionCard("STORY / ULTRA", "High Performance + أعلى Refresh مدعوم + تبريد تلقائي إن كان الهاردوير يسمح.", D7Mission.Story));
+        missions.Children.Add(MissionCard("SILENT", "Balanced Power وإرجاع Fan override إلى BIOS/AUTO.", D7Mission.Silent));
 
         var restore = new Button
         {
-            Content = "إيقاف المهمة + استعادة كل شيء",
+            Content = "إيقاف المهمة + استعادة تغييرات D7KT فقط",
             MinHeight = 104,
             Margin = new Thickness(6),
             Background = (Brush)Application.Current.FindResource("AccentSoft")
@@ -103,7 +103,7 @@ public sealed class MissionControlWindow : Window
         _log.Padding = new Thickness(14);
         _log.FontFamily = new FontFamily("Consolas");
         _log.FontSize = 12.5;
-        _log.Text = "D7 ينتظر اختيار Mission.\r\n";
+        _log.Text = "D7KT ينتظر اختيار Mission.\r\n";
         Grid.SetRow(_log, 3);
         root.Children.Add(_log);
 
@@ -146,7 +146,7 @@ public sealed class MissionControlWindow : Window
             Append($"\r\n▶ {D7MissionEngine.MissionArabic(mission)}");
             var result = await _engine.ApplyAsync(mission, _gameProvider());
             foreach (var step in result.Steps)
-                Append($"{(step.Success ? "✓" : "!")} {step.Step}\r\n{step.Detail}");
+                Append($"{Icon(step.State)} [{step.State}] {step.Step}\r\n{step.Detail}");
             Append(result.Summary);
         }
         catch (Exception ex)
@@ -168,17 +168,26 @@ public sealed class MissionControlWindow : Window
             Append("\r\n↩ RESTORE");
             var result = await _engine.RestoreAsync();
             foreach (var step in result.Steps)
-                Append($"{(step.Success ? "✓" : "!")} {step.Step}\r\n{step.Detail}");
+                Append($"{Icon(step.State)} [{step.State}] {step.Step}\r\n{step.Detail}");
             Append(result.Summary);
         }
         catch (Exception ex) { Append("خطأ الاستعادة: " + ex.Message); }
         finally { SetBusy(false); RefreshHeader(); }
     }
 
+    private static string Icon(MissionStepState state) => state switch
+    {
+        MissionStepState.Applied or MissionStepState.Verified or MissionStepState.Restored => "✓",
+        MissionStepState.AlreadyOptimal => "=",
+        MissionStepState.Unsupported or MissionStepState.Skipped => "○",
+        MissionStepState.Failed => "!",
+        _ => "•"
+    };
+
     private void RefreshHeader()
     {
         var game = _gameProvider();
-        _status.Text = $"Mission: {D7MissionEngine.MissionArabic(_engine.ActiveMission)}   •   Game: {(string.IsNullOrWhiteSpace(game) ? "لا توجد لعبة مكتشفة" : game)}   •   Restore Vault: مفعّل";
+        _status.Text = $"Mission: {D7MissionEngine.MissionArabic(_engine.ActiveMission)}   •   Game: {(string.IsNullOrWhiteSpace(game) ? "لا توجد لعبة مكتشفة" : game)}   •   Restore: تغييرات D7KT فقط";
     }
 
     private void OnEngineStatus(string text)
@@ -199,6 +208,6 @@ public sealed class MissionControlWindow : Window
     private void SetBusy(bool busy)
     {
         foreach (var button in _buttons) button.IsEnabled = !busy;
-        _status.Text = busy ? "D7 ينفذ المهمة الآن… لا تغلق النافذة حتى ينتهي Restore/Apply." : _status.Text;
+        _status.Text = busy ? "D7KT ينفذ المهمة ويحقق من النتيجة…" : _status.Text;
     }
 }
