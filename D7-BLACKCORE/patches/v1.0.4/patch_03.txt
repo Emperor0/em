@@ -1,0 +1,70 @@
+} needs an AI model provider. Start/configure OpenCode or another supported AI provider.',error='LLM_UNAVAILABLE')
+-        text=self.llm.chat(f'You are {agent}, a specialist inside D7 BLACKCORE. Be executable, factual, concise. Never claim actions without evidence.',goal)
+-        return StepResult(True,f'{agent} completed reasoning',[Evidence('model_output_chars',str(len(text)))],{'text':text})
++        if not self.llm.available():
++            return StepResult(False,f'{agent} needs an AI model provider. Start/configure OpenCode or another supported AI provider.',error='LLM_UNAVAILABLE')
++        try:
++            text=self.llm.chat(f'You are {agent}, a specialist inside D7 BLACKCORE. Be executable, factual, concise. Never claim actions without evidence.',goal,timeout=45)
++            return StepResult(True,f'{agent} completed reasoning',[Evidence('model_output_chars',str(len(text)))],{'text':text})
++        except Exception as e:
++            return StepResult(False,f'{agent} AI reasoning timed out or failed',error=f'{type(e).__name__}: {e}')
+ 
+-    def _execute_step(self,step)->StepResult:
+-        a=step.action
++    @staticmethod
++    def _best_link(links:list[dict]) -> str:
++        if not links: return ''
++        # Prefer likely primary/official documentation over social/video mirrors.
++        blocked=('youtube.com','youtu.be','facebook.com','x.com','twitter.com','reddit.com','tiktok.com')
++        for row in links:
++            u=str(row.get('url',''))
++            if u and not any(x in u.lower() for x in blocked): return u
++        return str(links[0].get('url',''))
++
++    def _research_analysis(self,step,context:dict)->StepResult:
++        query=step.args.get('query','').strip()
++        search_text=str(context.get('browser_text',''))[:12000]
++        links=context.get('browser_links') or []
++        source_url=''
++        source_text=''
++        source_title=''
++        best=self._best_link(links)
++        if best:
++            opened=self.browser.open(best)
++            if opened.ok:
++                source_url=next((e.value for e in opened.evidence if e.kind=='url'),best)
++                source_title=next((e.value for e in opened.evidence if e.kind=='title'),'')
++                source_text=str(opened.data.get('text',''))[:16000]
++        evidence_text=source_text or search_text
++        if not evidence_text:
++            return StepResult(False,'No readable web evidence was captured for research analysis',error='NO_WEB_EVIDENCE')
++        verification_time=datetime.now().astimezone().isoformat(timespec='seconds')
++        system=(
++            'You are D7 BLACKCORE Research Analyst. Use ONLY the supplied browser evidence. '
++            'Prefer the primary/official source. Do not invent a version, date, URL, or fact. '
++            'If evidence is insufficient, say that clearly. Return a concise Arabic report with: '
++            'النتيجة، المصدر، رابط المصدر، تاريخ التحقق، وملاحظات التحقق.'
++        )
++        prompt=(f'موضوع البحث: {query}\nتاريخ التحقق المحلي: {verification_time}\n'
++                f'المصدر المفتوح: {source_title}\nرابط المصدر: {source_url}\n\n'
++                f'أدلة الصفحة/البحث:\n{evidence_text}')
++        ev=[Evidence('verification_time',verification_time),Evidence('evidence_chars',str(len(evidence_text)))]
++        if source_url: ev.append(Evidence('source_url',source_url))
++        try:
++            text=self.llm.chat(system,prompt,timeout=35)
++            return StepResult(True,'Research analysis completed with bounded AI call',ev+[Evidence('analysis_chars',str(len(text)))],{'text':text,'source_url':source_url})
++        except Exception as e:
++            # Continue the mission with transparent raw evidence instead of hanging forever.
++            fallback=(f'تقرير بحث BLACKCORE — وضع الاسترجاع\n'
++                      f'موضوع البحث: {query}\nتاريخ التحقق: {verification_time}\n'
++                      f'المصدر: {source_title or "نتائج البحث"}\nرابط المصدر: {source_url or "غير متاح"}\n\n'
++                      f'تعذر إكمال التحليل الذكي ضمن المهلة المحددة. الأدلة الخام:\n{evidence_text[:6000]}')
++            return StepResult(True,'AI analysis timed out; continued with evidence fallback',ev+[Evidence('fallback','timeout')],{'text':fallback,'source_url':source_url},error=f'AI_TIMEOUT_FALLBACK: {type(e).__name__}: {e}')
++
++    def _execute_step(self,step,context:dict|None=None)->StepResult:
++        context=context or {}; a=step.action
+         if a=='search_web': return self.browser.search_google(step.args['query'])
+         if a=='open_url':
+             r=self.browser.open(step.args['url']); return r if r.ok else self.system.execute('open_url',url=step.args['url'])
++        if a=='research_analysis': return self._research_analysis(step,context)
++        if a=='w
