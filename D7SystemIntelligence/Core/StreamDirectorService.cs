@@ -61,21 +61,29 @@ public sealed class StreamProcessGovernor:IDisposable
 {
     private readonly Dictionary<int,ProcessPriorityClass> _original=new();
     public bool Active=>_original.Count>0;
+    public int ChangedCount=>_original.Count;
 
     public string Apply(string? gameProcessName)
     {
         Restore();
-        var messages=new List<string>();
-        if(!string.IsNullOrWhiteSpace(gameProcessName))SetByName(gameProcessName,ProcessPriorityClass.AboveNormal,messages);
-        SetByName("obs64",ProcessPriorityClass.AboveNormal,messages);
-        SetByName("obs",ProcessPriorityClass.AboveNormal,messages);
+        var changed=new List<string>();
+        var already=new List<string>();
+        if(!string.IsNullOrWhiteSpace(gameProcessName))SetByName(gameProcessName,ProcessPriorityClass.AboveNormal,changed,already);
+        SetByName("obs64",ProcessPriorityClass.AboveNormal,changed,already);
+        SetByName("obs",ProcessPriorityClass.AboveNormal,changed,already);
         foreach(var p in Process.GetProcesses())
         {
             string name;try{name=p.ProcessName;}catch{p.Dispose();continue;}
-            if(name.Contains("tiktok",StringComparison.OrdinalIgnoreCase))SetProcess(p,ProcessPriorityClass.Normal,messages);else p.Dispose();
+            if(name.Contains("tiktok",StringComparison.OrdinalIgnoreCase))SetProcess(p,ProcessPriorityClass.Normal,changed,already);else p.Dispose();
         }
-        foreach(var bg in new[]{"chrome","msedge","Discord"})SetByName(bg,ProcessPriorityClass.BelowNormal,messages);
-        return messages.Count==0?"لم يجد D7 عمليات مناسبة لتطبيق Stream Governor.":string.Join(Environment.NewLine,messages);
+        foreach(var bg in new[]{"chrome","msedge","Discord"})SetByName(bg,ProcessPriorityClass.BelowNormal,changed,already);
+
+        if(changed.Count==0 && already.Count==0)return "Unsupported/Not Running • لم يجد D7KT عمليات مناسبة لـStream Governor.";
+        if(changed.Count==0)return "Already Optimal • كل العمليات المكتشفة على Priority المطلوبة بالفعل.\n"+string.Join(Environment.NewLine,already);
+        var lines=new List<string>{"Applied + Verified • تم تغيير Priority للعمليات التالية:"};
+        lines.AddRange(changed);
+        if(already.Count>0){lines.Add("Already Optimal:");lines.AddRange(already);}
+        return string.Join(Environment.NewLine,lines);
     }
 
     public string Restore()
@@ -83,24 +91,30 @@ public sealed class StreamProcessGovernor:IDisposable
         var count=0;
         foreach(var kv in _original.ToArray())
         {
-            try{using var p=Process.GetProcessById(kv.Key);if(!p.HasExited){p.PriorityClass=kv.Value;count++;}}catch{}
+            try{using var p=Process.GetProcessById(kv.Key);if(!p.HasExited){p.PriorityClass=kv.Value;if(p.PriorityClass==kv.Value)count++;}}catch{}
         }
-        _original.Clear();return count>0?$"تمت استعادة Priority لـ{count} عملية.":"لا توجد Priorities محفوظة للاستعادة.";
+        _original.Clear();return count>0?$"Restore Verified • تمت استعادة Priority لـ{count} عملية.":"لا توجد Priorities غيّرها D7KT تحتاج استعادة.";
     }
 
-    private void SetByName(string name,ProcessPriorityClass priority,List<string> messages)
+    private void SetByName(string name,ProcessPriorityClass priority,List<string> changed,List<string> already)
     {
-        foreach(var p in Process.GetProcessesByName(name))SetProcess(p,priority,messages);
+        foreach(var p in Process.GetProcessesByName(name))SetProcess(p,priority,changed,already);
     }
-    private void SetProcess(Process p,ProcessPriorityClass priority,List<string> messages)
+    private void SetProcess(Process p,ProcessPriorityClass priority,List<string> changed,List<string> already)
     {
         using(p)
         {
             try
             {
-                if(!_original.ContainsKey(p.Id))_original[p.Id]=p.PriorityClass;
-                if(p.PriorityClass!=priority)p.PriorityClass=priority;
-                messages.Add($"{p.ProcessName}: {_original[p.Id]} → {priority}");
+                var before=p.PriorityClass;
+                if(before==priority){already.Add($"{p.ProcessName}: {priority}");return;}
+                p.PriorityClass=priority;
+                var after=p.PriorityClass;
+                if(after==priority)
+                {
+                    _original[p.Id]=before;
+                    changed.Add($"{p.ProcessName}: {before} → {after}");
+                }
             }
             catch{}
         }
