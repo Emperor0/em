@@ -38,6 +38,8 @@ public sealed class D7MissionEngine : IAsyncDisposable
     private readonly BackgroundAppManagerService _background = new();
     private readonly ShadowCaptureService _shadow = new();
     private readonly StreamProcessGovernor _streamGovernor = new();
+    private readonly MissionAppProfileService _appProfiles = new();
+    private readonly GameProcessProfileService _gameProcess = new();
     private readonly SmartFanController _fans;
 
     private bool _networkApplied;
@@ -46,6 +48,7 @@ public sealed class D7MissionEngine : IAsyncDisposable
     private bool _fansStarted;
     private bool _shadowStartedByMission;
     private bool _streamGovernorApplied;
+    private bool _gameProcessApplied;
 
     public D7Mission ActiveMission { get; private set; }
     public event Action<string>? StatusChanged;
@@ -70,7 +73,7 @@ public sealed class D7MissionEngine : IAsyncDisposable
                 true,
                 $"Already Active • {MissionArabic(mission)} تعمل بالفعل. D7KT لم يفك ويعيد تطبيق نفس السياسات بلا سبب.",
                 MissionStepState.AlreadyOptimal);
-            return new MissionApplyResult(mission, true, [step], $"{MissionArabic(mission)} ما زالت نشطة بدون إعادة تطبيق غير ضرورية.");
+            return new MissionApplyResult(mission, true, [step], $"{MissionArabic(mission)} نشطة بالفعل؛ لا توجد إعادة تطبيق وهمية.");
         }
 
         if (ActiveMission != D7Mission.None)
@@ -85,21 +88,33 @@ public sealed class D7MissionEngine : IAsyncDisposable
         {
             case D7Mission.ProRanked:
                 await ApplyPerformanceFoundationAsync(steps, cancellationToken, includeNetwork: true, cleanBackground: true);
+                ApplyGameProcessProfile(steps, gameProcessName);
+                await ApplyAppProfilesAsync(steps, AppProfileMode.Gaming, cancellationToken);
                 break;
+
             case D7Mission.StreamRanked:
                 await ApplyPerformanceFoundationAsync(steps, cancellationToken, includeNetwork: true, cleanBackground: false);
+                ApplyGameProcessProfile(steps, gameProcessName);
+                await ApplyAppProfilesAsync(steps, AppProfileMode.Streaming, cancellationToken);
                 ApplyStreamGovernor(steps, gameProcessName);
                 await StartConfiguredReplayIfEnabledAsync(steps, cancellationToken);
                 break;
+
             case D7Mission.Recording:
                 await ApplyPerformanceFoundationAsync(steps, cancellationToken, includeNetwork: false, cleanBackground: false);
+                ApplyGameProcessProfile(steps, gameProcessName);
+                await ApplyAppProfilesAsync(steps, AppProfileMode.Streaming, cancellationToken);
                 await StartReplayAsync(steps, cancellationToken);
                 break;
+
             case D7Mission.Story:
                 await ApplyPowerAsync(steps, cancellationToken);
                 ApplyDisplayMax(steps);
                 StartSmartFans(steps);
+                ApplyGameProcessProfile(steps, gameProcessName);
+                await ApplyAppProfilesAsync(steps, AppProfileMode.Gaming, cancellationToken);
                 break;
+
             case D7Mission.Silent:
                 await ApplyBalancedPowerAsync(steps, cancellationToken);
                 if (_fans.IsRunning)
@@ -137,6 +152,24 @@ public sealed class D7MissionEngine : IAsyncDisposable
         {
             steps.Add(new MissionStepResult("Stream Governor", true, _streamGovernor.Restore(), MissionStepState.Restored));
             _streamGovernorApplied = false;
+        }
+
+        if (_appProfiles.HasOwnedChanges)
+        {
+            try
+            {
+                var detail = await _appProfiles.RestoreAsync(cancellationToken);
+                steps.Add(new MissionStepResult("البرامج", true, "Restore Verified • " + detail, MissionStepState.Restored));
+            }
+            catch (Exception ex) { steps.Add(Failed("البرامج", ex.Message)); }
+        }
+
+        if (_gameProcessApplied)
+        {
+            var detail = _gameProcess.Restore();
+            var ok = !detail.StartsWith("تعذر", StringComparison.Ordinal);
+            steps.Add(new MissionStepResult("عملية اللعبة", ok, detail, ok ? MissionStepState.Restored : MissionStepState.Failed));
+            _gameProcessApplied = false;
         }
 
         if (_fansStarted)
@@ -185,8 +218,8 @@ public sealed class D7MissionEngine : IAsyncDisposable
         var restoreOk = steps.All(x => x.State != MissionStepState.Failed);
         var summary = previous == D7Mission.None
             ? "لا توجد Mission نشطة ولا تغييرات مملوكة لـD7KT تحتاج استعادة."
-            : restoreOk ? $"تم إنهاء {MissionArabic(previous)} واستعادة كل تغيير كان D7KT يملكه."
-            : $"انتهت {MissionArabic(previous)} لكن فشل التحقق من استعادة خطوة أو أكثر. راجع التفاصيل.";
+            : restoreOk ? $"تم إنهاء {MissionArabic(previous)} واستعادة كل تغيير فعلي كان D7KT يملكه."
+            : $"انتهت {MissionArabic(previous)} لكن فشل التحقق من استعادة خطوة أو أكثر.";
         StatusChanged?.Invoke(summary);
         return new MissionApplyResult(D7Mission.None, restoreOk, steps, summary);
     }
@@ -203,12 +236,16 @@ public sealed class D7MissionEngine : IAsyncDisposable
             {
                 var r = await _network.ApplyAsync(token);
                 _networkApplied = r.Success && r.ChangedProperties > 0;
-                var state = !r.Success ? MissionStepState.Failed
-                    : r.ChangedProperties > 0 ? MissionStepState.Applied
-                    : MissionStepState.Unsupported;
-                steps.Add(new MissionStepResult("الشبكة", r.Success, r.Detail, state));
+                var state = r.Success
+                    ? (r.ChangedProperties > 0 ? MissionStepState.Verified : MissionStepState.Unsupported)
+                    : (r.ChangedProperties == 0 ? MissionStepState.Unsupported : MissionStepState.Failed);
+                var stepSuccess = state != MissionStepState.Failed;
+                steps.Add(new MissionStepResult("الشبكة", stepSuccess, r.Detail, state));
             }
-            catch (Exception ex) { steps.Add(Failed("الشبكة", ex.Message)); }
+            catch (Exception ex)
+            {
+                steps.Add(new MissionStepResult("الشبكة", true, "Network profile غير متاح: " + ex.Message, MissionStepState.Unsupported));
+            }
         }
 
         if (cleanBackground)
@@ -221,10 +258,46 @@ public sealed class D7MissionEngine : IAsyncDisposable
                     "الخلفية",
                     true,
                     detail,
-                    changed ? MissionStepState.Applied : MissionStepState.AlreadyOptimal));
+                    changed ? MissionStepState.Verified : MissionStepState.AlreadyOptimal));
             }
             catch (Exception ex) { steps.Add(Failed("الخلفية", ex.Message)); }
         }
+    }
+
+    private void ApplyGameProcessProfile(List<MissionStepResult> steps, string? gameProcessName)
+    {
+        var result = _gameProcess.ApplyCompetitive(gameProcessName);
+        _gameProcessApplied = result.Changed && result.Verified;
+
+        var state = !result.Found ? MissionStepState.Unsupported
+            : result.Changed && result.Verified ? MissionStepState.Verified
+            : result.Verified ? MissionStepState.AlreadyOptimal
+            : MissionStepState.Failed;
+
+        steps.Add(new MissionStepResult(
+            "عملية اللعبة",
+            state != MissionStepState.Failed,
+            result.Detail,
+            state));
+    }
+
+    private async Task ApplyAppProfilesAsync(List<MissionStepResult> steps, AppProfileMode mode, CancellationToken token)
+    {
+        try
+        {
+            var result = await _appProfiles.ApplyAsync(mode, token);
+            var state = result.VerifiedChanges > 0 ? MissionStepState.Verified
+                : result.Errors > 0 ? MissionStepState.Failed
+                : result.RunningApps > 0 ? MissionStepState.AlreadyOptimal
+                : MissionStepState.Unsupported;
+
+            steps.Add(new MissionStepResult(
+                "البرامج",
+                state != MissionStepState.Failed,
+                result.Detail,
+                state));
+        }
+        catch (Exception ex) { steps.Add(Failed("البرامج", ex.Message)); }
     }
 
     private async Task ApplyPowerAsync(List<MissionStepResult> steps, CancellationToken token)
@@ -304,7 +377,7 @@ public sealed class D7MissionEngine : IAsyncDisposable
                 steps.Add(new MissionStepResult(
                     "المراوح",
                     true,
-                    "Unsupported / Read-only • الهاردوير لم يعرض قناة Fan writable آمنة؛ D7KT لم يرسل PWM عشوائي.",
+                    "Unsupported / Read-only • الهاردوير لم يعرض قناة Fan writable آمنة؛ لم ينفذ D7KT أي تغيير.",
                     MissionStepState.Unsupported));
                 return;
             }
@@ -313,8 +386,8 @@ public sealed class D7MissionEngine : IAsyncDisposable
             steps.Add(new MissionStepResult(
                 "المراوح",
                 _fansStarted,
-                _fansStarted ? $"Applied • AUTO Fan يعمل على {count} قناة writable." : "فشل بدء AUTO Fan رغم وجود قناة writable.",
-                _fansStarted ? MissionStepState.Applied : MissionStepState.Failed));
+                _fansStarted ? $"Applied + Verified • AUTO Fan يعمل على {count} قناة writable." : "فشل بدء AUTO Fan رغم وجود قناة writable.",
+                _fansStarted ? MissionStepState.Verified : MissionStepState.Failed));
         }
         catch (Exception ex) { steps.Add(Failed("المراوح", ex.Message)); }
     }
@@ -340,7 +413,7 @@ public sealed class D7MissionEngine : IAsyncDisposable
             steps.Add(new MissionStepResult(
                 "Shadow Capture",
                 true,
-                "Skipped by user policy • Shadow Capture غير مفعّل في إعداداتك؛ STREAM + RANKED لن يشغله من نفسه.",
+                "Skipped by user policy • Shadow Capture غير مفعّل في إعداداتك.",
                 MissionStepState.Skipped));
             return;
         }
@@ -385,8 +458,11 @@ public sealed class D7MissionEngine : IAsyncDisposable
         var skipped = steps.Count(x => x.State == MissionStepState.Skipped);
         var failed = steps.Count(x => x.State == MissionStepState.Failed);
 
-        var result = success ? "PASS" : "PARTIAL/FAIL";
-        return $"{MissionArabic(mission)} • {result} • changed/verified {applied} • already optimal {optimal} • unsupported {unsupported} • skipped {skipped} • failed {failed}.";
+        if (applied == 0 && failed == 0)
+            return $"{MissionArabic(mission)} • NO ACTION • لم ينفذ D7KT أي تغيير فعلي لأن المتاح إما Already Optimal أو Unsupported. optimal {optimal} • unsupported {unsupported} • skipped {skipped}.";
+
+        var result = success ? "APPLIED" : "PARTIAL/FAIL";
+        return $"{MissionArabic(mission)} • {result} • تغييرات فعلية ومتحققة {applied} • optimal {optimal} • unsupported {unsupported} • skipped {skipped} • failed {failed}.";
     }
 
     public static string MissionArabic(D7Mission mission) => mission switch
