@@ -33,12 +33,35 @@ jobs:
       - name: Publish self-contained single EXE
         run: dotnet publish D7SystemIntelligence/D7SystemIntelligence.csproj -c Release -r win-x64 --self-contained true -o publish
 
+      - name: Smoke test published D7 shell
+        shell: pwsh
+        run: |
+          $exe = Join-Path $PWD 'publish\D7SystemIntelligence.exe'
+          $p = Start-Process -FilePath $exe -ArgumentList '--post-update-healthcheck' -PassThru -Wait
+          if ($p.ExitCode -ne 0) { throw "Published D7 health check failed with exit code $($p.ExitCode)." }
+          Write-Host 'Published D7 shell health check passed.'
+
       - name: Install Inno Setup
         run: choco install innosetup -y --no-progress
 
       - name: Build installer
         shell: pwsh
         run: '& "C:\Program Files (x86)\Inno Setup 6\ISCC.exe" "/DMyAppVersion=$env:D7_VERSION" installer\D7SystemIntelligence.iss'
+
+      - name: Smoke install and run installed D7
+        shell: pwsh
+        run: |
+          $installer = Join-Path $PWD 'installer\output\D7-System-Intelligence-Setup.exe'
+          $installDir = Join-Path $env:RUNNER_TEMP 'D7-Smoke-Install'
+          if (Test-Path $installDir) { Remove-Item $installDir -Recurse -Force }
+          $args = @('/VERYSILENT','/SUPPRESSMSGBOXES','/NORESTART',"/DIR=$installDir")
+          $setup = Start-Process -FilePath $installer -ArgumentList $args -PassThru -Wait
+          if ($setup.ExitCode -ne 0) { throw "Installer smoke test failed with exit code $($setup.ExitCode)." }
+          $installedExe = Join-Path $installDir 'D7SystemIntelligence.exe'
+          if (-not (Test-Path $installedExe)) { throw 'Installed D7 executable was not found.' }
+          $app = Start-Process -FilePath $installedExe -ArgumentList '--post-update-healthcheck' -PassThru -Wait
+          if ($app.ExitCode -ne 0) { throw "Installed D7 health check failed with exit code $($app.ExitCode)." }
+          Write-Host 'Installer + installed shell smoke test passed.'
 
       - name: Upload installer artifact
         uses: actions/upload-artifact@v4
@@ -75,7 +98,7 @@ jobs:
           $checksum = 'installer/output/D7-System-Intelligence-Setup.exe.sha256'
           $repo = '${{ github.repository }}'
           $title = "D7 System Intelligence v$env:D7_VERSION"
-          $notes = "تحديث D7 مستقر. يمكن تنزيله وتثبيته من داخل التطبيق عبر زر تحديث D7. يتم التحقق من SHA-256 قبل التثبيت."
+          $notes = "D7KT quality release. SHA-256 verified self-update, installed-shell health check, safer rollback path, six-center UI consolidation, and hardened system/game intelligence. Hardware-dependent capabilities remain gated as Supported / Read-only / Unavailable."
 
           gh release view $tag --repo $repo *> $null
           if ($LASTEXITCODE -eq 0) {
