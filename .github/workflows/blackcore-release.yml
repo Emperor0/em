@@ -21,11 +21,23 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          for i in $(seq -w 0 8); do
-            test -f "D7-BLACKCORE/release_chunks/chunk_0${i}.b64"
-          done
-          for i in $(seq -w 9 14); do
-            test -f "D7-BLACKCORE/release_chunks2/chunk_0${i}.b64"
+          for f in \
+            D7-BLACKCORE/release_chunks/chunk_000.b64 \
+            D7-BLACKCORE/release_chunks/chunk_001.b64 \
+            D7-BLACKCORE/release_chunks/chunk_002.b64 \
+            D7-BLACKCORE/release_chunks/chunk_003.b64 \
+            D7-BLACKCORE/release_chunks/chunk_004.b64 \
+            D7-BLACKCORE/release_chunks/chunk_005.b64 \
+            D7-BLACKCORE/release_chunks/chunk_006.b64 \
+            D7-BLACKCORE/release_chunks/chunk_007.b64 \
+            D7-BLACKCORE/release_chunks/chunk_008.b64 \
+            D7-BLACKCORE/release_chunks2/chunk_009.b64 \
+            D7-BLACKCORE/release_chunks2/chunk_010.b64 \
+            D7-BLACKCORE/release_chunks2/chunk_011.b64 \
+            D7-BLACKCORE/release_chunks2/chunk_012.b64 \
+            D7-BLACKCORE/release_chunks2/chunk_013.b64 \
+            D7-BLACKCORE/release_chunks2/chunk_014.b64; do
+            test -s "$f"
           done
 
       - name: Rebuild and verify ZIP
@@ -59,7 +71,7 @@ jobs:
           set -euo pipefail
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add D7-BLACKCORE/releases/D7_BLACKCORE_v1.0.3.zip
+          git add -f D7-BLACKCORE/releases/D7_BLACKCORE_v1.0.3.zip
           if git diff --cached --quiet; then
             echo "Release already current"
           else
