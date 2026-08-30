@@ -56,7 +56,7 @@ procedure LogRecovery(const Line: String);
 begin
   ForceDirectories(RecoveryDir);
   SaveStringToFile(RecoveryDir + '\installer-recovery.log',
-    FormatDateTime('yyyy-mm-dd hh:nn:ss', Now) + ' ' + Line + #13#10, True);
+    GetDateTimeString('yyyy-mm-dd hh:nn:ss', '-', ':') + ' ' + Line + #13#10, True);
 end;
 
 procedure CurStepChanged(CurStep: TSetupStep);
