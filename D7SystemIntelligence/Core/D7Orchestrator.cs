@@ -53,6 +53,7 @@ public sealed class D7Orchestrator
         };
 
         var context = new RuntimeContext(mode, game, obs, tiktok, DateTimeOffset.Now, reason);
+        D7RuntimeBus.PublishContext(context);
         var decisions = _policy.Evaluate(snapshot, context, Profile);
         var summary = BuildSummary(context, decisions);
         var status = new OrchestratorStatus(context, Profile, decisions, summary);
