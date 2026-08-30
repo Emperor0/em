@@ -1,0 +1,41 @@
+PoolExecutor(max_workers=min(self.max_workers,len(roles))) as ex:
++            try:
++                return role,self.llm.chat(system,goal,timeout=self.member_timeout),None
++            except Exception as e:
++                return role,"",f'{type(e).__name__}: {e}'
++
++        outputs={}; errors={}
++        ex=ThreadPoolExecutor(max_workers=min(self.max_workers,len(roles)))
++        try:
+             futs=[ex.submit(one,r) for r in roles]
+             for f in as_completed(futs):
+-                role,text=f.result(); outputs[role]=text
+-        synthesis=self.llm.chat('You are BLACKCORE Master Judge. Synthesize the specialists into one executable answer. Resolve conflicts and list uncertainties.',
+-                                goal+'\n\n'+'\n\n'.join(f'[{r}]\n{t}' for r,t in outputs.items()))
+-        return StepResult(True,f'Swarm completed with {len(outputs)} specialists',[Evidence('specialists',str(len(outputs))),Evidence('synthesis_chars',str(len(synthesis)))],{'outputs':outputs,'text':synthesis})
++                role,text,err=f.result()
++                if text: outputs[role]=text
++                if err: errors[role]=err
++        finally:
++            ex.shutdown(wait=False,cancel_futures=True)
++
++        if not outputs:
++            return StepResult(False,'All specialist calls failed or timed out',
++                              [Evidence('specialists_failed',str(len(errors)))],
++                              {'errors':errors},error='SWARM_TIMEOUT_OR_FAILURE')
++
++        joined='\n\n'.join(f'[{r}]\n{t}' for r,t in outputs.items())
++        try:
++            synthesis=self.llm.chat(
++                'You are BLACKCORE Master Judge. Synthesize the specialists into one executable answer. Resolve conflicts and list uncertainties.',
++                goal+'\n\n'+joined, timeout=self.synthesis_timeout)
++            fallback='false'
++        except Exception as e:
++            # Preserve useful completed work rather than blocking the mission.
++            synthesis=joined
++            errors['synthesis']=f'{type(e).__name__}: {e}'
++            fallback='true'
++
++        ev=[Evidence('specialists_completed',str(len(outputs))),Evidence('synthesis_chars',str(len(synthesis))),Evidence('fallback_synthesis',fallback)]
++        if errors: ev.append(Evidence('specialists_failed',str(len(errors))))
++        return StepResult(True,f'Swarm completed with {len(outputs)}/{len(roles)} specialists',ev,{'outputs':outputs,'errors':errors,'text':synthesis})
