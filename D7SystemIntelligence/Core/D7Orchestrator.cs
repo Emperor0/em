@@ -32,6 +32,8 @@ public sealed class D7Orchestrator
 
     public async Task<OrchestratorStatus> ObserveAsync(HardwareSnapshot snapshot, CancellationToken cancellationToken = default)
     {
+        D7RuntimeBus.PublishHardware(snapshot);
+
         var running = GetRunningProcessNames();
         var obs = running.Any(n => n.Equals("obs64", StringComparison.OrdinalIgnoreCase) || n.Equals("obs", StringComparison.OrdinalIgnoreCase));
         var tiktok = running.Any(n => n.Contains("tiktok", StringComparison.OrdinalIgnoreCase));
