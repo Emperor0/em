@@ -1,14 +1,8 @@
 {
   "name": "d7-blackcore-2",
-  "version": "2.0.0-dev.4",
+  "version": "2.0.0-dev.5",
   "private": true,
   "type": "module",
-  "scripts": {
-    "build:kernel": "tsc -p tsconfig.json",
-    "test": "npm run build:kernel && node --test tests/*.test.mjs",
-    "verify": "npm run test && node scripts/verify-structure.mjs"
-  },
-  "devDependencies": {
-    "typescript": "^5.9.0"
-  }
+  "scripts": {"build:kernel":"tsc -p tsconfig.json","test":"npm run build:kernel && node --test tests/*.test.mjs","verify":"npm run test && node scripts/verify-structure.mjs"},
+  "devDependencies": {"typescript":"^5.9.0"}
 }

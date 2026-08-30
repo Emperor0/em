@@ -1,7 +1,7 @@
 {
   "name": "d7-blackcore-desktop",
   "private": true,
-  "version": "2.0.0-dev.4",
+  "version": "2.0.0-dev.5",
   "type": "module",
   "scripts": {
     "dev": "vite",
