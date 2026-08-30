@@ -1,0 +1,5 @@
+import type { Id } from "./types.js";
+import { id, nowIso } from "./utils.js";
+export type JobStatus="queued"|"running"|"done"|"failed"|"cancelled";
+export interface ScheduledJob{id:Id;name:string;priority:number;resourceClass:"tiny"|"normal"|"heavy";notBefore:string;createdAt:string;status:JobStatus;}
+export class Scheduler{#jobs=new Map<Id,ScheduledJob>();add(name:string,priority:number,resourceClass:ScheduledJob["resourceClass"]="normal",notBefore=nowIso()):ScheduledJob{const job:ScheduledJob={id:id(),name,priority,resourceClass,notBefore,createdAt:nowIso(),status:"queued"};this.#jobs.set(job.id,job);return structuredClone(job);}next(now=nowIso(),allowHeavy=true):ScheduledJob|null{const candidates=[...this.#jobs.values()].filter(j=>j.status==="queued"&&j.notBefore<=now&&(allowHeavy||j.resourceClass!=="heavy"));candidates.sort((a,b)=>b.priority-a.priority||a.createdAt.localeCompare(b.createdAt));return candidates[0]?structuredClone(candidates[0]):null;}setStatus(id:Id,status:JobStatus):ScheduledJob{const job=this.#jobs.get(id);if(!job)throw new Error("JOB_NOT_FOUND");job.status=status;return structuredClone(job);}}

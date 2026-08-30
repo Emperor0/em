@@ -1,0 +1,4 @@
+import type { Id } from "./types.js";
+import { id, nowIso } from "./utils.js";
+export interface Checkpoint<T=unknown>{id:Id;missionId:Id;label:string;createdAt:string;state:T;confirmed:boolean;}
+export class CheckpointEngine{#items=new Map<Id,Checkpoint>();save<T>(missionId:Id,label:string,state:T,confirmed=true):Checkpoint<T>{const cp:Checkpoint<T>={id:id(),missionId,label,createdAt:nowIso(),state:structuredClone(state),confirmed};this.#items.set(cp.id,cp as Checkpoint);return structuredClone(cp);}latestConfirmed<T=unknown>(missionId:Id):Checkpoint<T>|null{const items=[...this.#items.values()].filter(x=>x.missionId===missionId&&x.confirmed);const latest=items.sort((a,b)=>b.createdAt.localeCompare(a.createdAt))[0];return latest?structuredClone(latest as Checkpoint<T>):null;}get<T=unknown>(checkpointId:Id):Checkpoint<T>|undefined{const item=this.#items.get(checkpointId);return item?structuredClone(item as Checkpoint<T>):undefined;}}

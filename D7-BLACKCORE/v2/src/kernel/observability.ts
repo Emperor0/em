@@ -1,0 +1,5 @@
+import type { Id } from "./types.js";
+import { id, nowIso } from "./utils.js";
+export type SpanStatus="running"|"ok"|"error"|"cancelled";
+export interface TraceSpan{id:Id;traceId:Id;parentId?:Id;name:string;startedAt:string;finishedAt?:string;status:SpanStatus;attributes:Record<string,string|number|boolean>;error?:string;}
+export class ObservabilityCore{#spans=new Map<Id,TraceSpan>();start(name:string,traceId=id(),parentId?:Id,attributes:TraceSpan["attributes"]={}):TraceSpan{const span:TraceSpan={id:id(),traceId,name,startedAt:nowIso(),status:"running",attributes:{...attributes},...(parentId?{parentId}:{})};this.#spans.set(span.id,span);return structuredClone(span);}finish(spanId:Id,status:Exclude<SpanStatus,"running">,error?:string):TraceSpan{const span=this.#spans.get(spanId);if(!span)throw new Error("SPAN_NOT_FOUND");span.status=status;span.finishedAt=nowIso();if(error)span.error=error;return structuredClone(span);}trace(traceId:Id):TraceSpan[]{return[...this.#spans.values()].filter(x=>x.traceId===traceId).map(x=>structuredClone(x));}}

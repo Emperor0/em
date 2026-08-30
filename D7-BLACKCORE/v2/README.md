@@ -1,10 +1,10 @@
 # D7 BLACKCORE 2.0
 
-`2.0.0-dev.1` — clean-room kernel foundation on a dedicated branch.
+`2.0.0-dev.2` — clean-room kernel foundation on a dedicated branch.
 
 This milestone is intentionally not a patched BLACKCORE 1.x build. It establishes the contracts that future Windows runtime, Tauri UI, Device, Money, Builder, Creator and browser-control layers must obey.
 
-## Implemented in dev.1
+## Implemented
 
 - State Engine
 - Event Bus
@@ -19,6 +19,12 @@ This milestone is intentionally not a patched BLACKCORE 1.x build. It establishe
 - Money opportunity scoring + buyer-validation gate
 - Modern one-screen desktop visual prototype
 - Frozen Master Spec + architecture contract
+- Transaction Engine with verify/compensate semantics
+- Approval Queue with batching
+- Checkpoint Engine
+- Scheduler with resource classes
+- Observability spans/traces
+- Action Router enforcing API > CLI > DOM > UIA > Vision
 
 ## Verify
 
