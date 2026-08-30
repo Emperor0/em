@@ -38,10 +38,11 @@ public partial class App : Application
             if (icon == null) throw new InvalidOperationException("D7KT brand resources failed to initialize.");
 
             var shell = new D7KtShellWindow();
+            ShellContractValidator.Validate(shell);
             shell.Close();
 
             File.WriteAllText(log,
-                $"HEALTHY\r\nVersion={updater.CurrentVersionText}\r\nAt={DateTimeOffset.Now:O}\r\nShellConstruction=OK\r\n");
+                $"HEALTHY\r\nVersion={updater.CurrentVersionText}\r\nAt={DateTimeOffset.Now:O}\r\nShellConstruction=OK\r\nShellContract=6-CENTERS\r\n");
             Shutdown(0);
         }
         catch (Exception ex)
