@@ -312,7 +312,13 @@ pub fn run_readonly_probe()->ReadOnlyProbeResult {
 #[cfg(test)]
 mod tests {
     use super::*;
-    fn write_fixture(name:&str,raw:&str)->PathBuf { let p=env::temp_dir().join(format!("blackcore-{name}-{}.py",std::process::id()));fs::write(&p,raw).unwrap();p }
+    static FIXTURE_SEQ: std::sync::atomic::AtomicU64 = std::sync::atomic::AtomicU64::new(0);
+    fn write_fixture(name:&str,raw:&str)->PathBuf {
+        let seq=FIXTURE_SEQ.fetch_add(1,std::sync::atomic::Ordering::Relaxed);
+        let p=env::temp_dir().join(format!("blackcore-{name}-{}-{seq}.py",std::process::id()));
+        fs::write(&p,raw).unwrap();
+        p
+    }
     fn ready_fixture()->ProtocolInspection {
         let raw=r#"REQUEST_PIPE = r'\\.\pipe\d7_agent_core'
 EVENT_PIPE = r'\\.\pipe\d7_agent_events'
