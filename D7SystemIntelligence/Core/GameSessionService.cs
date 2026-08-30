@@ -97,6 +97,7 @@ public sealed class GameSessionService : IAsyncDisposable
         _started = DateTimeOffset.Now;
         _lastNetwork = DateTimeOffset.MinValue;
         LatestSample = null;
+        D7RuntimeBus.ClearSessionSample();
         lock (_gate) { _samples.Clear(); _stutters.Clear(); }
 
         _frames = _presentMon.CreateMonitor();
@@ -139,6 +140,7 @@ public sealed class GameSessionService : IAsyncDisposable
         _game = string.Empty;
         _pid = 0;
         LatestSample = null;
+        D7RuntimeBus.ClearSessionSample();
         return report;
     }
 
@@ -196,6 +198,7 @@ public sealed class GameSessionService : IAsyncDisposable
                     _jitter);
 
                 LatestSample = sample;
+                D7RuntimeBus.PublishSessionSample(sample);
                 lock (_gate)
                 {
                     _samples.Add(sample);
@@ -287,5 +290,6 @@ public sealed class GameSessionService : IAsyncDisposable
     {
         if (IsRunning) await StopAsync();
         if (_frames != null) await _frames.DisposeAsync();
+        D7RuntimeBus.ClearSessionSample();
     }
 }
