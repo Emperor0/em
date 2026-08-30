@@ -1,4 +1,5 @@
 using System.Runtime.InteropServices;
+using System.Text.Json;
 
 namespace D7SystemIntelligence.Core;
 
@@ -9,9 +10,23 @@ public sealed record DisplayModeInfo(int Width, int Height, int RefreshRateHz, i
 
 public sealed record BrightnessInfo(bool Supported, uint Minimum, uint Current, uint Maximum, string Detail);
 
+internal sealed class DisplayRestoreSnapshot
+{
+    public DisplayModeInfo? Mode { get; set; }
+    public uint? Brightness { get; set; }
+    public DateTimeOffset SavedAt { get; set; } = DateTimeOffset.Now;
+}
+
 public sealed class DisplayControlService
 {
-    private DisplayModeInfo? _rollbackMode;
+    private readonly string _backupPath;
+
+    public DisplayControlService()
+    {
+        var root = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "D7SystemIntelligence", "RestoreVault");
+        Directory.CreateDirectory(root);
+        _backupPath = Path.Combine(root, "display.json");
+    }
 
     public DisplayModeInfo? GetCurrentMode()
     {
@@ -49,53 +64,75 @@ public sealed class DisplayControlService
         var current = GetCurrentMode();
         if (current == null) return "تعذر قراءة وضع الشاشة الحالي.";
         if (refreshRateHz < 30 || refreshRateHz > 1000) return "قيمة Refresh Rate غير صالحة.";
+        if (current.RefreshRateHz == refreshRateHz) return $"Already optimal • الشاشة تعمل أصلًا على {refreshRateHz}Hz؛ لم يغير D7KT شيئًا.";
 
-        var supported = GetModesForCurrentResolution().Any(x => x.RefreshRateHz == refreshRateHz);
-        if (!supported) return $"Windows لم يعرض {refreshRateHz}Hz كخيار مدعوم على الدقة الحالية {current.Width}×{current.Height}.";
+        var supported = GetModesForCurrentResolution().Any(x => x.RefreshRateHz == refreshRateHz && x.BitsPerPixel == current.BitsPerPixel);
+        if (!supported) return $"Windows لم يعرض {refreshRateHz}Hz بنفس Color Depth الحالي على {current.Width}×{current.Height}. لم يطبق D7KT وضعًا غير مؤكد.";
 
-        _rollbackMode ??= current;
-        var mode = NewMode();
-        mode.dmPelsWidth = current.Width;
-        mode.dmPelsHeight = current.Height;
-        mode.dmBitsPerPel = current.BitsPerPixel;
-        mode.dmDisplayFrequency = refreshRateHz;
-        mode.dmFields = DM_PELSWIDTH | DM_PELSHEIGHT | DM_BITSPERPEL | DM_DISPLAYFREQUENCY;
+        SaveModeBackupOnce(current);
+        var result = ApplyMode(current with { RefreshRateHz = refreshRateHz });
+        if (result != DISP_CHANGE_SUCCESSFUL)
+            return "فشل التطبيق: " + Explain(result);
 
-        var test = ChangeDisplaySettingsEx(null, ref mode, IntPtr.Zero, CDS_TEST, IntPtr.Zero);
-        if (test != DISP_CHANGE_SUCCESSFUL)
-            return "اختبار Windows رفض الوضع قبل تطبيقه: " + Explain(test);
+        var verified = GetCurrentMode();
+        if (verified?.RefreshRateHz == refreshRateHz && verified.Width == current.Width && verified.Height == current.Height)
+            return $"Applied + Verified • {current.RefreshRateHz}Hz → {verified.RefreshRateHz}Hz على {verified.Width}×{verified.Height}. Restore Vault محفوظ.";
 
-        var result = ChangeDisplaySettingsEx(null, ref mode, IntPtr.Zero, 0, IntPtr.Zero);
-        return result == DISP_CHANGE_SUCCESSFUL
-            ? $"تم تطبيق {current.Width}×{current.Height} @ {refreshRateHz}Hz فعليًا. التغيير غير دائم على السجل ويمكن استعادته من D7 أو بإعادة التشغيل."
-            : "فشل التطبيق: " + Explain(result);
+        var rollback = ApplyMode(current);
+        return rollback == DISP_CHANGE_SUCCESSFUL
+            ? $"REJECT + ROLLBACK • Windows قبل التغيير لكن القراءة بعد التطبيق لم تثبت {refreshRateHz}Hz؛ أعاد D7KT {current.RefreshRateHz}Hz."
+            : $"تحذير: التطبيق لم يثبت وRollback رجع رمز {rollback}. استخدم إعدادات Windows Display للتحقق يدويًا.";
     }
 
     public string ApplyMaximumRefresh()
     {
-        var mode = GetModesForCurrentResolution().OrderByDescending(x => x.RefreshRateHz).FirstOrDefault();
-        return mode == null ? "لا توجد أوضاع شاشة متاحة." : ApplyRefreshRate(mode.RefreshRateHz);
+        var current = GetCurrentMode();
+        var mode = GetModesForCurrentResolution()
+            .Where(x => current == null || x.BitsPerPixel == current.BitsPerPixel)
+            .OrderByDescending(x => x.RefreshRateHz)
+            .FirstOrDefault();
+        return mode == null ? "لا توجد أوضاع شاشة مؤكدة على Color Depth الحالي." : ApplyRefreshRate(mode.RefreshRateHz);
     }
 
     public string Restore()
     {
-        if (_rollbackMode == null)
-            return "لا توجد قيمة سابقة محفوظة في جلسة D7 الحالية.";
+        var snapshot = LoadBackup();
+        if (snapshot == null)
+            return "لا توجد Display Restore محفوظة في Restore Vault.";
 
-        var target = _rollbackMode;
-        var mode = NewMode();
-        mode.dmPelsWidth = target.Width;
-        mode.dmPelsHeight = target.Height;
-        mode.dmBitsPerPel = target.BitsPerPixel;
-        mode.dmDisplayFrequency = target.RefreshRateHz;
-        mode.dmFields = DM_PELSWIDTH | DM_PELSHEIGHT | DM_BITSPERPEL | DM_DISPLAYFREQUENCY;
-        var result = ChangeDisplaySettingsEx(null, ref mode, IntPtr.Zero, 0, IntPtr.Zero);
-        if (result == DISP_CHANGE_SUCCESSFUL)
+        var messages = new List<string>();
+        var allOk = true;
+
+        if (snapshot.Mode != null)
         {
-            _rollbackMode = null;
-            return $"تمت استعادة {target.Width}×{target.Height} @ {target.RefreshRateHz}Hz.";
+            var result = ApplyMode(snapshot.Mode);
+            var current = GetCurrentMode();
+            var ok = result == DISP_CHANGE_SUCCESSFUL && current != null &&
+                     current.Width == snapshot.Mode.Width && current.Height == snapshot.Mode.Height &&
+                     current.RefreshRateHz == snapshot.Mode.RefreshRateHz;
+            allOk &= ok;
+            messages.Add(ok
+                ? $"Refresh restored + verified → {snapshot.Mode.RefreshRateHz}Hz."
+                : "تعذر إثبات استعادة وضع الشاشة.");
         }
-        return "فشل الاسترجاع: " + Explain(result);
+
+        if (snapshot.Brightness.HasValue)
+        {
+            var brightness = SetBrightnessInternal(snapshot.Brightness.Value, saveBackup: false);
+            allOk &= brightness.Success;
+            messages.Add(brightness.Detail);
+        }
+
+        if (allOk)
+        {
+            try { File.Delete(_backupPath); } catch { }
+            messages.Add("تم حذف Restore snapshot بعد نجاح الاستعادة الكاملة.");
+        }
+        else
+        {
+            messages.Add("احتفظ D7KT بالـRestore snapshot لأن جزءًا من الاستعادة لم يتم التحقق منه.");
+        }
+        return string.Join(Environment.NewLine, messages);
     }
 
     public BrightnessInfo ReadBrightness()
@@ -112,19 +149,71 @@ public sealed class DisplayControlService
     }
 
     public string SetBrightness(uint value)
+        => SetBrightnessInternal(value, saveBackup: true).Detail;
+
+    private (bool Success, string Detail) SetBrightnessInternal(uint value, bool saveBackup)
     {
         var handle = GetFirstPhysicalMonitor(out var detail);
-        if (handle == IntPtr.Zero) return detail;
+        if (handle == IntPtr.Zero) return (false, detail);
         try
         {
-            if (!GetMonitorBrightness(handle, out var min, out _, out var max))
-                return "الشاشة لا توفر DDC/CI Brightness.";
+            if (!GetMonitorBrightness(handle, out var min, out var current, out var max))
+                return (false, "الشاشة لا توفر DDC/CI Brightness.");
             value = Math.Clamp(value, min, max);
-            return SetMonitorBrightness(handle, value)
-                ? $"تم ضبط سطوع الشاشة فعليًا إلى {value}."
-                : "Windows/DXVA2 رفض تغيير السطوع. قد تحتاج تفعيل DDC/CI من قائمة الشاشة.";
+            if (current == value) return (true, $"Already optimal • السطوع أصلًا {value}; لم يتغير شيء.");
+            if (saveBackup) SaveBrightnessBackupOnce(current);
+            if (!SetMonitorBrightness(handle, value))
+                return (false, "Windows/DXVA2 رفض تغيير السطوع. قد تحتاج تفعيل DDC/CI من قائمة الشاشة.");
+            Thread.Sleep(150);
+            if (!GetMonitorBrightness(handle, out _, out var verified, out _))
+                return (false, "تم إرسال أمر السطوع لكن D7KT لم يستطع قراءة القيمة للتحقق.");
+            if (verified == value)
+                return (true, $"Applied + Verified • Brightness {current} → {verified}. Restore Vault محفوظ.");
+
+            SetMonitorBrightness(handle, current);
+            return (false, $"REJECT + ROLLBACK • القراءة بعد التطبيق كانت {verified} بدل {value}; أعاد D7KT {current}.");
         }
         finally { DestroyPhysicalMonitor(handle); }
+    }
+
+    private int ApplyMode(DisplayModeInfo target)
+    {
+        var mode = NewMode();
+        mode.dmPelsWidth = target.Width;
+        mode.dmPelsHeight = target.Height;
+        mode.dmBitsPerPel = target.BitsPerPixel;
+        mode.dmDisplayFrequency = target.RefreshRateHz;
+        mode.dmFields = DM_PELSWIDTH | DM_PELSHEIGHT | DM_BITSPERPEL | DM_DISPLAYFREQUENCY;
+        var test = ChangeDisplaySettingsEx(null, ref mode, IntPtr.Zero, CDS_TEST, IntPtr.Zero);
+        if (test != DISP_CHANGE_SUCCESSFUL) return test;
+        return ChangeDisplaySettingsEx(null, ref mode, IntPtr.Zero, 0, IntPtr.Zero);
+    }
+
+    private void SaveModeBackupOnce(DisplayModeInfo mode)
+    {
+        var snapshot = LoadBackup() ?? new DisplayRestoreSnapshot();
+        if (snapshot.Mode == null) snapshot.Mode = mode;
+        SaveBackup(snapshot);
+    }
+
+    private void SaveBrightnessBackupOnce(uint value)
+    {
+        var snapshot = LoadBackup() ?? new DisplayRestoreSnapshot();
+        if (!snapshot.Brightness.HasValue) snapshot.Brightness = value;
+        SaveBackup(snapshot);
+    }
+
+    private DisplayRestoreSnapshot? LoadBackup()
+    {
+        if (!File.Exists(_backupPath)) return null;
+        try { return JsonSerializer.Deserialize<DisplayRestoreSnapshot>(File.ReadAllText(_backupPath)); }
+        catch { return null; }
+    }
+
+    private void SaveBackup(DisplayRestoreSnapshot snapshot)
+    {
+        snapshot.SavedAt = DateTimeOffset.Now;
+        File.WriteAllText(_backupPath, JsonSerializer.Serialize(snapshot, new JsonSerializerOptions { WriteIndented = true }));
     }
 
     private static IntPtr GetFirstPhysicalMonitor(out string detail)
