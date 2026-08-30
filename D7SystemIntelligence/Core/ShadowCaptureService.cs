@@ -341,9 +341,9 @@ public sealed class ShadowCaptureService : IAsyncDisposable
             var replayP99 = Avg(replay, x => x.P99FrameMs);
             var baseGpu = Avg(baseline, x => x.GpuLoad);
             var replayGpu = Avg(replay, x => x.GpuLoad);
-            var fpsLoss = baseFps.HasValue && replayFps.HasValue ? Math.Max(0, baseFps.Value - replayFps.Value) : null;
-            var p99Increase = baseP99.HasValue && replayP99.HasValue ? Math.Max(0, replayP99.Value - baseP99.Value) : null;
-            var gpuIncrease = baseGpu.HasValue && replayGpu.HasValue ? replayGpu.Value - baseGpu.Value : null;
+            double? fpsLoss = baseFps.HasValue && replayFps.HasValue ? Math.Max(0, baseFps.Value - replayFps.Value) : null;
+            double? p99Increase = baseP99.HasValue && replayP99.HasValue ? Math.Max(0, replayP99.Value - baseP99.Value) : null;
+            double? gpuIncrease = baseGpu.HasValue && replayGpu.HasValue ? replayGpu.Value - baseGpu.Value : null;
 
             var fpsPass = !fpsLoss.HasValue || fpsLoss <= settings.MaxFpsLoss;
             var gpuPass = !gpuIncrease.HasValue || gpuIncrease <= settings.MaxGpuBudgetPercent;
