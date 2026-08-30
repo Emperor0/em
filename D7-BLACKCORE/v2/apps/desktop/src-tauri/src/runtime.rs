@@ -56,7 +56,7 @@ impl RuntimeStore{
                 MissionStepResult{title:"جمع لقطة الجهاز الحية".into(),status:"completed".into(),evidence:Some(format!("{} · {} logical CPUs · {:.1}% RAM",snapshot.hostname,snapshot.logical_cpus,snapshot.ram_usage_percent))},
                 MissionStepResult{title:"قراءة CPU/GPU/RAM/Disks/Processes".into(),status:"completed".into(),evidence:Some(format!("CPU={} · GPU={} · processes={}",snapshot.cpu_name,gpu,snapshot.process_count))},
                 MissionStepResult{title:"حفظ تقرير فعلي".into(),status:"completed".into(),evidence:Some(report.display().to_string())},
-                MissionStepResult{title:"إعادة قراءة التقرير والتحقق".into(),status:if file_ok{"completed".into()}else{"failed".into(),evidence:Some(format!("exists={} host_match={}",report.exists(),host_ok))},
+                MissionStepResult{title:"إعادة قراءة التقرير والتحقق".into(),status:if file_ok{"completed".into()}else{"failed".into()},evidence:Some(format!("exists={} host_match={}",report.exists(),host_ok))},
             ],
             evidence:vec![
                 MissionEvidence{kind:"device".into(),claim:"Live Device Twin sampled the current machine".into(),value:format!("{} | CPU {:.1}% | RAM {:.1}% | {} processes",snapshot.hostname,snapshot.cpu_usage_percent,snapshot.ram_usage_percent,snapshot.process_count),verified:true},
@@ -95,12 +95,12 @@ impl RuntimeStore{
             let outcome=opencode::execute_goal(&goal,&selected_modes)?;
             let verified=outcome.completed&&outcome.response_text.trim().len()>2;
             let result=MissionResult{
-                id:id("result"),goal:goal.clone(),status:if verified{"completed".into()}else{"failed".into(),quality_score:if verified{90}else{0},target_path:outcome.workspace.clone(),verified,
+                id:id("result"),goal:goal.clone(),status:if verified{"completed".into()}else{"failed".into()},quality_score:if verified{90}else{0},target_path:outcome.workspace.clone(),verified,
                 steps:vec![
-                    MissionStepResult{title:"تشغيل/التحقق من OpenCode Server".into(),status:if outcome.server_ready{"completed".into()}else{"failed".into(),evidence:Some(outcome.server_evidence.clone())},
-                    MissionStepResult{title:"إنشاء Agent Session".into(),status:if outcome.session_id.is_some(){"completed".into()}else{"failed".into(),evidence:outcome.session_id.clone()},
-                    MissionStepResult{title:"إرسال الهدف إلى Build Agent".into(),status:if outcome.completed{"completed".into()}else{"failed".into(),evidence:Some(outcome.response_text.chars().take(600).collect())},
-                    MissionStepResult{title:"التحقق من استجابة التنفيذ".into(),status:if verified{"completed".into()}else{"failed".into(),evidence:Some(format!("response_chars={} session={}",outcome.response_text.chars().count(),outcome.session_id.clone().unwrap_or_default()))},
+                    MissionStepResult{title:"تشغيل/التحقق من OpenCode Server".into(),status:if outcome.server_ready{"completed".into()}else{"failed".into()},evidence:Some(outcome.server_evidence.clone())},
+                    MissionStepResult{title:"إنشاء Agent Session".into(),status:if outcome.session_id.is_some(){"completed".into()}else{"failed".into()},evidence:outcome.session_id.clone()},
+                    MissionStepResult{title:"إرسال الهدف إلى Build Agent".into(),status:if outcome.completed{"completed".into()}else{"failed".into()},evidence:Some(outcome.response_text.chars().take(600).collect())},
+                    MissionStepResult{title:"التحقق من استجابة التنفيذ".into(),status:if verified{"completed".into()}else{"failed".into()},evidence:Some(format!("response_chars={} session={}",outcome.response_text.chars().count(),outcome.session_id.clone().unwrap_or_default()))},
                 ],
                 evidence:vec![
                     MissionEvidence{kind:"agent".into(),claim:"OpenCode Build agent returned a completed response".into(),value:outcome.response_text.clone(),verified},
@@ -145,7 +145,7 @@ pub struct SharedRuntime(pub Mutex<RuntimeStore>);impl SharedRuntime{pub fn new(
 #[cfg(test)]
 mod tests{
     use super::*;
-    #[test]fn generic_missions_no_longer_end_as_fake_planned(){let modes=modes::infer_mode_ids("ابنِ لي برنامج احترافي");assert!(!device_goal("ابنِ لي برنامج احترافي",&modes));}
-    #[test]fn device_goals_are_native_executable(){let modes=modes::infer_mode_ids("افحص جهازي كامل");assert!(device_goal("افحص جهازي كامل",&modes));}
+    #[test]fn generic_missions_no_longer_end_as_fake_planned(){let mode_ids=modes::infer_mode_ids("ابنِ لي برنامج احترافي");assert!(!device_goal("ابنِ لي برنامج احترافي",&mode_ids));}
+    #[test]fn device_goals_are_native_executable(){let mode_ids=modes::infer_mode_ids("افحص جهازي كامل");assert!(device_goal("افحص جهازي كامل",&mode_ids));}
     #[test]fn probe_evidence_is_retained_in_runtime_state(){let mut s=RuntimeStore::new();let value=serde_json::json!({"transportVerified":true,"semanticOk":true,"reason":"OK"});s.record_probe(value.clone());assert_eq!(s.last_probe,Some(value));}
 }
