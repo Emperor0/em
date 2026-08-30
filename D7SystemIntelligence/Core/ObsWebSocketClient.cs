@@ -16,6 +16,21 @@ public sealed class ObsRequestException : Exception
     }
 }
 
+public sealed record ObsRuntimeStats(
+    double CpuUsage,
+    double MemoryUsageMb,
+    double AvailableDiskMb,
+    double ActiveFps,
+    double AverageFrameRenderTimeMs,
+    long RenderSkippedFrames,
+    long RenderTotalFrames,
+    long OutputSkippedFrames,
+    long OutputTotalFrames)
+{
+    public double RenderSkipPercent => RenderTotalFrames <= 0 ? 0 : RenderSkippedFrames * 100d / RenderTotalFrames;
+    public double OutputSkipPercent => OutputTotalFrames <= 0 ? 0 : OutputSkippedFrames * 100d / OutputTotalFrames;
+}
+
 public sealed class ObsWebSocketClient : IAsyncDisposable
 {
     private ClientWebSocket? _socket;
@@ -121,7 +136,34 @@ public sealed class ObsWebSocketClient : IAsyncDisposable
     public async Task<bool> IsReplayBufferActiveAsync(CancellationToken cancellationToken = default)
     {
         var data = await RequestAsync("GetReplayBufferStatus", cancellationToken: cancellationToken);
-        return data.TryGetProperty("outputActive", out var active) && active.GetBoolean();
+        return ReadBool(data, "outputActive");
+    }
+
+    public async Task<bool> IsStreamActiveAsync(CancellationToken cancellationToken = default)
+    {
+        var data = await RequestAsync("GetStreamStatus", cancellationToken: cancellationToken);
+        return ReadBool(data, "outputActive");
+    }
+
+    public async Task<bool> IsRecordActiveAsync(CancellationToken cancellationToken = default)
+    {
+        var data = await RequestAsync("GetRecordStatus", cancellationToken: cancellationToken);
+        return ReadBool(data, "outputActive");
+    }
+
+    public async Task<ObsRuntimeStats> GetStatsAsync(CancellationToken cancellationToken = default)
+    {
+        var data = await RequestAsync("GetStats", cancellationToken: cancellationToken);
+        return new ObsRuntimeStats(
+            ReadDouble(data, "cpuUsage"),
+            ReadDouble(data, "memoryUsage"),
+            ReadDouble(data, "availableDiskSpace"),
+            ReadDouble(data, "activeFps"),
+            ReadDouble(data, "averageFrameRenderTime"),
+            ReadLong(data, "renderSkippedFrames"),
+            ReadLong(data, "renderTotalFrames"),
+            ReadLong(data, "outputSkippedFrames"),
+            ReadLong(data, "outputTotalFrames"));
     }
 
     public Task StartReplayBufferAsync(CancellationToken cancellationToken = default)
@@ -135,6 +177,14 @@ public sealed class ObsWebSocketClient : IAsyncDisposable
 
     public Task SetRecordDirectoryAsync(string path, CancellationToken cancellationToken = default)
         => RequestAsync("SetRecordDirectory", new { recordDirectory = path }, cancellationToken);
+
+    public async Task<string?> GetRecordDirectoryAsync(CancellationToken cancellationToken = default)
+    {
+        var data = await RequestAsync("GetRecordDirectory", cancellationToken: cancellationToken);
+        return data.TryGetProperty("recordDirectory", out var node) && node.ValueKind == JsonValueKind.String
+            ? node.GetString()
+            : null;
+    }
 
     public async Task<string?> GetProfileParameterAsync(string category, string name, CancellationToken cancellationToken = default)
     {
@@ -183,6 +233,15 @@ public sealed class ObsWebSocketClient : IAsyncDisposable
         stream.Position = 0;
         return await JsonDocument.ParseAsync(stream, cancellationToken: cancellationToken);
     }
+
+    private static bool ReadBool(JsonElement data, string name)
+        => data.TryGetProperty(name, out var node) && node.ValueKind is JsonValueKind.True or JsonValueKind.False && node.GetBoolean();
+
+    private static double ReadDouble(JsonElement data, string name)
+        => data.TryGetProperty(name, out var node) && node.TryGetDouble(out var value) ? value : 0;
+
+    private static long ReadLong(JsonElement data, string name)
+        => data.TryGetProperty(name, out var node) && node.TryGetInt64(out var value) ? value : 0;
 
     private static string ComputeAuthentication(string password, string salt, string challenge)
     {
