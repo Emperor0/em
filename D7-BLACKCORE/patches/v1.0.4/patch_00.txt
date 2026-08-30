@@ -1,0 +1,112 @@
+diff --git a/BUILD_STATUS.json b/BUILD_STATUS.json
+index f6989c0..7ff5fd6 100644
+--- a/BUILD_STATUS.json
++++ b/BUILD_STATUS.json
+@@ -1,6 +1,6 @@
+ {
+   "name": "D7 BLACKCORE",
+-  "version": "1.0.3",
++  "version": "1.0.4",
+   "build_type": "Windows desktop source distribution",
+   "tests": "22/22 passed",
+   "features": {
+@@ -21,6 +21,6 @@
+     "local_file_fast_path": true,
+     "live_mission_step_refresh": true
+   },
+-  "note": "v1.0.3 adds Arabic RTL modern UI, GitHub one-click update UX, live mission states, and deterministic local-file execution fast path.",
++  "note": "v1.0.4 adds bounded OpenCode timeouts, active-session abort, partial-swarm recovery, and a dedicated browser-research-to-report execution path.",
+   "windows_preflight_temp_lock_fix": true
+ }
+\ No newline at end of file
+diff --git a/README.md b/README.md
+index aa882b9..77644ab 100644
+--- a/README.md
++++ b/README.md
+@@ -1,8 +1,8 @@
+-# D7 BLACKCORE 1.0.3
++# D7 BLACKCORE 1.0.4
+ 
+ نسخة عربية RTL بواجهة حديثة، OpenCode Native Provider، تنفيذ محلي موثّق، وتحديث مباشر من GitHub داخل التطبيق.
+ 
+-## الجديد في 1.0.3
++## الجديد في 1.0.4
+ - واجهة عربية RTL حديثة بالكامل.
+ - زر «تحديث الآن» يفحص GitHub وينزّل ويتحقق ويثبّت الإصدار الجديد من داخل BLACKCORE.
+ - عرض حالة خطوات المهمة حيًا بدل بقاء الخطوات PENDING بصريًا.
+@@ -11,3 +11,10 @@
+ - SHA-256 + staging + backup + rollback للتحديثات.
+ 
+ البيانات الحساسة والذاكرة والجلسات تبقى تحت `%LOCALAPPDATA%\D7BLACKCORE` ولا تُضمّن في GitHub Releases.
++
++
++### ثبات المهام الطويلة في 1.0.4
++- مهلات زمنية محددة لاستدعاءات OpenCode بدل الانتظار غير المحدود.
++- زر الإيقاف يحاول إلغاء جلسة OpenCode النشطة.
++- Swarm يكمل بالنتائج الجزئية عند تعطل وكيل واحد.
++- مسار سريع لمهام البحث ثم إنشاء تقرير على سطح المكتب.
+diff --git a/blackcore/browser_operator.py b/blackcore/browser_operator.py
+index 831b666..786b43c 100644
+--- a/blackcore/browser_operator.py
++++ b/blackcore/browser_operator.py
+@@ -1,15 +1,11 @@
+ from __future__ import annotations
+ from pathlib import Path
+-from urllib.parse import quote_plus
++from urllib.parse import quote_plus, urlparse
+ import time
+ from .models import StepResult, Evidence
+ 
+ class BrowserOperator:
+-    """Visible persistent browser with bounded self-healing retries.
+-
+-    Credentials are intentionally entered by the user in the visible browser session.
+-    BLACKCORE reuses that browser profile instead of storing passwords itself.
+-    """
++    """Visible persistent browser with bounded self-healing retries."""
+     def __init__(self, profile_dir: str | Path, headless: bool = False, max_retries: int = 2):
+         self.profile_dir = str(profile_dir)
+         self.headless = headless
+@@ -38,6 +34,31 @@ class BrowserOperator:
+         r = self.start()
+         return None if r.ok else r
+ 
++    def _page_snapshot(self,max_chars:int=14000,max_links:int=12) -> dict:
++        if self._page is None:
++            return {"text":"","links":[]}
++        text=""; links=[]
++        try:
++            text=self._page.locator("body").inner_text(timeout=5000)[:max_chars]
++        except Exception:
++            pass
++        try:
++            raw=self._page.eval_on_selector_all("a[href]", "els => els.map(a => ({text:(a.innerText||'').trim(), href:a.href}))")
++            seen=set()
++            for row in raw or []:
++                href=str((row or {}).get('href') or '')
++                label=str((row or {}).get('text') or '').strip()
++                if not href.startswith(('http://','https://')): continue
++                host=(urlparse(href).hostname or '').lower()
++                if 'google.' in host or host.endswith('google.com'): continue
++                key=href.split('#',1)[0]
++                if key in seen: continue
++                seen.add(key); links.append({"text":label[:240],"url":key})
++                if len(links)>=max_links: break
++        except Exception:
++            pass
++        return {"text":text,"links":links}
++
+     def _navigate(self, url: str, summary: str) -> StepResult:
+         last = None
+         for attempt in range(self.max_retries + 1):
+@@ -46,7 +67,10 @@ class BrowserOperator:
+             else:
+                 try:
+                     self._page.goto(url, wait_until="domcontentloaded", timeout=30_000)
+-                    return StepResult(True, summary, [Evidence("url", self._page.url), Evidence("title", self._page.title()), Evidence("attempt", str(attempt+1))])
++                    snap=self._page_snapshot()
++                    ev=[Evidence("url", self._page.url), Evidence("title", self._page.title()), Evidence("attempt", str(attempt+1))]
++                    if snap['links']: ev.append(Evidence('links_found',str(len(snap['links']))))
++                    return StepResult(True, summary, ev, snap)
+                 except Exception as e:
+                     la
