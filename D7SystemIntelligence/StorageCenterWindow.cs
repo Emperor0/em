@@ -14,7 +14,7 @@ public sealed class StorageCenterWindow : Window
 
     public StorageCenterWindow()
     {
-        Title = "D7 — Storage Center";
+        Title = "D7KT • Storage Center";
         Width = 1120;
         Height = 760;
         WindowStartupLocation = WindowStartupLocation.CenterOwner;
@@ -30,7 +30,7 @@ public sealed class StorageCenterWindow : Window
 
         var header = new StackPanel();
         header.Children.Add(new TextBlock { Text = "Storage Center", FontSize = 28, FontWeight = FontWeights.SemiBold });
-        header.Children.Add(new TextBlock { Text = "SMART/Reliability عبر Windows Storage API، حرارة/ساعات تشغيل/أخطاء عندما يوفرها القرص، ومساحة الأقسام. ReTrim يستخدم Optimize-Volume الرسمي فقط.", TextWrapping = TextWrapping.Wrap, Foreground = Brush("Muted", Brushes.Gray), Margin = new Thickness(0,6,0,8) });
+        header.Children.Add(new TextBlock { Text = "SMART/Reliability عبر Windows Storage API + مقارنة Error/Wear counters مع الفحص السابق. D7KT لا يفسر Vendor-specific Wear كعمر متبقٍ بدون دليل الشركة.", TextWrapping = TextWrapping.Wrap, Foreground = Brush("Muted", Brushes.Gray), Margin = new Thickness(0,6,0,8) });
         var scan = new Button { Content = "فحص التخزين", HorizontalAlignment = HorizontalAlignment.Right };
         scan.Click += async (_,_) => await RefreshAsync();
         header.Children.Add(scan);
@@ -49,7 +49,7 @@ public sealed class StorageCenterWindow : Window
         retrim.Click += async (_,_) =>
         {
             if (_volumes.SelectedItem is not VolumeRecord v) { _status.Text="اختر Volume أولًا."; return; }
-            if (MessageBox.Show($"تشغيل Windows ReTrim على {v.DriveLetter}؟ هذا مناسب عادة لـSSD/NVMe التي تدعم TRIM، وWindows سيرفض إذا غير مدعوم.","D7 ReTrim",MessageBoxButton.YesNo,MessageBoxImage.Information)!=MessageBoxResult.Yes) return;
+            if (MessageBox.Show($"تشغيل Windows ReTrim على {v.DriveLetter}؟ Windows سيرفض إذا الـVolume/drive لا يدعمه. D7KT لا يعتبر ReTrim تحسين FPS بحد ذاته.","D7KT • ReTrim",MessageBoxButton.YesNo,MessageBoxImage.Information)!=MessageBoxResult.Yes) return;
             await WithVolumeAsync(x => _storage.RetrimVolumeAsync(x.DriveLetter));
         };
         row.Children.Add(analyze); row.Children.Add(retrim); footer.Children.Add(row);
@@ -69,8 +69,9 @@ public sealed class StorageCenterWindow : Window
         _drives.Columns.Add(new DataGridTextColumn{Header="GB",Binding=new System.Windows.Data.Binding(nameof(PhysicalDriveRecord.SizeGb)){StringFormat="{0:0.0}"},Width=new DataGridLength(.7,DataGridLengthUnitType.Star)});
         _drives.Columns.Add(new DataGridTextColumn{Header="Temp °C",Binding=new System.Windows.Data.Binding(nameof(PhysicalDriveRecord.TemperatureC)){StringFormat="{0:0}"},Width=new DataGridLength(.7,DataGridLengthUnitType.Star)});
         _drives.Columns.Add(new DataGridTextColumn{Header="Hours",Binding=new System.Windows.Data.Binding(nameof(PhysicalDriveRecord.PowerOnHours)),Width=new DataGridLength(.7,DataGridLengthUnitType.Star)});
+        _drives.Columns.Add(new DataGridTextColumn{Header="Read Err",Binding=new System.Windows.Data.Binding(nameof(PhysicalDriveRecord.ReadErrors)),Width=new DataGridLength(.7,DataGridLengthUnitType.Star)});
+        _drives.Columns.Add(new DataGridTextColumn{Header="Write Err",Binding=new System.Windows.Data.Binding(nameof(PhysicalDriveRecord.WriteErrors)),Width=new DataGridLength(.7,DataGridLengthUnitType.Star)});
         _drives.Columns.Add(new DataGridTextColumn{Header="Wear",Binding=new System.Windows.Data.Binding(nameof(PhysicalDriveRecord.Wear)),Width=new DataGridLength(.6,DataGridLengthUnitType.Star)});
-        _drives.Columns.Add(new DataGridTextColumn{Header="Serial",Binding=new System.Windows.Data.Binding(nameof(PhysicalDriveRecord.SerialNumber)),Width=new DataGridLength(1.2,DataGridLengthUnitType.Star)});
     }
 
     private void ConfigureVolumes()
@@ -86,9 +87,13 @@ public sealed class StorageCenterWindow : Window
 
     private async Task RefreshAsync()
     {
-        _status.Text="جاري قراءة Storage Reliability…";
+        _status.Text="جاري قراءة Storage Reliability ومقارنتها بالفحص السابق…";
         var s=await _storage.ScanAsync();
-        _drives.ItemsSource=s.Drives; _volumes.ItemsSource=s.Volumes; _status.Text=s.Summary;
+        _drives.ItemsSource=s.Drives; _volumes.ItemsSource=s.Volumes;
+        var trendText = s.Trends.Count == 0
+            ? "لا توجد Reliability deltas مسجلة منذ الفحص السابق، أو هذا أول Baseline."
+            : string.Join("\n", s.Trends.Select(t => $"[{t.Severity}] {t.Drive} • {t.Metric}: {t.Detail}"));
+        _status.Text=s.Summary+"\n"+trendText;
     }
 
     private async Task WithVolumeAsync(Func<VolumeRecord,Task<string>> action)
