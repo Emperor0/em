@@ -39,6 +39,7 @@ public sealed class D7MissionEngine : IAsyncDisposable
         _hardware = hardware;
         _fans = new SmartFanController(hardware);
         _fans.StatusChanged += s => StatusChanged?.Invoke(s);
+        D7RuntimeBus.PublishMission(D7Mission.None);
     }
 
     public async Task<MissionApplyResult> ApplyAsync(D7Mission mission, string? gameProcessName, CancellationToken cancellationToken = default)
@@ -51,6 +52,7 @@ public sealed class D7MissionEngine : IAsyncDisposable
 
         var steps = new List<MissionStepResult>();
         ActiveMission = mission;
+        D7RuntimeBus.PublishMission(mission);
         StatusChanged?.Invoke($"جاري تطبيق مهمة {MissionArabic(mission)}…");
 
         switch (mission)
@@ -58,24 +60,20 @@ public sealed class D7MissionEngine : IAsyncDisposable
             case D7Mission.ProRanked:
                 await ApplyPerformanceFoundationAsync(steps, cancellationToken, includeNetwork: true, cleanBackground: true);
                 break;
-
             case D7Mission.StreamRanked:
                 await ApplyPerformanceFoundationAsync(steps, cancellationToken, includeNetwork: true, cleanBackground: false);
                 ApplyStreamGovernor(steps, gameProcessName);
                 await StartConfiguredReplayIfEnabledAsync(steps, cancellationToken);
                 break;
-
             case D7Mission.Recording:
                 await ApplyPerformanceFoundationAsync(steps, cancellationToken, includeNetwork: false, cleanBackground: false);
                 await StartReplayAsync(steps, cancellationToken);
                 break;
-
             case D7Mission.Story:
                 await ApplyPowerAsync(steps, cancellationToken);
                 ApplyDisplayMax(steps);
                 StartSmartFans(steps);
                 break;
-
             case D7Mission.Silent:
                 await ApplyBalancedPowerAsync(steps, cancellationToken);
                 if (_fans.IsRunning)
@@ -100,19 +98,14 @@ public sealed class D7MissionEngine : IAsyncDisposable
 
         if (_shadowStartedByMission)
         {
-            try
-            {
-                var detail = await _shadow.StopAsync(cancellationToken);
-                steps.Add(new MissionStepResult("Shadow Capture", true, detail));
-            }
+            try { steps.Add(new MissionStepResult("Shadow Capture", true, await _shadow.StopAsync(cancellationToken))); }
             catch (Exception ex) { steps.Add(new MissionStepResult("Shadow Capture", false, ex.Message)); }
             _shadowStartedByMission = false;
         }
 
         if (_streamGovernorApplied)
         {
-            var detail = _streamGovernor.Restore();
-            steps.Add(new MissionStepResult("Stream Governor", true, detail));
+            steps.Add(new MissionStepResult("Stream Governor", true, _streamGovernor.Restore()));
             _streamGovernorApplied = false;
         }
 
@@ -157,6 +150,7 @@ public sealed class D7MissionEngine : IAsyncDisposable
         }
 
         ActiveMission = D7Mission.None;
+        D7RuntimeBus.PublishMission(D7Mission.None);
         var ok = steps.All(x => x.Success || IsOptionalStep(x.Step));
         var summary = previous == D7Mission.None
             ? "لا توجد Mission نشطة تحتاج استعادة."
@@ -170,7 +164,6 @@ public sealed class D7MissionEngine : IAsyncDisposable
         await ApplyPowerAsync(steps, token);
         ApplyDisplayMax(steps);
         StartSmartFans(steps);
-
         if (includeNetwork)
         {
             try
@@ -181,14 +174,9 @@ public sealed class D7MissionEngine : IAsyncDisposable
             }
             catch (Exception ex) { steps.Add(new MissionStepResult("الشبكة", false, ex.Message)); }
         }
-
         if (cleanBackground)
         {
-            try
-            {
-                var detail = await _background.SmartCleanAsync(token);
-                steps.Add(new MissionStepResult("الخلفية", true, detail));
-            }
+            try { steps.Add(new MissionStepResult("الخلفية", true, await _background.SmartCleanAsync(token))); }
             catch (Exception ex) { steps.Add(new MissionStepResult("الخلفية", false, ex.Message)); }
         }
     }
@@ -258,8 +246,7 @@ public sealed class D7MissionEngine : IAsyncDisposable
 
     private async Task StartConfiguredReplayIfEnabledAsync(List<MissionStepResult> steps, CancellationToken token)
     {
-        var settings = _shadow.LoadSettings();
-        if (!settings.Enabled)
+        if (!_shadow.LoadSettings().Enabled)
         {
             steps.Add(new MissionStepResult("Shadow Capture", true, "Shadow Capture غير مفعّل في إعداداتك؛ Stream Mission لن تفعله من نفسها."));
             return;
@@ -284,8 +271,7 @@ public sealed class D7MissionEngine : IAsyncDisposable
         catch (Exception ex) { steps.Add(new MissionStepResult("Shadow Capture", false, ex.Message)); }
     }
 
-    private static bool IsOptionalStep(string step)
-        => step is "المراوح" or "Shadow Capture" or "الشاشة";
+    private static bool IsOptionalStep(string step) => step is "المراوح" or "Shadow Capture" or "الشاشة";
 
     private static string BuildSummary(D7Mission mission, IReadOnlyCollection<MissionStepResult> steps, bool success)
     {
