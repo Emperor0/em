@@ -162,8 +162,8 @@ public sealed class D7MissionEngine : IAsyncDisposable
             try
             {
                 var detail = _display.Restore();
-                var ok = !detail.StartsWith("فشل", StringComparison.Ordinal) && !detail.StartsWith("تعذر", StringComparison.Ordinal);
-                steps.Add(new MissionStepResult("الشاشة", ok, detail, ok ? MissionStepState.Restored : MissionStepState.Failed));
+                var displayRestoreOk = !detail.StartsWith("فشل", StringComparison.Ordinal) && !detail.StartsWith("تعذر", StringComparison.Ordinal);
+                steps.Add(new MissionStepResult("الشاشة", displayRestoreOk, detail, displayRestoreOk ? MissionStepState.Restored : MissionStepState.Failed));
             }
             catch (Exception ex) { steps.Add(Failed("الشاشة", ex.Message)); }
             _displayApplied = false;
@@ -182,13 +182,13 @@ public sealed class D7MissionEngine : IAsyncDisposable
 
         ActiveMission = D7Mission.None;
         D7RuntimeBus.PublishMission(D7Mission.None);
-        var ok = steps.All(x => x.State != MissionStepState.Failed);
+        var restoreOk = steps.All(x => x.State != MissionStepState.Failed);
         var summary = previous == D7Mission.None
             ? "لا توجد Mission نشطة ولا تغييرات مملوكة لـD7KT تحتاج استعادة."
-            : ok ? $"تم إنهاء {MissionArabic(previous)} واستعادة كل تغيير كان D7KT يملكه."
+            : restoreOk ? $"تم إنهاء {MissionArabic(previous)} واستعادة كل تغيير كان D7KT يملكه."
             : $"انتهت {MissionArabic(previous)} لكن فشل التحقق من استعادة خطوة أو أكثر. راجع التفاصيل.";
         StatusChanged?.Invoke(summary);
-        return new MissionApplyResult(D7Mission.None, ok, steps, summary);
+        return new MissionApplyResult(D7Mission.None, restoreOk, steps, summary);
     }
 
     private async Task ApplyPerformanceFoundationAsync(List<MissionStepResult> steps, CancellationToken token, bool includeNetwork, bool cleanBackground)
