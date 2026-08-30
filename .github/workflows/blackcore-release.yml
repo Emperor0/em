@@ -24,8 +24,8 @@ jobs:
             exit 0
           fi
           count=$(find D7-BLACKCORE/release_chunks -name 'chunk_*.b64' | wc -l)
-          if [ "$count" -ne 15 ]; then
-            echo "Expected 15 chunks, found $count"
+          if [ "$count" -ne 10 ]; then
+            echo "Expected 10 chunks, found $count"
             exit 1
           fi
           echo "ready=true" >> "$GITHUB_OUTPUT"
