@@ -1,0 +1,95 @@
+uncil path.
++        report_file=self._extract_filename(g)
++        research_query=self._extract_research_query(g)
++        if report_file and research_query and self._looks_like_research_report(g):
++            report_path=r"%USERPROFILE%\Desktop"+"\\"+report_file
++            m.steps=[
++                MissionStep('البحث في الويب','مشغّل المتصفح','search_web',{'query':research_query}),
++                MissionStep('فتح المصدر وتحليل الأدلة','محلل الأبحاث','research_analysis',{'query':research_query}),
++                MissionStep('حفظ تقرير البحث','مشغّل النظام','write_context_text',{'path':report_path}),
++                MissionStep('قراءة التقرير والتحقق','مشغّل النظام','system:read_text',{'path':report_path}),
++                MissionStep('تدقيق مستقل','مراقب الجودة','quality_review',{}),
++            ]
++            return m
++
+         folder = self._extract_folder(g)
+         filename = self._extract_filename(g)
+         content = self._extract_content(g)
+@@ -24,7 +38,7 @@ class Planner:
+             ]
+             return m
+ 
+-        qmatch=re.search(r'(?:ابحث|دور)(?:\s+لي)?(?:\s+عن)?\s+(.+)',g,re.I)
++        qmatch=re.search(r'(?:ابحث|دور)(?:\s+لي)?(?:\s+في\s+الإنترنت)?(?:\s+عن)?\s+(.+)',g,re.I)
+         if qmatch:
+             q=qmatch.group(1).strip(); m.steps=[MissionStep('البحث في الويب','مشغّل المتصفح','search_web',{'query':q}),MissionStep('تحليل البحث','قسم الأبحاث','department',{'department':'research','goal':q}),MissionStep('تدقيق مستقل','مراقب الجودة','quality_review',{})]; return m
+         if gl.startswith('http://') or gl.startswith('https://'):
+@@ -42,6 +56,27 @@ class Planner:
+         m.steps=[MissionStep('مجلس متخصص متوازٍ','BLACKCORE Swarm','department',{'department':'general','goal':g}),MissionStep('المراجعة النهائية','مراقب الجودة','quality_review',{})]
+         return m
+ 
++    @staticmethod
++    def _looks_like_research_report(g:str)->bool:
++        gl=g.lower()
++        has_search=any(x in g for x in ['ابحث','دور']) or 'search' in gl
++        has_report=('.txt' in gl or '.md' in gl) and (('سطح المكتب' in g) or ('desktop' in gl))
++        has_verify=any(x in g for x in ['تحقق','المصدر','تاريخ التحقق']) or any(x in gl for x in ['verify','source'])
++        return has_search and has_report and has_verify
++
++    @staticmethod
++    def _extract_research_query(g:str):
++        patterns=[
++            r'(?:ابحث|دور)(?:\s+لي)?(?:\s+في\s+الإنترنت)?(?:\s+عن)?\s+(.+?)(?=،|,|\s+تحقق\b|\s+ثم\b|\s+بعد\s+ذلك\b|$)',
++            r'(?:search)(?:\s+the\s+web|\s+online)?(?:\s+for)?\s+(.+?)(?=,|\s+verify\b|\s+then\b|$)',
++        ]
++        for p in patterns:
++            m=re.search(p,g,re.I)
++            if m:
++                q=m.group(1).strip(' .،,')
++                if q:return q
++        return None
++
+     @staticmethod
+     def _looks_like_local_file_task(g: str) -> bool:
+         gl=g.lower()
+@@ -62,7 +97,9 @@ class Planner:
+ 
+     @staticmethod
+     def _extract_filename(g: str):
+-        m=re.search(r'(?:ملف|file)\s*[`"“”\']?([\w .-]+\.[A-Za-z0-9]{1,8})[`"“”\']?',g,re.I)
++        m=re.search(r'(?:ملف|file)\s+(?:باسم|named)?\s*[`"“”\']?([\w .-]+\.[A-Za-z0-9]{1,8})[`"“”\']?',g,re.I)
++        if m:return m.group(1).strip()
++        m=re.search(r'\b([A-Za-z0-9_. -]+\.(?:txt|md|json|csv))\b',g,re.I)
+         return m.group(1).strip() if m else None
+ 
+     @staticmethod
+diff --git a/blackcore/swarm.py b/blackcore/swarm.py
+index b8e0b96..fa8784e 100644
+--- a/blackcore/swarm.py
++++ b/blackcore/swarm.py
+@@ -1,18 +1,56 @@
+ from __future__ import annotations
+ from concurrent.futures import ThreadPoolExecutor, as_completed
+ from .models import StepResult,Evidence
++
+ class SwarmEngine:
+-    def __init__(self,llm,max_workers:int=4): self.llm=llm; self.max_workers=max(2,max_workers)
++    """Bounded parallel council.
++
++    Every specialist call has a finite timeout. Partial specialist success is
++    preserved instead of freezing the mission, and synthesis has its own bound.
++    """
++    def __init__(self,llm,max_workers:int=4,member_timeout:float=35,synthesis_timeout:float=45):
++        self.llm=llm; self.max_workers=max(2,max_workers)
++        self.member_timeout=float(member_timeout); self.synthesis_timeout=float(synthesis_timeout)
++
+     def run_council(self,goal:str,roles:list[str]) -> StepResult:
+-        if not self.llm.available(): return StepResult(False,'AI provider unavailable for swarm',error='LLM_UNAVAILABLE')
++        if not self.llm.available():
++            return StepResult(False,'AI provider unavailable for swarm',error='LLM_UNAVAILABLE')
++
+         def one(role):
+             system=f'You are the {role} specialist in D7 BLACKCORE. Analyze independently. Be concrete, evidence-aware, and concise.'
+-            return role,self.llm.chat(system,goal)
+-        outputs={}
+-        with Thread
