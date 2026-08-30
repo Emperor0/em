@@ -3,10 +3,12 @@ using System.IO.Compression;
 using System.Net.Http;
 using System.Security.Cryptography;
 using System.Text.Json;
+using System.Text.RegularExpressions;
 
 namespace D7SystemIntelligence.Core;
 
 public sealed record OpenRgbBackendInfo(bool Available, string? ExecutablePath, string Detail);
+public sealed record OpenRgbDevice(int Index, string Name, string Type, IReadOnlyList<string> Modes, string Raw);
 
 public sealed class ManagedOpenRgbService
 {
@@ -35,8 +37,8 @@ public sealed class ManagedOpenRgbService
 
         var exe = candidates.FirstOrDefault(File.Exists);
         return exe == null
-            ? new OpenRgbBackendInfo(false, null, "OpenRGB غير موجود. D7 يستطيع تنزيل نسخة Windows 64 الرسمية والتحقق من SHA-256 عند الضغط على تجهيز OpenRGB.")
-            : new OpenRgbBackendInfo(true, exe, $"OpenRGB جاهز: {exe}");
+            ? new OpenRgbBackendInfo(false, null, "OpenRGB غير موجود. D7KT يستطيع تنزيل Windows 64 الرسمي والتحقق من SHA-256.")
+            : new OpenRgbBackendInfo(true, exe, $"OpenRGB backend جاهز: {exe}");
     }
 
     public async Task<OpenRgbBackendInfo> EnsureAsync(IProgress<double>? progress = null, CancellationToken cancellationToken = default)
@@ -68,9 +70,9 @@ public sealed class ManagedOpenRgbService
         }
 
         if (string.IsNullOrWhiteSpace(url) || string.IsNullOrWhiteSpace(assetName))
-            throw new InvalidOperationException("لم يجد D7 ملف OpenRGB Windows 64 ZIP في الإصدار الرسمي الحالي.");
+            throw new InvalidOperationException("لم يجد D7KT ملف OpenRGB Windows 64 ZIP في الإصدار الرسمي الحالي.");
         if (string.IsNullOrWhiteSpace(digest) || !digest.StartsWith("sha256:", StringComparison.OrdinalIgnoreCase))
-            throw new InvalidOperationException("الإصدار الرسمي لا يحتوي SHA-256؛ D7 رفض تنزيل أداة RGB بدون تحقق.");
+            throw new InvalidOperationException("الإصدار الرسمي لا يحتوي SHA-256؛ D7KT رفض تنزيل backend بدون تحقق.");
 
         var versionRoot = Path.Combine(_root, Sanitize(tag));
         Directory.CreateDirectory(versionRoot);
@@ -109,34 +111,155 @@ public sealed class ManagedOpenRgbService
         if (exe == null) throw new InvalidOperationException("تم فك OpenRGB لكن OpenRGB.exe غير موجود داخل الحزمة.");
 
         progress?.Report(100);
-        return new OpenRgbBackendInfo(true, exe, $"تم تنزيل OpenRGB الرسمي {tag} والتحقق من SHA-256 وتجهيزه داخل D7.");
+        return new OpenRgbBackendInfo(true, exe, $"تم تجهيز OpenRGB الرسمي {tag} والتحقق من SHA-256.");
+    }
+
+    public async Task<IReadOnlyList<OpenRgbDevice>> GetDevicesAsync(CancellationToken cancellationToken = default)
+    {
+        var backend = Detect();
+        if (!backend.Available || backend.ExecutablePath == null) return [];
+        var run = await RunAsync(backend.ExecutablePath, "--list-devices", cancellationToken);
+        if (run.ExitCode != 0) throw new InvalidOperationException($"OpenRGB list failed ({run.ExitCode}).\n{run.Output}");
+        return ParseDevices(run.Output);
     }
 
     public async Task<string> ListDevicesAsync(CancellationToken cancellationToken = default)
     {
-        var backend = Detect();
-        if (!backend.Available || backend.ExecutablePath == null) return backend.Detail;
-        var run = await RunAsync(backend.ExecutablePath, "--list-devices", cancellationToken);
-        return run.ExitCode == 0 && !string.IsNullOrWhiteSpace(run.Output) ? run.Output.Trim() : $"OpenRGB لم يرجع أجهزة. ExitCode={run.ExitCode}\n{run.Output}";
+        var devices = await GetDevicesAsync(cancellationToken);
+        if (devices.Count == 0) return "OpenRGB لم يرجع أجهزة RGB مدعومة.";
+        return string.Join(Environment.NewLine + Environment.NewLine, devices.Select(d =>
+            $"[{d.Index}] {d.Name}\nType: {d.Type}\nModes: {(d.Modes.Count == 0 ? "—" : string.Join(", ", d.Modes))}"));
     }
 
-    public async Task<string> SetColorAsync(string rgbHex, CancellationToken cancellationToken = default)
+    public Task<string> SetColorAsync(string rgbHex, CancellationToken cancellationToken = default)
+        => ApplyAsync(null, "static", rgbHex, null, cancellationToken);
+
+    public Task<string> SetDeviceColorAsync(int deviceIndex, string rgbHex, CancellationToken cancellationToken = default)
+        => ApplyAsync(deviceIndex, "static", rgbHex, null, cancellationToken);
+
+    public Task<string> SetDeviceModeAsync(int deviceIndex, string mode, string? rgbHex = null, int? brightness = null, CancellationToken cancellationToken = default)
+        => ApplyAsync(deviceIndex, mode, rgbHex, brightness, cancellationToken);
+
+    public Task<string> SetAllModeAsync(string mode, string? rgbHex = null, int? brightness = null, CancellationToken cancellationToken = default)
+        => ApplyAsync(null, mode, rgbHex, brightness, cancellationToken);
+
+    public Task<string> TurnOffAsync(CancellationToken cancellationToken = default)
+        => ApplyAsync(null, "static", "000000", 0, cancellationToken);
+
+    public Task<string> TurnOffDeviceAsync(int deviceIndex, CancellationToken cancellationToken = default)
+        => ApplyAsync(deviceIndex, "static", "000000", 0, cancellationToken);
+
+    public async Task<string> SaveProfileAsync(string profileName, CancellationToken cancellationToken = default)
     {
         var backend = Detect();
         if (!backend.Available || backend.ExecutablePath == null) return backend.Detail;
-        var color = NormalizeColor(rgbHex);
-        if (color == null) return "اللون غير صالح. استخدم RRGGBB مثل FF0000.";
-        var run = await RunAsync(backend.ExecutablePath, $"--mode static --color {color}", cancellationToken);
-        return run.ExitCode == 0 ? $"تم تطبيق #{color} على أجهزة OpenRGB المدعومة." : $"OpenRGB رفض التطبيق. ExitCode={run.ExitCode}\n{run.Output}";
+        var name = SafeProfileName(profileName);
+        if (string.IsNullOrWhiteSpace(name)) return "اسم Profile غير صالح.";
+        var run = await RunAsync(backend.ExecutablePath, $"--save-profile \"{name}\"", cancellationToken);
+        return run.ExitCode == 0 ? $"تم حفظ OpenRGB Profile: {name}" : $"فشل حفظ Profile ({run.ExitCode}).\n{run.Output}";
     }
 
-    public Task<string> TurnOffAsync(CancellationToken cancellationToken = default) => SetColorAsync("000000", cancellationToken);
+    public async Task<string> LoadProfileAsync(string profileName, CancellationToken cancellationToken = default)
+    {
+        var backend = Detect();
+        if (!backend.Available || backend.ExecutablePath == null) return backend.Detail;
+        var name = SafeProfileName(profileName);
+        if (string.IsNullOrWhiteSpace(name)) return "اسم Profile غير صالح.";
+        var run = await RunAsync(backend.ExecutablePath, $"--profile \"{name}\"", cancellationToken);
+        return run.ExitCode == 0 ? $"تم تحميل OpenRGB Profile: {name}" : $"فشل تحميل Profile ({run.ExitCode}).\n{run.Output}";
+    }
+
+    public string LaunchAdvancedStudio()
+    {
+        var backend = Detect();
+        if (!backend.Available || backend.ExecutablePath == null) return backend.Detail;
+        Process.Start(new ProcessStartInfo
+        {
+            FileName = backend.ExecutablePath,
+            WorkingDirectory = Path.GetDirectoryName(backend.ExecutablePath)!,
+            UseShellExecute = true
+        });
+        return "تم فتح OpenRGB Advanced Studio. استخدمه للـzones/per-LED/plugins والخرائط البصرية؛ D7KT يبقى مسؤولًا عن Automation والProfiles الذكية.";
+    }
+
+    private async Task<string> ApplyAsync(int? deviceIndex, string? mode, string? rgbHex, int? brightness, CancellationToken cancellationToken)
+    {
+        var backend = Detect();
+        if (!backend.Available || backend.ExecutablePath == null) return backend.Detail;
+
+        var args = new List<string>();
+        if (deviceIndex.HasValue) args.Add($"--device {deviceIndex.Value}");
+        if (!string.IsNullOrWhiteSpace(mode)) args.Add($"--mode \"{mode.Trim().Replace("\"", string.Empty)}\"");
+        if (!string.IsNullOrWhiteSpace(rgbHex))
+        {
+            var color = NormalizeColor(rgbHex);
+            if (color == null) return "اللون غير صالح. استخدم RRGGBB مثل FF0000.";
+            args.Add($"--color {color}");
+        }
+        if (brightness.HasValue)
+            args.Add($"--brightness {Math.Clamp(brightness.Value, 0, 100)}");
+
+        var run = await RunAsync(backend.ExecutablePath, string.Join(' ', args), cancellationToken);
+        var target = deviceIndex.HasValue ? $"الجهاز #{deviceIndex.Value}" : "كل الأجهزة";
+        return run.ExitCode == 0
+            ? $"تم التطبيق على {target}. Mode={mode ?? "unchanged"} Color={(rgbHex ?? "unchanged")} Brightness={(brightness?.ToString() ?? "unchanged")}."
+            : $"OpenRGB رفض التطبيق على {target}. ExitCode={run.ExitCode}\n{run.Output}";
+    }
+
+    private static IReadOnlyList<OpenRgbDevice> ParseDevices(string output)
+    {
+        var list = new List<OpenRgbDevice>();
+        var lines = output.Replace("\r", string.Empty).Split('\n');
+        int? index = null;
+        string name = string.Empty;
+        string type = string.Empty;
+        var modes = new List<string>();
+        var raw = new List<string>();
+
+        void Flush()
+        {
+            if (!index.HasValue) return;
+            list.Add(new OpenRgbDevice(index.Value, string.IsNullOrWhiteSpace(name) ? $"RGB Device {index.Value}" : name.Trim(), type.Trim(), modes.Distinct(StringComparer.OrdinalIgnoreCase).ToArray(), string.Join(Environment.NewLine, raw)));
+            index = null; name = string.Empty; type = string.Empty; modes.Clear(); raw.Clear();
+        }
+
+        foreach (var line in lines)
+        {
+            var match = Regex.Match(line, @"^\s*(\d+)\s*:\s*(.+)$");
+            if (match.Success)
+            {
+                Flush();
+                index = int.Parse(match.Groups[1].Value);
+                name = match.Groups[2].Value.Trim();
+                raw.Add(line);
+                continue;
+            }
+            if (!index.HasValue) continue;
+            raw.Add(line);
+            var trimmed = line.Trim();
+            if (trimmed.StartsWith("Type:", StringComparison.OrdinalIgnoreCase)) type = trimmed[5..].Trim();
+            if (trimmed.StartsWith("Modes:", StringComparison.OrdinalIgnoreCase))
+            {
+                modes.AddRange(trimmed[6..].Split(',', StringSplitOptions.TrimEntries | StringSplitOptions.RemoveEmptyEntries));
+            }
+            else if (trimmed.StartsWith("Mode", StringComparison.OrdinalIgnoreCase) && trimmed.Contains(':'))
+            {
+                var value = trimmed[(trimmed.IndexOf(':') + 1)..].Trim();
+                if (!string.IsNullOrWhiteSpace(value)) modes.Add(value);
+            }
+        }
+        Flush();
+        return list;
+    }
 
     private static string? NormalizeColor(string value)
     {
         var raw = (value ?? string.Empty).Trim().TrimStart('#').ToUpperInvariant();
         return raw.Length == 6 && raw.All(Uri.IsHexDigit) ? raw : null;
     }
+
+    private static string SafeProfileName(string value)
+        => string.Concat((value ?? string.Empty).Where(ch => char.IsLetterOrDigit(ch) || ch is '-' or '_' or ' ')).Trim();
 
     private static async Task<(int ExitCode, string Output)> RunAsync(string file, string arguments, CancellationToken cancellationToken)
     {
@@ -173,7 +296,7 @@ public sealed class ManagedOpenRgbService
     private static HttpClient CreateClient()
     {
         var client = new HttpClient { Timeout = TimeSpan.FromMinutes(10) };
-        client.DefaultRequestHeaders.UserAgent.ParseAdd("D7SystemIntelligence-RGB/1.0");
+        client.DefaultRequestHeaders.UserAgent.ParseAdd("D7SystemIntelligence-RGB/2.0");
         client.DefaultRequestHeaders.Accept.ParseAdd("application/vnd.github+json");
         return client;
     }
@@ -184,7 +307,6 @@ public sealed class TemperatureRgbController : IDisposable
     private readonly HardwareEngine _hardware;
     private readonly ManagedOpenRgbService _rgb;
     private CancellationTokenSource? _cts;
-    private Task? _loop;
     private string? _lastColor;
     public event Action<string>? StatusChanged;
     public bool IsRunning => _cts is { IsCancellationRequested: false };
@@ -199,7 +321,7 @@ public sealed class TemperatureRgbController : IDisposable
     {
         if (IsRunning) return;
         _cts = new CancellationTokenSource();
-        _loop = Task.Run(() => LoopAsync(_cts.Token));
+        _ = Task.Run(() => LoopAsync(_cts.Token));
         StatusChanged?.Invoke("Temperature RGB بدأ. اللون يتغير حسب أعلى حرارة CPU/GPU.");
     }
 
@@ -223,11 +345,12 @@ public sealed class TemperatureRgbController : IDisposable
                 var temp = Math.Max(s.CpuTemp, s.GpuTemp);
                 var color = temp switch
                 {
-                    < 50 => "00FF66",
-                    < 60 => "7DFF00",
-                    < 70 => "FFD000",
-                    < 80 => "FF7A00",
-                    _ => "FF0000"
+                    < 45 => "00D9FF",
+                    < 55 => "00FF88",
+                    < 65 => "B7FF00",
+                    < 75 => "FFD000",
+                    < 82 => "FF7200",
+                    _ => "FF1538"
                 };
                 if (!string.Equals(color, _lastColor, StringComparison.OrdinalIgnoreCase))
                 {
