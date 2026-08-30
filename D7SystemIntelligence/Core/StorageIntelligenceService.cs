@@ -25,10 +25,31 @@ public sealed record VolumeRecord(
     double FreePercent,
     string Path);
 
-public sealed record StorageSnapshot(IReadOnlyList<PhysicalDriveRecord> Drives, IReadOnlyList<VolumeRecord> Volumes, string Summary);
+public sealed record StorageTrendRecord(string Drive, string Severity, string Metric, string Detail);
+
+public sealed record StorageSnapshot(IReadOnlyList<PhysicalDriveRecord> Drives, IReadOnlyList<VolumeRecord> Volumes, string Summary)
+{
+    public IReadOnlyList<StorageTrendRecord> Trends { get; init; } = [];
+}
+
+internal sealed class StorageHistoryState
+{
+    public DateTimeOffset CapturedAt { get; set; } = DateTimeOffset.Now;
+    public List<PhysicalDriveRecord> Drives { get; set; } = [];
+}
 
 public sealed class StorageIntelligenceService
 {
+    private readonly string _historyPath;
+    private static readonly JsonSerializerOptions JsonOptions = new() { WriteIndented = true, PropertyNameCaseInsensitive = true };
+
+    public StorageIntelligenceService()
+    {
+        var root = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "D7SystemIntelligence", "Storage");
+        Directory.CreateDirectory(root);
+        _historyPath = Path.Combine(root, "last-reliability-scan.json");
+    }
+
     public async Task<StorageSnapshot> ScanAsync(CancellationToken cancellationToken = default)
     {
         const string script = @"
@@ -95,10 +116,14 @@ Get-Volume -ErrorAction SilentlyContinue | Where-Object {$_.DriveType -eq 'Fixed
                 }
             }
 
+            var trends = CompareWithHistory(drives);
+            await SaveHistoryAsync(drives, cancellationToken);
+
             var unhealthy = drives.Count(x => !x.HealthStatus.Equals("Healthy", StringComparison.OrdinalIgnoreCase));
             var lowSpace = volumes.Count(x => x.FreePercent < 10);
-            var summary = $"أقراص فعلية {drives.Count} • Volumes {volumes.Count} • Health warnings {unhealthy} • مساحات أقل من 10%: {lowSpace}";
-            return new StorageSnapshot(drives, volumes, summary);
+            var hot = drives.Count(x => x.TemperatureC is >= 65);
+            var summary = $"أقراص فعلية {drives.Count} • Volumes {volumes.Count} • Health warnings {unhealthy} • أقل من 10% مساحة {lowSpace} • حرارة ≥65°C {hot} • Reliability deltas {trends.Count}";
+            return new StorageSnapshot(drives, volumes, summary) { Trends = trends };
         }
         catch (Exception ex)
         {
@@ -110,14 +135,64 @@ Get-Volume -ErrorAction SilentlyContinue | Where-Object {$_.DriveType -eq 'Fixed
     {
         var drive = NormalizeDrive(driveLetter);
         var run = await RunPowerShellAsync($"Optimize-Volume -DriveLetter {drive} -Analyze -Verbose | Out-String", cancellationToken);
-        return run.ExitCode == 0 ? run.Output.Trim() : $"Analyze فشل: {run.Error}";
+        return run.ExitCode == 0 ? "Analyze completed via Windows Optimize-Volume.\n" + run.Output.Trim() : $"Analyze فشل: {run.Error}";
     }
 
     public async Task<string> RetrimVolumeAsync(string driveLetter, CancellationToken cancellationToken = default)
     {
         var drive = NormalizeDrive(driveLetter);
         var run = await RunPowerShellAsync($"Optimize-Volume -DriveLetter {drive} -ReTrim -Verbose | Out-String", cancellationToken);
-        return run.ExitCode == 0 ? "تم إرسال ReTrim عبر Windows Optimize-Volume.\n" + run.Output.Trim() : $"ReTrim فشل أو غير مدعوم على هذا القرص: {run.Error}";
+        return run.ExitCode == 0
+            ? "ReTrim command completed عبر Windows Optimize-Volume. هذا يثبت تنفيذ الأداة، وليس تحسن FPS أو سرعة وهمية.\n" + run.Output.Trim()
+            : $"ReTrim فشل أو غير مدعوم على هذا القرص: {run.Error}";
+    }
+
+    private List<StorageTrendRecord> CompareWithHistory(IReadOnlyList<PhysicalDriveRecord> current)
+    {
+        StorageHistoryState? prior = null;
+        if (File.Exists(_historyPath))
+        {
+            try { prior = JsonSerializer.Deserialize<StorageHistoryState>(File.ReadAllText(_historyPath), JsonOptions); }
+            catch { }
+        }
+
+        var trends = new List<StorageTrendRecord>();
+        if (prior == null) return trends;
+        foreach (var drive in current)
+        {
+            var old = prior.Drives.FirstOrDefault(x => SameDrive(x, drive));
+            if (old == null) continue;
+            var name = string.IsNullOrWhiteSpace(drive.SerialNumber) ? drive.FriendlyName : $"{drive.FriendlyName} [{MaskSerial(drive.SerialNumber)}]";
+
+            if (old.ReadErrors.HasValue && drive.ReadErrors.HasValue && drive.ReadErrors > old.ReadErrors)
+                trends.Add(new(name, "Warning", "ReadErrors", $"{old.ReadErrors} → {drive.ReadErrors} (+{drive.ReadErrors - old.ReadErrors})"));
+            if (old.WriteErrors.HasValue && drive.WriteErrors.HasValue && drive.WriteErrors > old.WriteErrors)
+                trends.Add(new(name, "Warning", "WriteErrors", $"{old.WriteErrors} → {drive.WriteErrors} (+{drive.WriteErrors - old.WriteErrors})"));
+            if (old.Wear.HasValue && drive.Wear.HasValue && drive.Wear > old.Wear)
+                trends.Add(new(name, "Info", "Wear", $"{old.Wear} → {drive.Wear}. قيمة Wear vendor-dependent؛ D7KT يعرض Delta ولا يفسرها كعمر متبقٍ بدون تعريف الشركة."));
+            if (old.HealthStatus.Equals("Healthy", StringComparison.OrdinalIgnoreCase) && !drive.HealthStatus.Equals("Healthy", StringComparison.OrdinalIgnoreCase))
+                trends.Add(new(name, "Critical", "HealthStatus", $"Healthy → {drive.HealthStatus}"));
+        }
+        return trends;
+    }
+
+    private async Task SaveHistoryAsync(IReadOnlyList<PhysicalDriveRecord> drives, CancellationToken token)
+    {
+        var state = new StorageHistoryState { CapturedAt = DateTimeOffset.Now, Drives = drives.ToList() };
+        await File.WriteAllTextAsync(_historyPath, JsonSerializer.Serialize(state, JsonOptions), token);
+    }
+
+    private static bool SameDrive(PhysicalDriveRecord a, PhysicalDriveRecord b)
+    {
+        if (!string.IsNullOrWhiteSpace(a.SerialNumber) && !string.IsNullOrWhiteSpace(b.SerialNumber))
+            return a.SerialNumber.Trim().Equals(b.SerialNumber.Trim(), StringComparison.OrdinalIgnoreCase);
+        return a.FriendlyName.Equals(b.FriendlyName, StringComparison.OrdinalIgnoreCase) && Math.Abs(a.SizeGb - b.SizeGb) < 2;
+    }
+
+    private static string MaskSerial(string serial)
+    {
+        var s = serial.Trim();
+        return s.Length <= 4 ? "****" : "***" + s[^4..];
     }
 
     private static string NormalizeDrive(string value)
