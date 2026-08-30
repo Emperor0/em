@@ -1,0 +1,51 @@
+name: Build BLACKCORE release
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'D7-BLACKCORE/release_chunks/**'
+      - '.github/workflows/blackcore-release.yml'
+
+permissions:
+  contents: write
+
+jobs:
+  build-release:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Wait for complete chunk set
+        id: ready
+        shell: bash
+        run: |
+          if [ ! -f D7-BLACKCORE/release_chunks/READY ]; then
+            echo "ready=false" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          count=$(find D7-BLACKCORE/release_chunks -name 'chunk_*.b64' | wc -l)
+          if [ "$count" -ne 15 ]; then
+            echo "Expected 15 chunks, found $count"
+            exit 1
+          fi
+          echo "ready=true" >> "$GITHUB_OUTPUT"
+      - name: Rebuild and verify ZIP
+        if: steps.ready.outputs.ready == 'true'
+        shell: bash
+        run: |
+          cat D7-BLACKCORE/release_chunks/chunk_*.b64 | base64 -d > D7-BLACKCORE/releases/D7_BLACKCORE_v1.0.3.zip
+          echo "65124b4dc65fc69413a4d8d5a8e0250de1aa1fc67dd511a59d9022963b9a9e49  D7-BLACKCORE/releases/D7_BLACKCORE_v1.0.3.zip" | sha256sum -c -
+          unzip -t D7-BLACKCORE/releases/D7_BLACKCORE_v1.0.3.zip
+      - name: Publish verified ZIP
+        if: steps.ready.outputs.ready == 'true'
+        shell: bash
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add D7-BLACKCORE/releases/D7_BLACKCORE_v1.0.3.zip
+          if git diff --cached --quiet; then
+            echo "Release already current"
+          else
+            git commit -m "Publish verified BLACKCORE 1.0.3 release"
+            git push
+          fi
