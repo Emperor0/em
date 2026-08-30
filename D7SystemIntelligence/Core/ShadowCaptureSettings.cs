@@ -21,6 +21,17 @@ public sealed class ShadowCaptureSettings
     public string SaveHotkey { get; set; } = "F8";
     public bool ShowMinimalIndicator { get; set; } = true;
 
+    // D7KT library behavior. Auto-cleanup only considers clips with a D7 metadata sidecar,
+    // so unrelated videos in the same parent folder are never removed automatically.
+    public bool UseGameSubfolders { get; set; } = true;
+    public bool AutoNameWithGame { get; set; } = true;
+    public bool CreateMetadataSidecar { get; set; } = true;
+
+    // This does not pretend to magically reserve GPU time. It enables a real before/after
+    // impact test and runtime warnings based on PresentMon + OBS skipped-frame telemetry.
+    public bool ProtectPerformance { get; set; } = true;
+    public int ImpactTestSeconds { get; set; } = 6;
+
     // OBS is the first real backend because it is already used for streaming and can use NVENC
     // without D7 launching a second capture stack.
     public string ObsHost { get; set; } = "127.0.0.1";
@@ -79,6 +90,7 @@ public sealed class ShadowCaptureSettingsStore
         settings.BitrateMbps = Math.Clamp(settings.BitrateMbps, 4, 100);
         settings.TargetFps = settings.TargetFps >= 55 ? 60 : 30;
         settings.MaxLibraryGb = Math.Clamp(settings.MaxLibraryGb, 5, 2048);
+        settings.ImpactTestSeconds = Math.Clamp(settings.ImpactTestSeconds, 4, 15);
         settings.ObsPort = Math.Clamp(settings.ObsPort, 1, 65535);
         if (string.IsNullOrWhiteSpace(settings.ObsHost)) settings.ObsHost = "127.0.0.1";
         if (string.IsNullOrWhiteSpace(settings.SaveFolder))
