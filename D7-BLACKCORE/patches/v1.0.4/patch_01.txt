@@ -1,0 +1,118 @@
+st = str(e)
+             if attempt < self.max_retries:
+@@ -59,6 +83,15 @@ class BrowserOperator:
+     def open(self, url: str) -> StepResult:
+         return self._navigate(url, f"Opened {url}")
+ 
++    def current_page(self) -> StepResult:
++        err=self.ensure()
++        if err: return err
++        try:
++            snap=self._page_snapshot()
++            return StepResult(True,'Captured current browser page',[Evidence('url',self._page.url),Evidence('title',self._page.title())],snap)
++        except Exception as e:
++            return StepResult(False,'Could not capture current browser page',error=str(e))
++
+     def close(self):
+         try:
+             if self._ctx: self._ctx.close()
+diff --git a/blackcore/config.py b/blackcore/config.py
+index d3b32c2..2733434 100644
+--- a/blackcore/config.py
++++ b/blackcore/config.py
+@@ -4,7 +4,7 @@ from pathlib import Path
+ import json, os, sys, shutil, time
+ 
+ APP_NAME = "D7 BLACKCORE"
+-APP_VERSION = "1.0.3"
++APP_VERSION = "1.0.4"
+ ROOT = Path(sys.executable).resolve().parent if getattr(sys, "frozen", False) else Path(__file__).resolve().parents[1]
+ DEFAULT_DATA_DIR = Path(os.environ.get("LOCALAPPDATA", str(ROOT / "data"))) / "D7BLACKCORE"
+ DEFAULT_SETTINGS_PATH = DEFAULT_DATA_DIR / "blackcore.settings.json"
+diff --git a/blackcore/llm.py b/blackcore/llm.py
+index d3bf9a5..796677a 100644
+--- a/blackcore/llm.py
++++ b/blackcore/llm.py
+@@ -3,24 +3,21 @@ import json
+ import os
+ import subprocess
+ import time
+-import urllib.error
+ import urllib.request
+ from pathlib import Path
++from threading import Lock
+ 
+ 
+ class LLMProvider:
+     """AI adapter with native OpenCode support plus OpenAI-compatible fallback.
+ 
+-    OpenCode is preferred for the local D7 setup.  Health is checked through
+-    /global/health and prompts are sent through OpenCode sessions.  Existing
+-    OpenAI-compatible endpoints remain supported for portability.
++    v1.0.4 adds bounded inference timeouts and an OpenCode abort hook so one
++    slow model request cannot freeze an entire BLACKCORE mission indefinitely.
+     """
+ 
+     def __init__(self, base_url: str, api_key: str = "", model: str = "", provider_type: str = "auto",
+                  auto_start: bool = True, opencode_executable: str = ""):
+         raw = (base_url or "http://127.0.0.1:8082").rstrip("/")
+-        # Early BLACKCORE builds stored http://127.0.0.1:8082/v1.  Native
+-        # OpenCode lives at the origin, so keep both representations.
+         self.base_url = raw
+         self.origin_url = raw[:-3] if raw.endswith("/v1") else raw
+         self.api_key = api_key
+@@ -34,6 +31,8 @@ class LLMProvider:
+         self._server_process = None
+         self._server_version = ""
+         self._last_error = ""
++        self._active_session_id: str | None = None
++        self._session_lock = Lock()
+ 
+     @property
+     def detected_type(self) -> str:
+@@ -76,7 +75,6 @@ class LLMProvider:
+             return False
+ 
+     def _check_openai(self) -> bool:
+-        # If a native OpenCode origin was configured, fallback probing uses /v1.
+         base = self.base_url if self.base_url.endswith("/v1") else self.base_url + "/v1"
+         try:
+             obj = self._json_request(base + "/models", timeout=2)
+@@ -109,7 +107,6 @@ class LLMProvider:
+         for p in self._candidate_opencode_paths():
+             if p.exists():
+                 return str(p)
+-        # PATH is a last resort, intentionally avoiding shell=True.
+         import shutil
+         return shutil.which("opencode") or shutil.which("tcc-opencode")
+ 
+@@ -147,7 +144,6 @@ class LLMProvider:
+         now = time.monotonic()
+         if not force and self._last_check and (now - self._last_check) < 10:
+             return self._last_available
+-
+         wanted = self.provider_type
+         ok = False
+         if wanted in ("auto", "opencode"):
+@@ -156,7 +152,6 @@ class LLMProvider:
+                 ok = self.start_opencode()
+         if not ok and wanted in ("auto", "openai"):
+             ok = self._check_openai()
+-
+         self._last_available = ok
+         self._last_check = time.monotonic()
+         return ok
+@@ -191,31 +186,47 @@ class LLMProvider:
+                 texts.append(str(part["text"]))
+         if texts:
+             return "\n".join(texts).strip()
+-        # Defensive fallback for server response shape changes.
+         if isinstance(obj.get("text"), str):
+             return obj["text"]
+         return json.dumps(obj, ensure_ascii=False)
+ 
+-    def _chat_opencode(self, system: str, user: str, model: str | None = None) -> str:
+-        session = self._json_request(self.origin_url + "/session", "POST", {"title": "D7 BLACKCORE"}, timeout=10)
++    def _set_active_session(self, session_id: str | None):
++        with self._session_lock:
++            self._active_session_id = s
