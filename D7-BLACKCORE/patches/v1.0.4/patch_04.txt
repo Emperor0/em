@@ -1,0 +1,64 @@
+rite_context_text':
++            text=str(context.get('last_text',''))
++            if not text: return StepResult(False,'No analyzed text is available to write',error='NO_CONTEXT_TEXT')
++            return self.system.execute('write_text',path=step.args['path'],text=text)
+         if a=='research':
+             topic=step.args.get('topic',''); br=self.browser.search_google(topic)
+             if not br.ok: br=self.system.execute('search_web',query=topic)
+@@ -62,8 +123,19 @@ class Blackcore:
+         if a=='restore_checkpoint': return self.recovery.restore(step.args['checkpoint_dir'])
+         return StepResult(False,f'No executor for {a}',error='NO_EXECUTOR')
+ 
++    def _update_context(self,context:dict,result:StepResult):
++        if isinstance(result.data,dict):
++            if result.data.get('text'):
++                context['last_text']=str(result.data['text'])
++            if result.data.get('links') is not None:
++                context['browser_links']=result.data.get('links') or []
++            if result.data.get('text') and any(e.kind=='url' for e in result.evidence):
++                context['browser_text']=str(result.data['text'])
++        for e in result.evidence:
++            if e.kind=='url': context['last_url']=e.value
++
+     def run(self,mission:Mission,log:Callable[[str],None]|None=None,approval:Callable[[object],bool]|None=None)->Mission:
+-        log=log or (lambda _:None); self.cancelled=False; mission.status=MissionStatus.RUNNING; self.memory.save_run(mission); self.audit.write('mission_started',id=mission.id,goal=mission.goal,mode=mission.mode)
++        log=log or (lambda _:None); self.cancelled=False; context={}; mission.status=MissionStatus.RUNNING; self.memory.save_run(mission); self.audit.write('mission_started',id=mission.id,goal=mission.goal,mode=mission.mode)
+         reports=[]
+         for idx,step in enumerate(mission.steps,1):
+             if self.cancelled: mission.status=MissionStatus.CANCELLED; break
+@@ -75,15 +147,20 @@ class Blackcore:
+                 if not approval or not approval(step): step.status=MissionStatus.CANCELLED; mission.status=MissionStatus.CANCELLED; break
+                 mission.status=MissionStatus.RUNNING
+             step.status=MissionStatus.RUNNING; log(f'[{idx}/{len(mission.steps)}] {step.agent}: {step.name}')
+-            try: result=self._execute_step(step)
++            try: result=self._execute_step(step,context)
+             except Exception as e: result=StepResult(False,f'{step.name} crashed',error=f'{type(e).__name__}: {e}')
+-            step.result=result; report=self.quality.evaluate_step(result); reports.append(report); step.status=MissionStatus.PASSED if result.ok else MissionStatus.FAILED
++            step.result=result; self._update_context(context,result)
++            report=self.quality.evaluate_step(result); reports.append(report); step.status=MissionStatus.PASSED if result.ok else MissionStatus.FAILED
+             self.audit.write('step_finished',mission_id=mission.id,step=step.name,agent=step.agent,ok=result.ok,score=report.score,error=result.error)
+-            log(f"    {'PASS' if result.ok else 'FAIL'} — {result.summary} — quality {report.score:.1f}")
++            suffix=f' — warning {result.error}' if result.error else ''
++            log(f"    {'PASS' if result.ok else 'FAIL'} — {result.summary} — quality {report.score:.1f}{suffix}")
+             self.memory.save_run(mission)
+             if not result.ok: mission.status=MissionStatus.FAILED; break
+         if mission.status==MissionStatus.RUNNING:
+             final=self.quality.evaluate_mission(reports); mission.final_score=final.score; mission.status=MissionStatus.PASSED if final.passed else MissionStatus.FAILED; log(f'MISSION {mission.status.value} — score {final.score:.1f}/{mission.quality_target:.1f}')
+         self.memory.save_run(mission); self.audit.write('mission_finished',id=mission.id,status=mission.status.value,score=mission.final_score); return mission
+ 
+-    def stop(self): self.cancelled=True; self.audit.write('stop_requested')
++    def stop(self):
++        self.cancelled=True
++        aborted=self.llm.abort_active()
++        self.audit.write('stop_requested',ai_abort=aborted)
+diff --git a/blackcore/planner.py b/blackcore/planner.py
+index 9b024ca..5d8549a 100644
+--- a/blackcore/planner.py
++++ b/blackcore/planner.py
+@@ -8,7 +8,21 @@ class Planner:
+     def plan(self, goal: str, mode: str='ELITE', quality_target: float=95.0) -> Mission:
+         g=goal.strip(); gl=g.lower(); m=Mission(goal=g,mode=mode,quality_target=quality_target)
+ 
+-        # Local file fast path: Arabic/English create-folder + file + content missions.
++        # Research -> verify -> desktop report -> read-back is a common compound mission.
++        # Keep it off the heavyweight multi-agent co
