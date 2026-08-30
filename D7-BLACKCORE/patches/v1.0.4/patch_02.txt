@@ -1,0 +1,92 @@
+ession_id
++
++    def abort_active(self) -> bool:
++        """Best-effort abort for a currently running OpenCode prompt."""
++        with self._session_lock:
++            session_id = self._active_session_id
++        if not session_id or self._detected_type != "opencode":
++            return False
++        try:
++            self._json_request(self.origin_url + f"/session/{session_id}/abort", "POST", {}, timeout=3)
++            return True
++        except Exception:
++            return False
++
++    def _chat_opencode(self, system: str, user: str, model: str | None = None, timeout: float = 60) -> str:
++        session = self._json_request(self.origin_url + "/session", "POST", {"title": "D7 BLACKCORE"}, timeout=min(10, timeout))
+         if not isinstance(session, dict) or not session.get("id"):
+             raise RuntimeError("OpenCode did not return a session id")
+-        payload = {
+-            "system": system,
+-            "parts": [{"type": "text", "text": user}],
+-        }
+-        mdl = model or self.model
+-        # OpenCode model selector is {providerID, modelID}. Accept provider/model.
+-        if mdl and "/" in mdl:
+-            provider_id, model_id = mdl.split("/", 1)
+-            payload["model"] = {"providerID": provider_id, "modelID": model_id}
+-        obj = self._json_request(self.origin_url + f"/session/{session['id']}/message", "POST", payload, timeout=180)
+-        text = self._extract_opencode_text(obj)
+-        if not text:
+-            raise RuntimeError("OpenCode returned no text response")
+-        return text
+-
+-    def _chat_openai(self, system: str, user: str, model: str | None = None, temperature: float = 0.2) -> str:
++        session_id = str(session["id"])
++        self._set_active_session(session_id)
++        try:
++            payload = {"system": system, "parts": [{"type": "text", "text": user}]}
++            mdl = model or self.model
++            if mdl and "/" in mdl:
++                provider_id, model_id = mdl.split("/", 1)
++                payload["model"] = {"providerID": provider_id,"modelID": model_id}
++            obj = self._json_request(self.origin_url + f"/session/{session_id}/message", "POST", payload, timeout=timeout)
++            text = self._extract_opencode_text(obj)
++            if not text:
++                raise RuntimeError("OpenCode returned no text response")
++            return text
++        finally:
++            self._set_active_session(None)
++
++    def _chat_openai(self, system: str, user: str, model: str | None = None, temperature: float = 0.2, timeout: float = 60) -> str:
+         mdl = model or self.model
+         if not mdl:
+             data = self.models().get("data", [])
+@@ -227,12 +238,12 @@ class LLMProvider:
+             "model": mdl,
+             "messages": [{"role": "system", "content": system}, {"role": "user", "content": user}],
+             "temperature": temperature,
+-        }, timeout=180)
++        }, timeout=timeout)
+         return obj["choices"][0]["message"]["content"]
+ 
+-    def chat(self, system: str, user: str, model: str | None = None, temperature: float = 0.2) -> str:
++    def chat(self, system: str, user: str, model: str | None = None, temperature: float = 0.2, timeout: float = 60) -> str:
+         if not self.available():
+             raise RuntimeError(self._last_error or "AI provider unavailable")
+         if self._detected_type == "opencode":
+-            return self._chat_opencode(system, user, model)
+-        return self._chat_openai(system, user, model, temperature)
++            return self._chat_opencode(system, user, model, timeout=timeout)
++        return self._chat_openai(system, user, model, temperature, timeout=timeout)
+diff --git a/blackcore/orchestrator.py b/blackcore/orchestrator.py
+index c6160ad..e55cf7a 100644
+--- a/blackcore/orchestrator.py
++++ b/blackcore/orchestrator.py
+@@ -1,5 +1,6 @@
+ from __future__ import annotations
+ from typing import Callable
++from datetime import datetime
+ from .models import Mission, MissionStatus, RiskLevel, StepResult, Evidence
+ from .planner import Planner
+ from .quality import QualityEngine
+@@ -32,18 +33,78 @@ class Blackcore:
+         self.safety=SafetyPolicy(); self.quality=QualityEngine(settings.quality_target); self.updater=UpdateManager(settings)
+         self.health=HealthManager(self); self.cancelled=False
+ 
+-    def create_mission(self, goal:str, mode:str|None=None)->Mission: return self.planner.plan(goal,mode or self.settings.default_mode,self.settings.quality_target)
++    def create_mission(self, goal:str, mode:str|None=None)->Mission:
++        return self.planner.plan(goal,mode or self.settings.default_mode,self.settings.quality_target)
+ 
+     def _reason(self,agent:str,goal:str)->StepResult:
+-        if not self.llm.available(): return StepResult(False,f'{agent
