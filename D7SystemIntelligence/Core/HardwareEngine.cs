@@ -67,10 +67,34 @@ public sealed class HardwareEngine : IDisposable
             foreach (var s in hw.Sensors)
             {
                 if (!string.Equals(s.Identifier.ToString(), sensorId, StringComparison.OrdinalIgnoreCase)) continue;
-                if (s.Control == null) { message = "Fan is read-only on this controller."; return false; }
-                s.Control.SetSoftware(percent);
-                message = $"{s.Name} set to {percent:0}% (software control).";
-                return true;
+                if (s.Control == null)
+                {
+                    message = "Fan is read-only on this controller.";
+                    return false;
+                }
+
+                try
+                {
+                    s.Control.SetSoftware(percent);
+                    var verified = s.Control.SoftwareValue;
+                    if (verified.HasValue && Math.Abs(verified.Value - percent) <= 2f)
+                    {
+                        message = $"{s.Name}: {percent:0}% [Applied + Verified].";
+                        return true;
+                    }
+
+                    try { s.Control.SetDefault(); } catch { }
+                    message = verified.HasValue
+                        ? $"{s.Name}: write not verified ({verified.Value:0}% read back vs {percent:0}% requested); restored Default."
+                        : $"{s.Name}: controller accepted SetSoftware but exposed no SoftwareValue for verification; restored Default.";
+                    return false;
+                }
+                catch (Exception ex)
+                {
+                    try { s.Control.SetDefault(); } catch { }
+                    message = $"{s.Name}: fan write failed; restored Default. {ex.Message}";
+                    return false;
+                }
             }
             message = "Fan sensor not found.";
             return false;
@@ -95,10 +119,16 @@ public sealed class HardwareEngine : IDisposable
             foreach (var sub in Flatten(h.SubHardware)) yield return sub;
         }
     }
+
     private static void UpdateRecursive(IHardware h)
     {
         h.Update();
         foreach (var sub in h.SubHardware) UpdateRecursive(sub);
     }
-    public void Dispose() { RestoreFans(); _computer.Close(); }
+
+    public void Dispose()
+    {
+        RestoreFans();
+        _computer.Close();
+    }
 }
