@@ -3,9 +3,10 @@
 هذا الملف Gate إلزامي للنسخة الكبيرة. وجود زر/صفحة لا يعني أن الميزة ناجحة.
 
 ## Automated release gate — PASS
-- Pre-release gate run **#201** completed successfully on Windows.
+- Pre-release gate **#203** completed successfully on Windows after excluding the retired `MainWindow*` shell from the product build.
 - `dotnet publish` self-contained single EXE: **PASS**.
-- Production shell construction + exact **6-center navigation contract**: **PASS**.
+- Production D7KT shell construction + exact **6-center navigation contract**: **PASS**.
+- Retired pre-D7KT `MainWindow.xaml` / `MainWindow*.cs`: kept only in source history and **excluded from compiled/package output**.
 - Inno Setup compile: **PASS**.
 - Clean silent install into a real Windows path: **PASS**.
 - Health check from the installed EXE: **PASS**.
@@ -76,9 +77,10 @@
 - Generic process killer that touches unknown/system/anti-cheat/driver/audio processes: **REMOVE**.
 - Duplicate PresentMon/encoder/network monitors when shared telemetry already exists: **REMOVE**.
 - Separate navigation pages for infrastructure-only features: **MERGE**.
+- Retired pre-D7KT shell in compiled product: **REMOVE** (source history retained only).
 
-## Final consolidation target
-واجهة المستخدم النهائية تظل قليلة وواضحة. التخصصات تفتح كـTools/Dialogs داخل المراكز، لا تتحول كل ميزة إلى صفحة Sidebar.
+## Final consolidation
+واجهة المستخدم النهائية قليلة وواضحة. التخصصات تفتح كـTools/Dialogs داخل المراكز، لا تتحول كل ميزة إلى صفحة Sidebar.
 
 المراكز النهائية:
 1. Dashboard
