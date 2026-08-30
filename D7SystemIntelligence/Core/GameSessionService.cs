@@ -71,6 +71,7 @@ public sealed class GameSessionService : IAsyncDisposable
 
     public event Action<string>? StatusChanged;
     public event Action<GameSessionSample>? SampleUpdated;
+    public event Action<IReadOnlyList<double>>? FrameTimesUpdated;
     public bool IsRunning => _cts is { IsCancellationRequested: false };
     public string? ActiveGame => IsRunning ? _game : null;
     public GameSessionSample? LatestSample { get; private set; }
@@ -169,6 +170,11 @@ public sealed class GameSessionService : IAsyncDisposable
                 var hardware = _hardware.Read();
                 var frame = _frames?.Read();
                 var recent = _frames?.DrainRecentFrameTimes() ?? [];
+
+                if (recent.Length > 0)
+                {
+                    try { FrameTimesUpdated?.Invoke(recent); } catch { }
+                }
 
                 if ((DateTimeOffset.Now - _lastNetwork).TotalSeconds >= 10)
                 {
