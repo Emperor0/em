@@ -140,19 +140,25 @@ public sealed class D7UpdateService
         if (!File.Exists(installerPath))
             throw new FileNotFoundException("ملف تحديث D7 غير موجود.", installerPath);
 
-        Process.Start(new ProcessStartInfo
+        // /SILENT deliberately keeps Inno's progress UI visible. /VERYSILENT made a valid update
+        // look like nothing happened on the user's machine.
+        var process = Process.Start(new ProcessStartInfo
         {
             FileName = installerPath,
-            Arguments = "/VERYSILENT /SUPPRESSMSGBOXES /NORESTART /CLOSEAPPLICATIONS /D7UPDATE=1",
+            Arguments = "/SILENT /SUPPRESSMSGBOXES /NORESTART /CLOSEAPPLICATIONS /D7UPDATE=1",
             UseShellExecute = true,
+            Verb = "runas",
             WorkingDirectory = Path.GetDirectoryName(installerPath) ?? Path.GetTempPath()
         });
+
+        if (process == null)
+            throw new InvalidOperationException("Windows لم يبدأ مثبت D7. لم يتم إغلاق البرنامج حتى يظهر الخطأ بوضوح.");
     }
 
     private static HttpClient CreateClient()
     {
         var client = new HttpClient { Timeout = TimeSpan.FromMinutes(10) };
-        client.DefaultRequestHeaders.UserAgent.ParseAdd("D7SystemIntelligence-Updater/1.0");
+        client.DefaultRequestHeaders.UserAgent.ParseAdd("D7SystemIntelligence-Updater/1.1");
         client.DefaultRequestHeaders.Accept.ParseAdd("application/vnd.github+json");
         return client;
     }
