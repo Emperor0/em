@@ -1,0 +1,85 @@
+name: Build BLACKCORE 1.0.4
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'D7-BLACKCORE/patches/v1.0.4/**'
+      - '.github/workflows/blackcore-v104.yml'
+
+permissions:
+  contents: write
+
+jobs:
+  build-v104:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Reconstruct and apply 1.0.4 patch
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -s D7-BLACKCORE/releases/D7_BLACKCORE_v1.0.3.zip
+          for i in 00 01 02 03 04 05 06; do
+            test -s "D7-BLACKCORE/patches/v1.0.4/patch_${i}.txt"
+          done
+          cat D7-BLACKCORE/patches/v1.0.4/patch_*.txt > /tmp/blackcore-v104.patch
+          rm -rf /tmp/blackcore-v104
+          mkdir -p /tmp/blackcore-v104
+          unzip -q D7-BLACKCORE/releases/D7_BLACKCORE_v1.0.3.zip -d /tmp/blackcore-v104
+          cd /tmp/blackcore-v104/D7_BLACKCORE
+          git init -q
+          git apply --check /tmp/blackcore-v104.patch
+          git apply /tmp/blackcore-v104.patch
+          cp "$GITHUB_WORKSPACE/D7-BLACKCORE/patches/v1.0.4/test_v104_resilience.py" tests/test_v104_resilience.py
+          grep -q 'APP_VERSION = "1.0.4"' blackcore/config.py
+
+      - name: Compile and test 1.0.4
+        shell: bash
+        run: |
+          set -euo pipefail
+          cd /tmp/blackcore-v104/D7_BLACKCORE
+          PYTHONPATH=. python -m compileall -q blackcore ui main.py tests
+          python -m pip install -q pytest
+          PYTHONPATH=. pytest -q
+          PYTHONPATH=. python tools/self_test.py
+
+      - name: Package and verify 1.0.4
+        shell: bash
+        run: |
+          set -euo pipefail
+          rm -f D7-BLACKCORE/releases/D7_BLACKCORE_v1.0.4.zip
+          cd /tmp/blackcore-v104
+          zip -qr "$GITHUB_WORKSPACE/D7-BLACKCORE/releases/D7_BLACKCORE_v1.0.4.zip" D7_BLACKCORE \
+            -x '*/__pycache__/*' '*.pyc' '*/.pytest_cache/*' '*/.venv/*' '*/data/*'
+          cd "$GITHUB_WORKSPACE"
+          unzip -t D7-BLACKCORE/releases/D7_BLACKCORE_v1.0.4.zip
+          sha=$(sha256sum D7-BLACKCORE/releases/D7_BLACKCORE_v1.0.4.zip | awk '{print $1}')
+          echo "RELEASE_SHA=$sha" >> "$GITHUB_ENV"
+          echo "Verified SHA-256: $sha"
+
+      - name: Publish update manifest and ZIP
+        shell: bash
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          import json, os
+          from datetime import datetime, timezone
+          from pathlib import Path
+          p=Path('D7-BLACKCORE/releases/update.json')
+          obj={
+            'version':'1.0.4',
+            'channel':'alpha',
+            'published_at':datetime.now(timezone.utc).isoformat(),
+            'download_url':'https://raw.githubusercontent.com/Emperor0/em/main/D7-BLACKCORE/releases/D7_BLACKCORE_v1.0.4.zip',
+            'sha256':os.environ['RELEASE_SHA'],
+            'notes':'إصلاح تعليق مهام البحث: مهلات OpenCode محددة، إلغاء الجلسة عند الإيقاف، استرجاع Swarm، ومسار سريع للبحث ثم إنشاء تقرير والتحقق منه.'
+          }
+          p.write_text(json.dumps(obj,ensure_ascii=False,indent=2)+'\n',encoding='utf-8')
+          PY
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -f D7-BLACKCORE/releases/D7_BLACKCORE_v1.0.4.zip D7-BLACKCORE/releases/update.json
+          git commit -m "Publish verified BLACKCORE 1.0.4 release"
+          git push
