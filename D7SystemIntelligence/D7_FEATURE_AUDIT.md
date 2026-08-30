@@ -1,71 +1,95 @@
 # D7KT Feature Value Audit — 2026
 
-هذا الملف هو Gate إلزامي قبل اعتبار أي Feature جزءًا من المنتج. وجود صفحة أو زر لا يعني نجاح الميزة.
+هذا الملف Gate إلزامي للنسخة الكبيرة. وجود زر/صفحة لا يعني أن الميزة ناجحة.
 
-## قرار الميزة
-- KEEP: لها قيمة قوية ومثبتة وتعمل فعليًا.
-- UPGRADE: لها قيمة حقيقية لكن التنفيذ الحالي أضعف من المنافسين أو ناقص.
-- MERGE: فائدتها موجودة لكن لا تستحق صفحة/منتج مستقل؛ تدمج داخل مركز أقوى.
-- REMOVE: لا تقدم قيمة عملية واضحة أو مجرد UI/Vanity feature.
+## حالات القرار
+- **KEEP**: لها قيمة واضحة وتنفيذ حقيقي.
+- **MERGE**: القيمة موجودة لكن لا تستحق صفحة مستقلة.
+- **CONDITIONAL**: تبقى فقط عند توفر دعم الهاردوير/الـAPI الحقيقي.
+- **REMOVE**: لا قيمة عملية كافية أو مجرد UI/Vanity.
+- **RUNTIME PENDING**: الكود/CI لا يكفيان؛ تحتاج اختبار الجهاز المستهدف قبل Production-ready.
 
-## Definition of Done لكل Feature
-1. Use case واضح للمستخدم.
-2. Implementation فعلي، ليس Text/Button فقط.
-3. Supported / Read-only / Unavailable واضحة للهاردوير المعتمد على الدعم.
-4. قياس قبل/بعد إذا كانت الميزة تدعي تحسين الأداء.
+## Definition of Done
+1. Use case واضح.
+2. تنفيذ فعلي وليس Text/Button فقط.
+3. Supported / Read-only / Unavailable صريحة.
+4. Before/After إذا كانت الميزة تدعي تحسين الأداء.
 5. Backup/Restore لأي تعديل مستمر أو حساس.
-6. لا ادعاء أرقام لا يمكن قياسها برمجيًا.
-7. مقارنة بمنافس عالمي مباشر وتحديد سبب وجود D7KT بدل تشغيل المنافس فقط.
-8. Build + Installer + Runtime test على الجهاز المستهدف قبل وصفها Production-ready.
+6. Verify/read-back بعد الكتابة متى كان ذلك ممكنًا.
+7. لا أرقام أو Claims غير قابلة للقياس.
+8. مقارنة بمنافس مباشر وسبب واضح لوجود D7KT.
+9. Build + Installer + Runtime validation قبل Production-ready.
 
-## Feature Audit Queue
+## Current audit — big release branch
 
-| Priority | Feature | Current decision | Benchmark / competitors | Gate before KEEP |
-|---|---|---|---|---|
-| P0 | Self Update | KEEP / HARDEN | Battle.net / Steam-style updater | progress visible, SHA-256, restart, failure reason, later signed manifest + rollback |
-| P0 | RGB Studio | UPGRADE IN PROGRESS | SignalRGB / iCUE / Razer Chroma / OpenRGB | per-device, modes, brightness, scenes, game/runtime intelligence, zones/per-LED only when backend supports |
-| P0 | Input Intelligence | UPGRADE IN PROGRESS | G HUB / Razer Synapse / SteelSeries GG | real polling distribution, jitter/stalls, Windows path backup/restore, NKRO, controller drift/range, vendor adapters only when real |
-| P0 | Shadow Capture | UPGRADE | NVIDIA App / Medal / SteelSeries Moments / OBS Replay | duration presets/custom, folder/game folders, hotkeys, resource budget, measurable FPS/frametime impact, no duplicate recorder |
-| P0 | Mission Engine | UPGRADE | Armoury Crate profiles / Process Lasso-style automation | every mission must list actual applied actions + verification + restore; remove no-op steps |
-| P0 | Diagnostics + Action Center | UPGRADE | Windows Security/SupportAssist/HWiNFO-style diagnostics | every finding actionable/read-only/unavailable; repair verification after action |
-| P0 | Stutter Black Box | UPGRADE | CapFrameX / PresentMon / FrameView | reliable frametime source, P1/P0.1/P95/P99, event correlation, session regression |
-| P0 | Benchmark Lab | UPGRADE | CapFrameX / OCCT workflow | baseline-change-retest automatic comparison + accept/reject + rollback |
-| P1 | Stream Director | UPGRADE | OBS Stats / NVIDIA Broadcast ecosystem | render/encode lag, dropped frames, encoder load, network pressure, dual-goal FPS+stream stability |
-| P1 | D7 HUD | UPGRADE | RTSS / NVIDIA overlay / Xbox Game Bar | minimal customizable OSD, reliable frametime/FPS source, no game injection when unsafe |
-| P1 | Network Intelligence | UPGRADE | PingPlotter / Bufferbloat tests / cFosSpeed concepts | gateway/internet split, jitter/loss, process bandwidth, before/after tuning, rollback |
-| P1 | Display Intelligence | UPGRADE | NVIDIA Control Panel / Windows Advanced Display / Monitorian | Hz/VRR/HDR/bit depth/range/scaling/DDC, profiles, verify applied state |
-| P1 | Audio Intelligence | REVIEW | SteelSeries Sonar / Voicemeeter / Windows audio | real endpoint/routing/sample rate/DPC diagnostics; remove controls that only open another app |
-| P1 | Driver Safety | REVIEW | NVIDIA App / DDU / Snappy Driver concepts | official source comparison, backup/restore, A/B verification; no blind newest-driver logic |
-| P1 | Storage Center | REVIEW | CrystalDiskInfo / smartctl / Windows Optimize Drives | SMART/reliability/temp/free/I/O + action only when safe; no duplicate basic info |
-| P1 | Crash Investigator | REVIEW | Reliability Monitor / Event Viewer / WhoCrashed | correlate WHEA/GPU/storage/app crash timeline and give evidence-based next action |
-| P1 | Smart Fans | CONDITIONAL KEEP | FanControl / BIOS fan curves | writable-channel proof, hysteresis, emergency rule, crash restore; Read-only otherwise |
-| P1 | Restore Vault | KEEP / HARDEN | System Restore / app transaction logs | every persistent D7 action registered, diff visible, one-click verified restore |
-| P2 | Startup Manager | MERGE CANDIDATE | Windows Task Manager / Autoruns | value must exceed enable/disable list via impact evidence and safe recommendations |
-| P2 | Background Apps | MERGE CANDIDATE | Task Manager / Process Lasso | session-aware governor with measured benefit; remove generic process killing |
-| P2 | Smart Removal | REVIEW | Revo Uninstaller / BCUninstaller | only keep if leftover discovery is materially better and preview-first |
-| P2 | Clip Library | MERGE INTO CAPTURE | Medal / Moments libraries | game/date metadata, rename/move/delete/trim, storage policy; no standalone vanity page |
-| P2 | Auto Scene | MERGE INTO MISSIONS | game profile auto-switchers | should be policy layer, not separate product; stable detection + debounce + restore |
-| P2 | Performance Contract | MERGE INTO MISSIONS/BENCHMARK | adaptive performance targets | must enforce measurable target and report pass/fail; otherwise remove separate page |
-| P2 | COD Adapter | CONDITIONAL KEEP | game config tools | only documented/verified keys, backup, game-closed guard, before/after result |
-| P2 | Launcher Scanner | KEEP AS INFRA | Playnite / launchers | broad reliable discovery; not user-facing feature by itself |
-| P3 | Raw peripheral inventory | MERGE | Device Manager | infrastructure only; surface useful device pages, not raw lists |
-| P3 | Raw driver inventory | MERGE | Device Manager | infrastructure only; user sees only actionable important drivers |
+| Feature | Decision | Current value / quality gate | Runtime |
+|---|---|---|---|
+| Self Update | KEEP / HARDENED | Download progress + SHA-256 + visible installer + previous EXE backup + post-update shell/core healthcheck + automatic executable rollback on failed healthcheck | PENDING final self-update test |
+| RGB Studio | KEEP | Per-device color/mode/brightness, scenes, OpenRGB backend, runtime/game/mission intelligence; no fake unsupported zones | PENDING device matrix test |
+| Input Lab | KEEP | Raw Input polling distribution/jitter/stalls, NKRO, controller drift/range, Windows pointer baseline + restore; no fake generic DPI writes | PENDING device test |
+| Shadow Capture | KEEP | OBS Replay ownership, no duplicate recorder, duration/folder/hotkey, metadata, safe cleanup, performance/OBS impact test, rollback of D7-owned OBS changes | PENDING OBS/game test |
+| Mission Engine | KEEP | Applied/Verified/AlreadyOptimal/Unsupported/Failed states; changes owned by D7 only; restore only what was actually changed | PENDING game mission test |
+| Diagnostics + Action Center | KEEP | Stable codes/evidence, real safe repair routes, no fake WHEA/GPU auto-fix | PENDING repair test |
+| Stutter Black Box | KEEP | Shared PresentMon session, no duplicate monitor, raw frametime evidence + stutter correlation | PENDING game test |
+| Benchmark Lab | KEEP | Raw frametimes; FPS/1%/0.1%/P95/P99/P99.9; confidence + KEEP/REJECT/NO PROOF workflow | PENDING repeatability test |
+| Stream Director | KEEP | OBS stats + render/encoding/network diagnosis correlated with game CPU/GPU/P99 and OBS→VirtualCam→TikTok chain | PENDING stream test |
+| HUD | KEEP | Adaptive click-through HUD using shared RuntimeBus; removed second PresentMon/network scanner | PENDING game test |
+| App Intelligence | KEEP | Discord/Steam/NVIDIA App/OBS/TikTok/Chrome/Edge profiles, verified priority, safe startup/cache, mission integration, restore; protected NVIDIA/voice paths | PENDING installed-app test |
+| Network Lab | KEEP | PC/NIC→Router→ISP→DNS→Remote route diagnosis; optional endpoint; manual bufferbloat; verified NIC writes; Before/After + automatic rollback on clear regression | PENDING network test |
+| Display | KEEP | Hz mode validation, CDS_TEST, read-back verify, auto rollback, persistent Restore Vault; DDC/CI brightness with verify | PENDING monitor test |
+| Audio | KEEP | Endpoint inventory, volume/mute/default-role writes with read-back verification and persistent default-role restore | PENDING audio-device test |
+| Driver Safety | KEEP | Driver Store backup, Restore Point attempt, Windows Update driver path, before/after inventory verification, no blind newest-driver claim | PENDING driver test |
+| Storage Center | KEEP | Windows Storage Reliability, temp/health/free/errors, persistent reliability deltas, Analyze/ReTrim without fake performance claim | PENDING drive test |
+| Crash Investigator | KEEP | WHEA/GPU/Storage/App/Kernel-Power filtering + temporal evidence chains; correlation explicitly not causation | PENDING event-log test |
+| Smart Fans | CONDITIONAL KEEP | Writable-channel gate, hysteresis, emergency 100%, read-back software-control verification, default restore on failure/exit | likely Read-only on current motherboard until proven otherwise |
+| Restore Vault | KEEP | Persistent recovery data used by display/audio/network/drivers/startup and other D7-owned changes | PENDING cross-feature restore test |
+| Startup Manager | MERGE INTO MAINTENANCE | Real Run/StartupApproved/folder management + Restore Vault. Useful, but not worthy of top-level page | PENDING runtime |
+| Background Apps | MERGE INTO MAINTENANCE / MISSIONS | Protected/Keep/Review/SafeToClose classification, user policy, no generic blind process kill | PENDING runtime/benchmark |
+| Smart Removal | MERGE INTO MAINTENANCE | Preview-first removal/leftovers engine remains specialized maintenance action, not product pillar | PENDING destructive-flow sandbox test |
+| Safe Maintenance | KEEP AS CENTER | Scan→Plan→Apply; refuses heavy app/driver updates while Gaming/Streaming; winget + verified driver path; no BIOS/Firmware | PENDING Windows test |
+| Clip Library | MERGE INTO CAPTURE | Metadata/library/rename/move/delete/trim/storage policy belongs under Shadow Capture | PENDING clip test |
+| Auto Scene | MERGE INTO MISSIONS | Policy layer for automatic mission switching; not a standalone product | PENDING game transition test |
+| Performance Contract | MERGE INTO MISSIONS/BENCHMARK | Measurable runtime target/guard, not separate navigation pillar | PENDING stress test |
+| COD Adapter | CONDITIONAL KEEP | Only known schema keys, backup, game-closed guard; no arbitrary config edits | PENDING current COD schema test |
+| Launcher Scanner / Game Identity | KEEP AS INFRA | Steam/Epic exact manifests where available, Xbox/Ubisoft/fallback, persistent user-confirmed executable identity; avoids treating heuristic EXE as truth | PENDING installed-library scan |
+| Raw peripheral inventory | MERGE | Infrastructure feeding Input/Audio/Display/RGB; no raw-list product page needed | N/A |
+| Raw driver inventory | MERGE | Infrastructure feeding Driver Safety/Diagnostics; no duplicate Device Manager page | N/A |
 
-## Current hard rules
-- لا Feature تبقى فقط لأنها أخذت وقت بناء.
-- إذا برنامج عالمي يقدمها أفضل ولا يوجد عند D7KT integration/intelligence advantage واضح: ندمج/نزيل أو نستفيد من backend بدل تقليد ناقص.
-- Vendor-specific hardware writes تحتاج protocol/SDK موثق أو adapter مختبر؛ لا fake DPI/RGB/Fan/firmware controls.
-- Security, Defender, Firewall, anti-cheat protections لا يتم تعطيلها لمكسب FPS وهمي.
-- كل claims عن latency/FPS/temperature/network يجب ربطها بقياس فعلي أو تصنيفها Estimate/Unavailable.
-- UI count ليس KPI. عدد الميزات الأقل مع execution أقوى أفضل من عشرات الصفحات.
+## Explicit removals / non-features
+- Generic “FPS tweak” buttons with no measurement: **REMOVE**.
+- Generic registry/network tweak packs: **REMOVE**.
+- Fake generic DPI/polling firmware writes: **REMOVE** unless a real vendor adapter exists.
+- Fake HDR/VRR/G-SYNC controls without a verified read/write path: **REMOVE from controls**; read-only evidence is acceptable.
+- Unsafe EC/Super-I/O/PWM fan control: **REMOVE / prohibited**.
+- “Newest driver = best driver” logic: **REMOVE**.
+- Generic process killer that touches unknown/system/anti-cheat/driver/audio processes: **REMOVE**.
+- Duplicate PresentMon/encoder/network monitors when shared telemetry already exists: **REMOVE**.
+- Separate navigation pages for infrastructure-only features: **MERGE**.
 
-## Release Freeze — One Big Quality Release
-- لا نشر إصدارات مستخدم صغيرة أثناء عملية التدقيق الشامل.
-- التطوير يستمر على `d7-system-intelligence-build` مع CI لكل دفعة، لكن لا GitHub Release للمستخدم حتى اكتمال Quality Pass.
-- الإصدار التالي للمستخدم يجب أن يجتاز تدقيق كل P0 وP1، مع قرار واضح لكل P2/P3: KEEP / UPGRADE / MERGE / REMOVE.
-- أي Feature تبقى يجب أن تملك سببًا واضحًا لاستخدام D7KT بدل المنافس المباشر، أو ميزة تكامل/ذكاء/أتمتة لا يقدمها المنافس بنفس الشكل.
-- قبل الإصدار النهائي: full build + installer + self-update path + smoke test + runtime validation للوظائف الأساسية + توثيق Supported/Read-only/Unavailable للهاردوير المعتمد على الدعم.
-- لا يرفع رقم الإصدار للمستخدم إلا مرة واحدة بعد اكتمال هذا الـQuality Pass؛ التغييرات الداخلية تبقى Builds تجريبية فقط.
+## Final consolidation target
+واجهة المستخدم النهائية تظل قليلة وواضحة. التخصصات تفتح كـTools/Dialogs داخل المراكز، لا تتحول كل ميزة إلى صفحة Sidebar.
 
-## Audit order
-RGB → Input → Shadow Capture → Missions → Diagnostics/Action Center → Stutter/Benchmark → Stream/HUD → Network → Display → Audio → Drivers → Storage/Crash → Fans → Maintenance utilities → final consolidation.
+المراكز المستهدفة:
+1. Dashboard
+2. Health + Repair
+3. Gaming + Performance
+4. Devices + Apps
+5. Capture + Stream
+6. Updates + Maintenance
+
+داخلها تندمج Auto Scene / Performance Contract / Clip Library / Startup / Background / Smart Removal / raw inventories بدل تضخيم التنقل.
+
+## Release freeze
+- لا إصدار مستخدم وسيط أثناء التدقيق.
+- كل العمل يبقى على `d7-system-intelligence-build`.
+- الإصدار التالي فقط بعد: final consolidation → green Publish/Installer → self-update health/rollback test → clean install → runtime test على جهاز المستخدم.
+- CI يثبت أن المشروع يبني؛ لا يثبت أن RGB/DDC/OBS/Audio/Fans/Drivers تعمل على كل جهاز.
+
+## Final remaining gates
+1. إزالة/دمج entry points القديمة والمكررة في الـShell.
+2. مراجعة Feature Registry حتى لا يصف أي Feature غير مختبرة بأنها Production-ready.
+3. Green build للـEXE + Inno installer بعد كل تغييرات الجودة الحالية.
+4. End-to-end: launch → diagnose/repair → game detection → mission → benchmark/HUD → capture → stream → app profiles → restore → restart.
+5. Hardware paths: RGB/Input/Display/Audio/Fans/Network على الجهاز الحقيقي.
+6. Self-update from old public version إلى big release: SHA → install → healthcheck → launch، ثم اختبار rollback المقصود على build تجريبي قبل النشر.
+7. بعدها فقط Release المستخدم الكبير.
