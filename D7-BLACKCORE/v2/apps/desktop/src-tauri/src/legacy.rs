@@ -34,6 +34,23 @@ pub struct LegacyAgentSnapshot {
     pub protocol: ProtocolInspection,
 }
 
+#[derive(Debug,Clone,Serialize)]
+#[serde(rename_all="camelCase")]
+pub struct ReadOnlyProbeResult {
+    pub allowed: bool,
+    pub attempted: bool,
+    pub transport_verified: bool,
+    pub semantic_ok: bool,
+    pub reason: String,
+    pub command: Option<String>,
+    pub discriminator_field: Option<String>,
+    pub framing_mode: String,
+    pub request_pipe: String,
+    pub elapsed_ms: u64,
+    pub response_raw: Option<String>,
+    pub response_json: Option<serde_json::Value>,
+}
+
 #[cfg(target_os="windows")]
 fn named_pipe_available(path:&str)->bool {
     use std::{ffi::OsStr,os::windows::ffi::OsStrExt};
@@ -78,6 +95,12 @@ fn safe_probe(v:&str)->bool {
         "ping"|"health"|"status"|"get_status"|"info"|"version"|"capabilities"|
         "get_capabilities"|"list_tools"|"tools.list"|"system.info")
 }
+fn preferred_safe_probe(values:&[String])->Option<String> {
+    for preferred in ["ping","health","status","get_status","version","capabilities","get_capabilities","list_tools","tools.list","system.info","info"] {
+        if let Some(v)=values.iter().find(|x|x.eq_ignore_ascii_case(preferred)) { return Some(v.clone()) }
+    }
+    None
+}
 fn is_framing_signal(low:&str)->bool {
     let transport=["\\\\.\\pipe\\","namedpipe","message_mode","byte_mode","recv(","readfile","writefile","send(","write("].iter().any(|k|low.contains(k));
     let boundary=["\\n","newline","delimiter","length_prefix","length prefix","prefix","struct.pack","struct.unpack","readline","splitlines"].iter().any(|k|low.contains(k));
@@ -90,9 +113,7 @@ fn infer_discriminator(raw:&str)->Option<String> {
         let b=format!("get(\"{}\")",field);
         let c=format!("['{}']",field);
         let d=format!("[\"{}\"]",field);
-        if lower.contains(&a)||lower.contains(&b)||lower.contains(&c)||lower.contains(&d) {
-            return Some(field.to_string());
-        }
+        if lower.contains(&a)||lower.contains(&b)||lower.contains(&c)||lower.contains(&d) { return Some(field.to_string()) }
     }
     None
 }
@@ -144,18 +165,12 @@ fn inspect_source_at(path:&Path)->ProtocolInspection {
         let t=line.trim();
         let low=t.to_ascii_lowercase();
         if low.starts_with("def ")||low.starts_with("async def ") {
-            if let Some(name)=t.split_whitespace().nth(if low.starts_with("async"){2}else{1}) {
-                unique_push(&mut handlers,name.split('(').next().unwrap_or(name).to_string())
-            }
+            if let Some(name)=t.split_whitespace().nth(if low.starts_with("async"){2}else{1}) { unique_push(&mut handlers,name.split('(').next().unwrap_or(name).to_string()) }
         }
         let command_line=["action","method","command","op","request_type","message_type","type"].iter().any(|k|low.contains(k))
             && (low.contains("==")||low.contains(" in ")||low.contains("match ")||low.contains("case "));
-        if command_line {
-            for q in quoted_tokens(t) { if looks_like_command(&q) { unique_push(&mut commands,q) } }
-        }
-        if ["json.loads","json.dumps","recv(","send(","readfile","writefile","struct.pack","struct.unpack","splitlines","readline","newline","length_prefix","message_type","request_id","action","method","command","event"].iter().any(|k|low.contains(k)) {
-            unique_push(&mut signals,t.chars().take(220).collect())
-        }
+        if command_line { for q in quoted_tokens(t) { if looks_like_command(&q) { unique_push(&mut commands,q) } } }
+        if ["json.loads","json.dumps","recv(","send(","readfile","writefile","struct.pack","struct.unpack","splitlines","readline","newline","length_prefix","message_type","request_id","action","method","command","event"].iter().any(|k|low.contains(k)) { unique_push(&mut signals,t.chars().take(220).collect()) }
         if is_framing_signal(&low) { unique_push(&mut framing,t.chars().take(220).collect()) }
     }
     let safe:Vec<String>=commands.iter().filter(|x|safe_probe(x)).cloned().collect();
@@ -164,10 +179,8 @@ fn inspect_source_at(path:&Path)->ProtocolInspection {
     let framing_mode=infer_framing(&raw);
     let (confidence,probe_ready,probe_reason)=protocol_gate(&encoding,&discriminator,&framing_mode,safe.len());
     ProtocolInspection {
-        source_available:true,source_fingerprint:Some(fingerprint(&raw)),line_count:raw.lines().count(),
-        handler_candidates:handlers.into_iter().take(60).collect(),command_candidates:commands.into_iter().take(100).collect(),safe_probe_candidates:safe,
-        framing_signals:framing.into_iter().take(60).collect(),protocol_signals:signals.into_iter().take(120).collect(),
-        encoding,discriminator_field:discriminator,framing_mode,confidence,probe_ready,probe_reason,
+        source_available:true,source_fingerprint:Some(fingerprint(&raw)),line_count:raw.lines().count(),handler_candidates:handlers.into_iter().take(60).collect(),command_candidates:commands.into_iter().take(100).collect(),safe_probe_candidates:safe,
+        framing_signals:framing.into_iter().take(60).collect(),protocol_signals:signals.into_iter().take(120).collect(),encoding,discriminator_field:discriminator,framing_mode,confidence,probe_ready,probe_reason,
     }
 }
 fn candidate_roots()->Vec<PathBuf> {
@@ -193,10 +206,87 @@ pub fn probe_legacy_agent()->LegacyAgentSnapshot {
     let protocol=inspect_source_at(&pipe_server);
     let hint=if protocol.probe_ready { "source-verified-newline-json" } else { "unverified" };
     LegacyAgentSnapshot {
-        source_path:root.display().to_string(),source_available:root.exists(),pipe_server_source_available:pipe_server.exists(),
-        request_pipe:request_pipe.into(),request_pipe_available:named_pipe_available(request_pipe),event_pipe:event_pipe.into(),event_pipe_available:named_pipe_available(event_pipe),
-        protocol_hint:hint.into(),protocol,
+        source_path:root.display().to_string(),source_available:root.exists(),pipe_server_source_available:pipe_server.exists(),request_pipe:request_pipe.into(),request_pipe_available:named_pipe_available(request_pipe),event_pipe:event_pipe.into(),event_pipe_available:named_pipe_available(event_pipe),protocol_hint:hint.into(),protocol,
     }
+}
+
+fn build_probe_payload(protocol:&ProtocolInspection)->Result<(String,String,String),String> {
+    if !protocol.probe_ready { return Err(format!("PROTOCOL_GATE_BLOCKED:{}",protocol.probe_reason)) }
+    if protocol.encoding!="json" || protocol.framing_mode!="newline-json" || protocol.confidence<90 { return Err("PROTOCOL_GATE_INVARIANT_FAILED".into()) }
+    let field=protocol.discriminator_field.clone().ok_or("PROTOCOL_DISCRIMINATOR_MISSING")?;
+    let command=preferred_safe_probe(&protocol.safe_probe_candidates).ok_or("SAFE_PROBE_COMMAND_MISSING")?;
+    if !safe_probe(&command) { return Err("SAFE_PROBE_WHITELIST_REJECTED".into()) }
+    let mut map=serde_json::Map::new();
+    map.insert(field.clone(),serde_json::Value::String(command.clone()));
+    let mut payload=serde_json::Value::Object(map).to_string();
+    payload.push('\n');
+    Ok((field,command,payload))
+}
+
+fn semantic_ok(value:&serde_json::Value)->bool {
+    if value.get("ok").and_then(|v|v.as_bool())==Some(true) { return true }
+    if value.get("healthy").and_then(|v|v.as_bool())==Some(true) { return true }
+    if let Some(status)=value.get("status").and_then(|v|v.as_str()) { return matches!(status.to_ascii_lowercase().as_str(),"ok"|"healthy"|"ready"|"online") }
+    false
+}
+
+#[cfg(target_os="windows")]
+pub fn run_readonly_probe()->ReadOnlyProbeResult {
+    use std::{fs::OpenOptions,io::{Read,Write},os::windows::io::AsRawHandle,ptr::null_mut,thread,time::{Duration,Instant}};
+    use windows_sys::Win32::System::Pipes::PeekNamedPipe;
+    let snapshot=probe_legacy_agent();
+    let framing=snapshot.protocol.framing_mode.clone();
+    let request_pipe=snapshot.request_pipe.clone();
+    let (field,command,payload)=match build_probe_payload(&snapshot.protocol) {
+        Ok(v)=>v,
+        Err(reason)=>return ReadOnlyProbeResult{allowed:false,attempted:false,transport_verified:false,semantic_ok:false,reason,command:None,discriminator_field:snapshot.protocol.discriminator_field.clone(),framing_mode:framing,request_pipe,elapsed_ms:0,response_raw:None,response_json:None},
+    };
+    if !snapshot.request_pipe_available {
+        return ReadOnlyProbeResult{allowed:true,attempted:false,transport_verified:false,semantic_ok:false,reason:"PROTOCOL_READY_BUT_REQUEST_PIPE_OFFLINE".into(),command:Some(command),discriminator_field:Some(field),framing_mode:framing,request_pipe,elapsed_ms:0,response_raw:None,response_json:None};
+    }
+    let started=Instant::now();
+    let mut file=match OpenOptions::new().read(true).write(true).open(&request_pipe) {
+        Ok(v)=>v,
+        Err(e)=>return ReadOnlyProbeResult{allowed:true,attempted:true,transport_verified:false,semantic_ok:false,reason:format!("PIPE_OPEN_FAILED:{e}"),command:Some(command),discriminator_field:Some(field),framing_mode:framing,request_pipe,elapsed_ms:started.elapsed().as_millis() as u64,response_raw:None,response_json:None},
+    };
+    if let Err(e)=file.write_all(payload.as_bytes()).and_then(|_|file.flush()) {
+        return ReadOnlyProbeResult{allowed:true,attempted:true,transport_verified:false,semantic_ok:false,reason:format!("PIPE_WRITE_FAILED:{e}"),command:Some(command),discriminator_field:Some(field),framing_mode:framing,request_pipe,elapsed_ms:started.elapsed().as_millis() as u64,response_raw:None,response_json:None};
+    }
+    let mut response=Vec::<u8>::new();
+    let timeout=Duration::from_millis(1500);
+    while started.elapsed()<timeout && response.len()<65_536 {
+        let mut available=0u32;
+        let ok=unsafe { PeekNamedPipe(file.as_raw_handle() as _,null_mut(),0,null_mut(),&mut available,null_mut()) };
+        if ok==0 {
+            return ReadOnlyProbeResult{allowed:true,attempted:true,transport_verified:false,semantic_ok:false,reason:"PIPE_PEEK_FAILED".into(),command:Some(command),discriminator_field:Some(field),framing_mode:framing,request_pipe,elapsed_ms:started.elapsed().as_millis() as u64,response_raw:None,response_json:None};
+        }
+        if available==0 { thread::sleep(Duration::from_millis(25));continue }
+        let want=(available as usize).min(4096).min(65_536-response.len());
+        let mut buf=vec![0u8;want];
+        match file.read(&mut buf) {
+            Ok(0)=>break,
+            Ok(n)=>response.extend_from_slice(&buf[..n]),
+            Err(e)=>return ReadOnlyProbeResult{allowed:true,attempted:true,transport_verified:false,semantic_ok:false,reason:format!("PIPE_READ_FAILED:{e}"),command:Some(command),discriminator_field:Some(field),framing_mode:framing,request_pipe,elapsed_ms:started.elapsed().as_millis() as u64,response_raw:None,response_json:None},
+        }
+        if response.contains(&b'\n') { break }
+    }
+    let elapsed=started.elapsed().as_millis() as u64;
+    if response.is_empty() {
+        return ReadOnlyProbeResult{allowed:true,attempted:true,transport_verified:false,semantic_ok:false,reason:"PIPE_RESPONSE_TIMEOUT".into(),command:Some(command),discriminator_field:Some(field),framing_mode:framing,request_pipe,elapsed_ms:elapsed,response_raw:None,response_json:None};
+    }
+    let raw=String::from_utf8_lossy(&response).trim().to_string();
+    let first=raw.lines().next().unwrap_or("").trim();
+    let parsed=serde_json::from_str::<serde_json::Value>(first).ok();
+    let transport_verified=parsed.is_some();
+    let sem=parsed.as_ref().map(semantic_ok).unwrap_or(false);
+    let reason=if transport_verified { if sem { "VALID_JSON_RESPONSE_SEMANTIC_OK" } else { "VALID_JSON_RESPONSE_TRANSPORT_ONLY" } } else { "RESPONSE_NOT_JSON" }.to_string();
+    ReadOnlyProbeResult{allowed:true,attempted:true,transport_verified,semantic_ok:sem,reason,command:Some(command),discriminator_field:Some(field),framing_mode:framing,request_pipe,elapsed_ms:elapsed,response_raw:Some(raw),response_json:parsed}
+}
+
+#[cfg(not(target_os="windows"))]
+pub fn run_readonly_probe()->ReadOnlyProbeResult {
+    let snapshot=probe_legacy_agent();
+    ReadOnlyProbeResult{allowed:false,attempted:false,transport_verified:false,semantic_ok:false,reason:"WINDOWS_ONLY".into(),command:None,discriminator_field:snapshot.protocol.discriminator_field,framing_mode:snapshot.protocol.framing_mode,request_pipe:snapshot.request_pipe,elapsed_ms:0,response_raw:None,response_json:None}
 }
 
 #[cfg(test)]
@@ -207,8 +297,7 @@ mod tests {
         fs::write(&p,raw).unwrap();
         p
     }
-    #[test]
-    fn inspector_proves_safe_newline_json_protocol() {
+    fn ready_fixture()->ProtocolInspection {
         let raw=r#"PIPE_NAME = r'\\.\pipe\d7_agent_core'
 def handle_request(msg):
     action = msg.get('action')
@@ -221,6 +310,12 @@ def handle_request(msg):
 "#;
         let p=write_fixture("pipe-ready",raw);
         let x=inspect_source_at(&p);
+        let _=fs::remove_file(p);
+        x
+    }
+    #[test]
+    fn inspector_proves_safe_newline_json_protocol() {
+        let x=ready_fixture();
         assert!(x.source_available);
         assert_eq!(x.discriminator_field.as_deref(),Some("action"));
         assert_eq!(x.encoding,"json");
@@ -231,7 +326,6 @@ def handle_request(msg):
         assert!(!x.safe_probe_candidates.iter().any(|v|v=="run_tool"));
         assert!(x.probe_ready);
         assert!(x.confidence>=90);
-        let _=fs::remove_file(p);
     }
     #[test]
     fn gate_refuses_ambiguous_protocol() {
@@ -242,6 +336,23 @@ def handle_request(msg):
         assert_eq!(x.encoding,"unknown");
         assert_eq!(x.framing_mode,"unknown");
         assert!(x.probe_reason.starts_with("Fail-closed"));
+        assert!(build_probe_payload(&x).is_err());
         let _=fs::remove_file(p);
+    }
+    #[test]
+    fn payload_is_exact_and_whitelisted() {
+        let x=ready_fixture();
+        let (field,command,payload)=build_probe_payload(&x).unwrap();
+        assert_eq!(field,"action");
+        assert_eq!(command,"ping");
+        assert_eq!(payload,"{\"action\":\"ping\"}\n");
+        assert!(safe_probe(&command));
+    }
+    #[test]
+    fn semantic_verification_is_conservative() {
+        assert!(semantic_ok(&serde_json::json!({"ok":true})));
+        assert!(semantic_ok(&serde_json::json!({"status":"healthy"})));
+        assert!(!semantic_ok(&serde_json::json!({"ok":false})));
+        assert!(!semantic_ok(&serde_json::json!({"error":"unknown command"})));
     }
 }
