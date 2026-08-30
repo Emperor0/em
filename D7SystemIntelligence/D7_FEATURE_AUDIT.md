@@ -59,5 +59,13 @@
 - كل claims عن latency/FPS/temperature/network يجب ربطها بقياس فعلي أو تصنيفها Estimate/Unavailable.
 - UI count ليس KPI. عدد الميزات الأقل مع execution أقوى أفضل من عشرات الصفحات.
 
+## Release Freeze — One Big Quality Release
+- لا نشر إصدارات مستخدم صغيرة أثناء عملية التدقيق الشامل.
+- التطوير يستمر على `d7-system-intelligence-build` مع CI لكل دفعة، لكن لا GitHub Release للمستخدم حتى اكتمال Quality Pass.
+- الإصدار التالي للمستخدم يجب أن يجتاز تدقيق كل P0 وP1، مع قرار واضح لكل P2/P3: KEEP / UPGRADE / MERGE / REMOVE.
+- أي Feature تبقى يجب أن تملك سببًا واضحًا لاستخدام D7KT بدل المنافس المباشر، أو ميزة تكامل/ذكاء/أتمتة لا يقدمها المنافس بنفس الشكل.
+- قبل الإصدار النهائي: full build + installer + self-update path + smoke test + runtime validation للوظائف الأساسية + توثيق Supported/Read-only/Unavailable للهاردوير المعتمد على الدعم.
+- لا يرفع رقم الإصدار للمستخدم إلا مرة واحدة بعد اكتمال هذا الـQuality Pass؛ التغييرات الداخلية تبقى Builds تجريبية فقط.
+
 ## Audit order
 RGB → Input → Shadow Capture → Missions → Diagnostics/Action Center → Stutter/Benchmark → Stream/HUD → Network → Display → Audio → Drivers → Storage/Crash → Fans → Maintenance utilities → final consolidation.
