@@ -146,7 +146,7 @@ public sealed class MissionControlWindow : Window
             Append($"\r\n▶ {D7MissionEngine.MissionArabic(mission)}");
             var result = await _engine.ApplyAsync(mission, _gameProvider());
             foreach (var step in result.Steps)
-                Append($"{Icon(step.State)} [{step.State}] {step.Step}\r\n{step.Detail}");
+                Append($"{StepIcon(step.State)} [{step.State}] {step.Step}\r\n{step.Detail}");
             Append(result.Summary);
         }
         catch (Exception ex)
@@ -168,14 +168,14 @@ public sealed class MissionControlWindow : Window
             Append("\r\n↩ RESTORE");
             var result = await _engine.RestoreAsync();
             foreach (var step in result.Steps)
-                Append($"{Icon(step.State)} [{step.State}] {step.Step}\r\n{step.Detail}");
+                Append($"{StepIcon(step.State)} [{step.State}] {step.Step}\r\n{step.Detail}");
             Append(result.Summary);
         }
         catch (Exception ex) { Append("خطأ الاستعادة: " + ex.Message); }
         finally { SetBusy(false); RefreshHeader(); }
     }
 
-    private static string Icon(MissionStepState state) => state switch
+    private static string StepIcon(MissionStepState state) => state switch
     {
         MissionStepState.Applied or MissionStepState.Verified or MissionStepState.Restored => "✓",
         MissionStepState.AlreadyOptimal => "=",
