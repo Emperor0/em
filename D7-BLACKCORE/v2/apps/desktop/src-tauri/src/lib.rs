@@ -26,7 +26,7 @@ struct CapabilitySnapshot { id:&'static str, label:&'static str, state:&'static 
 struct RuntimeOverview { runtime:RuntimeStatus, device:DeviceSnapshot, capabilities:Vec<CapabilitySnapshot> }
 
 fn status(s:&State<AppState>)->RuntimeStatus {
-    RuntimeStatus { paused:s.paused.load(Ordering::SeqCst), uptime_seconds:s.started.elapsed().as_secs(), native:true, version:"2.0.0-dev.10" }
+    RuntimeStatus { paused:s.paused.load(Ordering::SeqCst), uptime_seconds:s.started.elapsed().as_secs(), native:true, version:"2.0.0-dev.11" }
 }
 
 #[tauri::command]
@@ -44,6 +44,11 @@ fn get_active_mission(r:State<SharedRuntime>)->Result<Option<RuntimeMission>,Str
 fn get_pending_approvals(r:State<SharedRuntime>)->Result<Vec<ApprovalRequest>,String> { Ok(r.0.lock().map_err(|_|"RUNTIME_LOCK_POISONED".to_string())?.pending()) }
 #[tauri::command]
 fn decide_approval(r:State<SharedRuntime>,approval_id:String,approve:bool)->Result<RuntimeMission,String> { r.0.lock().map_err(|_|"RUNTIME_LOCK_POISONED".to_string())?.decide(&approval_id,approve) }
+#[tauri::command]
+fn probe_legacy_readonly(s:State<AppState>)->Result<legacy::ReadOnlyProbeResult,String> {
+    if s.paused.load(Ordering::SeqCst) { return Err("RUNTIME_PAUSED".into()) }
+    Ok(legacy::run_readonly_probe())
+}
 
 #[tauri::command]
 fn get_runtime_overview(s:State<AppState>)->RuntimeOverview {
@@ -73,15 +78,16 @@ fn get_runtime_overview(s:State<AppState>)->RuntimeOverview {
         CapabilitySnapshot{id:"runtime.native",label:"Windows Native Runtime",state:"verified",evidence:"Tauri/Rust host answered directly.".into()},
         CapabilitySnapshot{id:"modes.native",label:"Native Mode Registry",state:"verified",evidence:format!("{} operating modes registered in Rust runtime.",modes::all_modes().len())},
         CapabilitySnapshot{id:"device.snapshot",label:"Live Device Twin",state:"verified",evidence:format!("{} processes sampled.",d.process_count)},
-        CapabilitySnapshot{id:"action.stop",label:"Emergency Automation Stop",state:"verified",evidence:"Native pause flag blocks mission submission.".into()},
+        CapabilitySnapshot{id:"action.stop",label:"Emergency Automation Stop",state:"verified",evidence:"Native pause flag blocks mission and probe submission.".into()},
         CapabilitySnapshot{id:"mission.runtime",label:"Mission Runtime + Journal",state:"verified",evidence:"Lifecycle journal persists under LOCALAPPDATA/D7_BLACKCORE.".into()},
         CapabilitySnapshot{id:"approval.queue",label:"Approval Queue",state:"verified",evidence:"Existing-target mutation waits for explicit decision.".into()},
         CapabilitySnapshot{id:"checkpoint.file",label:"Pre-mutation Checkpoint",state:"verified",evidence:"Approved overwrite creates backup first.".into()},
         CapabilitySnapshot{id:"legacy.d7_agent",label:"D7 Agent Core Bridge",state:agent_state,evidence:agent_evidence},
         CapabilitySnapshot{id:"legacy.protocol_inspector",label:"D7 Protocol Inspector",state:protocol_state,evidence:protocol_evidence},
         CapabilitySnapshot{id:"legacy.protocol_gate",label:"D7 Read-only Probe Gate",state:gate_state,evidence:gate_evidence},
+        CapabilitySnapshot{id:"legacy.readonly_probe",label:"D7 Read-only Round Trip",state:"untested",evidence:"A hard-whitelisted probe transport exists; no round-trip is claimed until invoked on the local D7 Agent.".into()},
         CapabilitySnapshot{id:"windows.write",label:"General Windows Mutations",state:"partial",evidence:"Constrained Desktop adapter only.".into()},
-        CapabilitySnapshot{id:"browser.chrome",label:"Authenticated Chrome Operator",state:"untested",evidence:"Pending verified local D7 IPC transport.".into()},
+        CapabilitySnapshot{id:"browser.chrome",label:"Authenticated Chrome Operator",state:"untested",evidence:"Pending verified local D7 IPC round-trip.".into()},
         CapabilitySnapshot{id:"builder.native",label:"Builder Studio Native Host",state:"partial",evidence:"Native host exists; IDE surface pending.".into()},
     ];
     c.push(CapabilitySnapshot{id:"device.nvidia",label:"NVIDIA Telemetry",state:if d.gpu.is_some(){"verified"}else{"unavailable"},evidence:if d.gpu.is_some(){"nvidia-smi telemetry parsed.".into()}else{"nvidia-smi unavailable.".into()}});
@@ -95,7 +101,7 @@ pub fn run() {
     tauri::Builder::default()
         .manage(AppState{paused:AtomicBool::new(false),started:Instant::now()})
         .manage(SharedRuntime::new())
-        .invoke_handler(tauri::generate_handler![get_runtime_overview,get_modes,set_runtime_paused,submit_mission,get_active_mission,get_pending_approvals,decide_approval])
+        .invoke_handler(tauri::generate_handler![get_runtime_overview,get_modes,set_runtime_paused,submit_mission,get_active_mission,get_pending_approvals,decide_approval,probe_legacy_readonly])
         .run(tauri::generate_context!())
         .expect("error while running D7 BLACKCORE");
 }

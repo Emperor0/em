@@ -1,6 +1,6 @@
 [package]
 name="d7-blackcore"
-version="2.0.0-dev.10"
+version="2.0.0-dev.11"
 description="D7 BLACKCORE Personal Autonomous OS"
 authors=["D7"]
 edition="2021"

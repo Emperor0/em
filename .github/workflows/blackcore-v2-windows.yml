@@ -6,6 +6,9 @@ on:
       - 'D7-BLACKCORE/v2/apps/desktop/**'
       - '.github/workflows/blackcore-v2-windows.yml'
   workflow_dispatch:
+concurrency:
+  group: blackcore-v2-windows-${{ github.ref }}
+  cancel-in-progress: true
 permissions:
   contents: read
 jobs:
