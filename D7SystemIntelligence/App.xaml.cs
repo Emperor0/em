@@ -6,6 +6,7 @@ public partial class App : Application
 {
     private AppIntelligenceIntegration? _appIntelligence;
     private NetworkLabIntegration? _networkLab;
+    private ShellConsolidationIntegration? _shellConsolidation;
 
     protected override void OnStartup(StartupEventArgs e)
     {
@@ -20,6 +21,7 @@ public partial class App : Application
         var window = new D7KtShellWindow();
         _appIntelligence = AppIntelligenceIntegration.Attach(window);
         _networkLab = NetworkLabIntegration.Attach(window);
+        _shellConsolidation = ShellConsolidationIntegration.Attach(window);
         MainWindow = window;
         window.Show();
     }
@@ -35,8 +37,6 @@ public partial class App : Application
             var icon = D7KtBrand.CreateIcon();
             if (icon == null) throw new InvalidOperationException("D7KT brand resources failed to initialize.");
 
-            // Constructing the production shell initializes the same core services and WPF surfaces
-            // the user will receive, but does not start timers or game monitoring until Loaded.
             var shell = new D7KtShellWindow();
             shell.Close();
 
@@ -58,6 +58,8 @@ public partial class App : Application
 
     protected override void OnExit(ExitEventArgs e)
     {
+        _shellConsolidation?.Dispose();
+        _shellConsolidation = null;
         _networkLab?.Dispose();
         _networkLab = null;
         _appIntelligence?.Dispose();
