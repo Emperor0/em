@@ -21,11 +21,21 @@ jobs:
         with:
           node-version: 22
       - uses: dtolnay/rust-toolchain@stable
+      - name: Cache Rust dependencies and target
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~\.cargo\registry
+            ~\.cargo\git
+            D7-BLACKCORE\v2\apps\desktop\src-tauri\target
+          key: blackcore-v2-windows-rust-${{ hashFiles('D7-BLACKCORE/v2/apps/desktop/src-tauri/Cargo.toml') }}
+          restore-keys: |
+            blackcore-v2-windows-rust-
       - name: Install frontend dependencies
         run: npm install --no-audit --no-fund
       - name: Frontend typecheck and build
         run: npm run build
-      - name: Native Rust mission/runtime/protocol tests
+      - name: Native Rust mission/runtime/protocol/mode tests
         run: cargo test --manifest-path src-tauri/Cargo.toml --release
       - name: Build Tauri Windows installer
         run: npm run tauri:build
@@ -40,7 +50,7 @@ jobs:
           if($installer.Length -lt 1000000){throw 'Installer unexpectedly small'}
       - uses: actions/upload-artifact@v4
         with:
-          name: D7-BLACKCORE-2.0-dev.8-Windows
+          name: D7-BLACKCORE-2.0-dev.9-Windows
           path: |
             D7-BLACKCORE/v2/apps/desktop/src-tauri/target/release/d7-blackcore.exe
             D7-BLACKCORE/v2/apps/desktop/src-tauri/target/release/bundle/nsis/*.exe
