@@ -14,6 +14,15 @@ public sealed record StabilityEventRecord(
     string Summary,
     string Message);
 
+public sealed record CrashCorrelationRecord(
+    DateTime Start,
+    DateTime End,
+    string Signal,
+    int EventCount,
+    IReadOnlyList<string> Categories,
+    string Interpretation,
+    string Evidence);
+
 public sealed record CrashInvestigationReport(
     DateTime From,
     DateTime To,
@@ -23,7 +32,10 @@ public sealed record CrashInvestigationReport(
     int GpuDriverEvents,
     int StorageEvents,
     int UnexpectedShutdowns,
-    string Verdict);
+    string Verdict)
+{
+    public IReadOnlyList<CrashCorrelationRecord> Correlations { get; init; } = [];
+}
 
 public sealed class CrashInvestigatorService
 {
@@ -74,9 +86,99 @@ $rows | Sort-Object TimeCreated -Descending | Select-Object -First 300 | Convert
         var gpu = events.Count(x => x.Category == "GPU / Display");
         var storage = events.Count(x => x.Category == "Storage");
         var shutdown = events.Count(x => x.Category == "Unexpected Shutdown");
-        var verdict = BuildVerdict(apps, whea, gpu, storage, shutdown, events.Count);
-        return new CrashInvestigationReport(from, to, events, apps, whea, gpu, storage, shutdown, verdict);
+        var correlations = BuildCorrelations(events);
+        var verdict = BuildVerdict(apps, whea, gpu, storage, shutdown, events.Count, correlations);
+        return new CrashInvestigationReport(from, to, events, apps, whea, gpu, storage, shutdown, verdict)
+        {
+            Correlations = correlations
+        };
     }
+
+    private static IReadOnlyList<CrashCorrelationRecord> BuildCorrelations(IReadOnlyList<StabilityEventRecord> source)
+    {
+        var ordered = source.Where(x => x.TimeCreated != DateTime.MinValue).OrderBy(x => x.TimeCreated).ToArray();
+        if (ordered.Length < 2) return [];
+
+        var clusters = new List<List<StabilityEventRecord>>();
+        var current = new List<StabilityEventRecord> { ordered[0] };
+        for (var i = 1; i < ordered.Length; i++)
+        {
+            var gap = ordered[i].TimeCreated - current[^1].TimeCreated;
+            if (gap <= TimeSpan.FromMinutes(7)) current.Add(ordered[i]);
+            else
+            {
+                if (IsUsefulCluster(current)) clusters.Add(current);
+                current = [ordered[i]];
+            }
+        }
+        if (IsUsefulCluster(current)) clusters.Add(current);
+
+        return clusters.Select(BuildCorrelation)
+            .OrderByDescending(x => CorrelationRank(x.Signal))
+            .ThenByDescending(x => x.End)
+            .Take(20)
+            .ToArray();
+    }
+
+    private static bool IsUsefulCluster(IReadOnlyList<StabilityEventRecord> cluster)
+        => cluster.Count >= 2 && cluster.Select(x => x.Category).Distinct(StringComparer.OrdinalIgnoreCase).Count() >= 2;
+
+    private static CrashCorrelationRecord BuildCorrelation(IReadOnlyList<StabilityEventRecord> cluster)
+    {
+        var cats = cluster.Select(x => x.Category).Distinct(StringComparer.OrdinalIgnoreCase).ToArray();
+        var hasWhea = cats.Contains("Hardware / WHEA", StringComparer.OrdinalIgnoreCase);
+        var hasGpu = cats.Contains("GPU / Display", StringComparer.OrdinalIgnoreCase);
+        var hasStorage = cats.Contains("Storage", StringComparer.OrdinalIgnoreCase);
+        var hasShutdown = cats.Contains("Unexpected Shutdown", StringComparer.OrdinalIgnoreCase);
+        var hasApp = cats.Contains("Application Crash", StringComparer.OrdinalIgnoreCase);
+
+        string signal;
+        string interpretation;
+        if (hasWhea && hasShutdown)
+        {
+            signal = "WHEA + Shutdown";
+            interpretation = "Hardware/WHEA ظهر قريبًا من إيقاف غير متوقع. هذا يرفع أولوية فحص استقرار CPU/RAM/PCIe/OC، لكنه لا يثبت القطعة المسببة وحده.";
+        }
+        else if (hasWhea && hasGpu)
+        {
+            signal = "WHEA + GPU";
+            interpretation = "WHEA وGPU/Display events متقاربان. افحص استقرار PCIe/GPU/CPU/RAM والتعريف قبل لوم اللعبة وحدها.";
+        }
+        else if (hasStorage && hasShutdown)
+        {
+            signal = "Storage + Shutdown";
+            interpretation = "Storage events ظهرت قرب Kernel-Power/Shutdown. راجع Storage Center والكابلات/القرص/الدرايفر، مع تذكر أن Event 41 لا يحدد السبب وحده.";
+        }
+        else if (hasGpu && hasApp)
+        {
+            signal = "GPU + App Crash";
+            interpretation = "GPU/Display event ظهر قرب Application crash. الاحتمال يستحق مقارنة Driver version ووقت جلسة اللعب، بدون افتراض أن التعريف هو السبب الوحيد.";
+        }
+        else if (hasStorage && hasApp)
+        {
+            signal = "Storage + App Crash";
+            interpretation = "Storage I/O event ظهر قرب تعطل تطبيق. افحص Reliability counters والمساحة/القرص قبل اعتبار العطل Software-only.";
+        }
+        else
+        {
+            signal = "Temporal Cluster";
+            interpretation = "عدة فئات أحداث ظهرت ضمن نافذة زمنية قصيرة. هذه Correlation فقط، وليست إثبات Causation.";
+        }
+
+        var evidence = string.Join(Environment.NewLine,
+            cluster.OrderBy(x => x.TimeCreated).Select(x => $"{x.TimeCreated:HH:mm:ss} • {x.Category} • {x.Provider} • Event {x.EventId}"));
+        return new CrashCorrelationRecord(cluster.Min(x => x.TimeCreated), cluster.Max(x => x.TimeCreated), signal, cluster.Count, cats, interpretation, evidence);
+    }
+
+    private static int CorrelationRank(string signal) => signal switch
+    {
+        "WHEA + Shutdown" => 100,
+        "WHEA + GPU" => 90,
+        "Storage + Shutdown" => 80,
+        "GPU + App Crash" => 70,
+        "Storage + App Crash" => 60,
+        _ => 10
+    };
 
     private static StabilityEventRecord Parse(JsonElement e)
     {
@@ -102,8 +204,11 @@ $rows | Sort-Object TimeCreated -Descending | Select-Object -First 300 | Convert
         return "System";
     }
 
-    private static string BuildVerdict(int apps, int whea, int gpu, int storage, int shutdown, int total)
+    private static string BuildVerdict(int apps, int whea, int gpu, int storage, int shutdown, int total, IReadOnlyList<CrashCorrelationRecord> correlations)
     {
+        var strongest = correlations.FirstOrDefault();
+        if (strongest != null && CorrelationRank(strongest.Signal) >= 60)
+            return $"أقوى Correlation: {strongest.Signal} • {strongest.Start:yyyy-MM-dd HH:mm:ss} → {strongest.End:HH:mm:ss}. {strongest.Interpretation}";
         if (whea > 0) return $"تنبيه مهم: {whea} WHEA/Hardware event. افحص استقرار CPU/RAM/PCIe قبل اعتبار المشكلة برمجية.";
         if (storage > 0) return $"تم رصد {storage} Storage event. راجع Storage Center والصحة/الكابلات/الدرايفر قبل تجاهلها.";
         if (gpu > 0) return $"تم رصد {gpu} GPU/Display driver event. قارن توقيتها بجلسات اللعب والتعريف المستخدم.";
