@@ -1,6 +1,5 @@
 using System.Windows;
 using System.Windows.Controls;
-using System.Windows.Media;
 
 namespace D7SystemIntelligence;
 
@@ -13,11 +12,15 @@ internal static class ShellContractValidator
 
     public static void Validate(D7KtShellWindow shell)
     {
-        var dashboard = FindDescendants<Button>(shell)
+        if (shell.Content is not DependencyObject root)
+            throw new InvalidOperationException("D7KT shell contract failed: shell content is missing.");
+
+        var dashboard = FindLogicalDescendants<Button>(root)
             .FirstOrDefault(x => string.Equals(x.Tag as string, "dashboard", StringComparison.OrdinalIgnoreCase))
             ?? throw new InvalidOperationException("D7KT shell contract failed: dashboard navigation button is missing.");
 
-        if (dashboard.Parent is not Panel panel)
+        var panel = LogicalTreeHelper.GetParent(dashboard) as Panel ?? dashboard.Parent as Panel;
+        if (panel == null)
             throw new InvalidOperationException("D7KT shell contract failed: primary navigation panel was not found.");
 
         var keys = panel.Children.OfType<Button>()
@@ -32,14 +35,12 @@ internal static class ShellContractValidator
                 string.Join(", ", Expected) + "; actual: " + string.Join(", ", keys));
     }
 
-    private static IEnumerable<T> FindDescendants<T>(DependencyObject root) where T : DependencyObject
+    private static IEnumerable<T> FindLogicalDescendants<T>(DependencyObject root) where T : DependencyObject
     {
         if (root is T match) yield return match;
-        var count = VisualTreeHelper.GetChildrenCount(root);
-        for (var i = 0; i < count; i++)
+        foreach (var child in LogicalTreeHelper.GetChildren(root).OfType<DependencyObject>())
         {
-            var child = VisualTreeHelper.GetChild(root, i);
-            foreach (var item in FindDescendants<T>(child))
+            foreach (var item in FindLogicalDescendants<T>(child))
                 yield return item;
         }
     }
