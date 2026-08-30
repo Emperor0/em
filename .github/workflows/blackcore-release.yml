@@ -35,8 +35,10 @@ jobs:
             D7-BLACKCORE/release_chunks2/chunk_010.b64 \
             D7-BLACKCORE/release_chunks2/chunk_011.b64 \
             D7-BLACKCORE/release_chunks2/chunk_012.b64 \
-            D7-BLACKCORE/release_chunks2/chunk_013a.b64 \
-            D7-BLACKCORE/release_chunks2/chunk_013b.b64 \
+            D7-BLACKCORE/release_chunks2/chunk_013_0.b64 \
+            D7-BLACKCORE/release_chunks2/chunk_013_1.b64 \
+            D7-BLACKCORE/release_chunks2/chunk_013_2.b64 \
+            D7-BLACKCORE/release_chunks2/chunk_013_3.b64 \
             D7-BLACKCORE/release_chunks2/chunk_014.b64; do
             test -s "$f"
           done
@@ -60,8 +62,10 @@ jobs:
             D7-BLACKCORE/release_chunks2/chunk_010.b64 \
             D7-BLACKCORE/release_chunks2/chunk_011.b64 \
             D7-BLACKCORE/release_chunks2/chunk_012.b64 \
-            D7-BLACKCORE/release_chunks2/chunk_013a.b64 \
-            D7-BLACKCORE/release_chunks2/chunk_013b.b64 \
+            D7-BLACKCORE/release_chunks2/chunk_013_0.b64 \
+            D7-BLACKCORE/release_chunks2/chunk_013_1.b64 \
+            D7-BLACKCORE/release_chunks2/chunk_013_2.b64 \
+            D7-BLACKCORE/release_chunks2/chunk_013_3.b64 \
             D7-BLACKCORE/release_chunks2/chunk_014.b64 \
             | base64 -d > D7-BLACKCORE/releases/D7_BLACKCORE_v1.0.3.zip
           echo "65124b4dc65fc69413a4d8d5a8e0250de1aa1fc67dd511a59d9022963b9a9e49  D7-BLACKCORE/releases/D7_BLACKCORE_v1.0.3.zip" | sha256sum -c -
