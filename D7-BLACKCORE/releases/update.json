@@ -1,8 +1,8 @@
 {
-  "version": "1.0.0",
+  "version": "1.0.3",
   "channel": "alpha",
-  "published_at": "2026-08-29T20:36:59.098438+00:00",
-  "download_url": "https://raw.githubusercontent.com/Emperor0/em/main/D7-BLACKCORE/releases/D7_BLACKCORE_v1.0.0.zip",
-  "sha256": "4bc5a4a053c95f1410c0a69eb3ce9515112d606ab709a26f24d3773a537213bd",
-  "notes": "Initial GitHub-connected BLACKCORE release"
+  "published_at": "2026-08-30T00:02:00Z",
+  "download_url": "https://raw.githubusercontent.com/Emperor0/em/main/D7-BLACKCORE/releases/D7_BLACKCORE_v1.0.3.zip",
+  "sha256": "65124b4dc65fc69413a4d8d5a8e0250de1aa1fc67dd511a59d9022963b9a9e49",
+  "notes": "واجهة عربية RTL حديثة، زر تحديث مباشر من داخل BLACKCORE، حالات تنفيذ حية، وFast Path لمهام الملفات المحلية مع تحقق فعلي."
 }
