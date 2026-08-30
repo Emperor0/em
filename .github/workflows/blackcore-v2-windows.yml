@@ -6,6 +6,7 @@ on:
     paths:
       - 'D7-BLACKCORE/v2/apps/desktop/**'
       - 'D7-BLACKCORE/v2/VERSION'
+      - 'D7-BLACKCORE/v2/package.json'
       - '.github/workflows/blackcore-v2-windows.yml'
   workflow_dispatch:
 
@@ -19,7 +20,7 @@ permissions:
 jobs:
   build-native-windows:
     runs-on: windows-latest
-    timeout-minutes: 30
+    timeout-minutes: 35
     defaults:
       run:
         working-directory: D7-BLACKCORE/v2/apps/desktop
@@ -48,14 +49,16 @@ jobs:
         shell: pwsh
         run: |
           $version = (Get-Content '..\..\VERSION' -Raw).Trim()
+          $kernelVersion = (Get-Content '..\..\package.json' -Raw | ConvertFrom-Json).version
           $packageVersion = (Get-Content 'package.json' -Raw | ConvertFrom-Json).version
           $tauriVersion = (Get-Content 'src-tauri\tauri.conf.json' -Raw | ConvertFrom-Json).version
           $cargo = Get-Content 'src-tauri\Cargo.toml' -Raw
           $cargoMatch = [regex]::Match($cargo, '(?m)^version\s*=\s*"([^"]+)"')
           if (-not $cargoMatch.Success) { throw 'Cargo version not found' }
           $cargoVersion = $cargoMatch.Groups[1].Value
-          Write-Host "VERSION=$version package=$packageVersion tauri=$tauriVersion cargo=$cargoVersion"
-          if ($packageVersion -ne $version) { throw "package.json version mismatch: $packageVersion != $version" }
+          Write-Host "VERSION=$version kernel=$kernelVersion desktop=$packageVersion tauri=$tauriVersion cargo=$cargoVersion"
+          if ($kernelVersion -ne $version) { throw "kernel package version mismatch: $kernelVersion != $version" }
+          if ($packageVersion -ne $version) { throw "desktop package version mismatch: $packageVersion != $version" }
           if ($tauriVersion -ne $version) { throw "tauri.conf.json version mismatch: $tauriVersion != $version" }
           if ($cargoVersion -ne $version) { throw "Cargo.toml version mismatch: $cargoVersion != $version" }
 
@@ -73,7 +76,7 @@ jobs:
       - name: Frontend typecheck and build
         run: npm run build
 
-      - name: Native Rust mission/runtime/protocol/mode tests
+      - name: Native Rust mission/runtime/protocol/mode/agent tests
         run: cargo test --manifest-path src-tauri/Cargo.toml --release
 
       - name: Build Tauri Windows installer
@@ -103,24 +106,15 @@ jobs:
             version = $version
             commit = $env:GITHUB_SHA
             branch = $env:GITHUB_REF_NAME
-            native_exe = [ordered]@{
-              file = (Split-Path $stagedExe -Leaf)
-              bytes = (Get-Item $stagedExe).Length
-              sha256 = $exeHash
-            }
-            installer = [ordered]@{
-              file = (Split-Path $stagedInstaller -Leaf)
-              bytes = (Get-Item $stagedInstaller).Length
-              sha256 = $installerHash
-            }
+            native_exe = [ordered]@{ file=(Split-Path $stagedExe -Leaf); bytes=(Get-Item $stagedExe).Length; sha256=$exeHash }
+            installer = [ordered]@{ file=(Split-Path $stagedInstaller -Leaf); bytes=(Get-Item $stagedInstaller).Length; sha256=$installerHash }
             generated_at_utc = (Get-Date).ToUniversalTime().ToString('o')
           }
           $info | ConvertTo-Json -Depth 6 | Set-Content 'artifact\BUILD_INFO.json' -Encoding UTF8
-
           $artifactFiles = @(Get-ChildItem 'artifact' -File)
           if ($artifactFiles.Count -ne 3) { throw "Expected exactly 3 staged files, found $($artifactFiles.Count)" }
-          Write-Host "Native EXE: $stagedExe $((Get-Item $stagedExe).Length) bytes SHA256=$exeHash"
-          Write-Host "Installer: $stagedInstaller $((Get-Item $stagedInstaller).Length) bytes SHA256=$installerHash"
+          Write-Host "Native EXE SHA256=$exeHash"
+          Write-Host "Installer SHA256=$installerHash"
           Get-Content 'artifact\BUILD_INFO.json'
 
       - uses: actions/upload-artifact@v4
