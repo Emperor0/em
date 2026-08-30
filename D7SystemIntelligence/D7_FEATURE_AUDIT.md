@@ -2,6 +2,17 @@
 
 هذا الملف Gate إلزامي للنسخة الكبيرة. وجود زر/صفحة لا يعني أن الميزة ناجحة.
 
+## Automated release gate — PASS
+- Pre-release gate run **#201** completed successfully on Windows.
+- `dotnet publish` self-contained single EXE: **PASS**.
+- Production shell construction + exact **6-center navigation contract**: **PASS**.
+- Inno Setup compile: **PASS**.
+- Clean silent install into a real Windows path: **PASS**.
+- Health check from the installed EXE: **PASS**.
+- Self-update overwrite path: previous EXE backup + post-update health check + recovery log verification: **PASS**.
+- Release workflow reruns the same gates before publishing; a failed gate blocks the public release.
+- This automated gate does **not** pretend to validate vendor/hardware-dependent runtime paths such as OpenRGB devices, monitor DDC/CI, OBS configuration, writable fan controllers, real game frametimes, or driver changes on the user's machine.
+
 ## حالات القرار
 - **KEEP**: لها قيمة واضحة وتنفيذ حقيقي.
 - **MERGE**: القيمة موجودة لكن لا تستحق صفحة مستقلة.
@@ -24,7 +35,7 @@
 
 | Feature | Decision | Current value / quality gate | Runtime |
 |---|---|---|---|
-| Self Update | KEEP / HARDENED | Download progress + SHA-256 + visible installer + previous EXE backup + post-update shell/core healthcheck + automatic executable rollback on failed healthcheck | PENDING final self-update test |
+| Self Update | KEEP / HARDENED | Download progress + SHA-256 + visible installer + previous EXE backup + post-update shell/core healthcheck + automatic executable rollback on failed healthcheck | automated success path PASS; device update still to validate |
 | RGB Studio | KEEP | Per-device color/mode/brightness, scenes, OpenRGB backend, runtime/game/mission intelligence; no fake unsupported zones | PENDING device matrix test |
 | Input Lab | KEEP | Raw Input polling distribution/jitter/stalls, NKRO, controller drift/range, Windows pointer baseline + restore; no fake generic DPI writes | PENDING device test |
 | Shadow Capture | KEEP | OBS Replay ownership, no duplicate recorder, duration/folder/hotkey, metadata, safe cleanup, performance/OBS impact test, rollback of D7-owned OBS changes | PENDING OBS/game test |
@@ -69,7 +80,7 @@
 ## Final consolidation target
 واجهة المستخدم النهائية تظل قليلة وواضحة. التخصصات تفتح كـTools/Dialogs داخل المراكز، لا تتحول كل ميزة إلى صفحة Sidebar.
 
-المراكز المستهدفة:
+المراكز النهائية:
 1. Dashboard
 2. Health + Repair
 3. Gaming + Performance
@@ -79,17 +90,20 @@
 
 داخلها تندمج Auto Scene / Performance Contract / Clip Library / Startup / Background / Smart Removal / raw inventories بدل تضخيم التنقل.
 
-## Release freeze
-- لا إصدار مستخدم وسيط أثناء التدقيق.
-- كل العمل يبقى على `d7-system-intelligence-build`.
-- الإصدار التالي فقط بعد: final consolidation → green Publish/Installer → self-update health/rollback test → clean install → runtime test على جهاز المستخدم.
-- CI يثبت أن المشروع يبني؛ لا يثبت أن RGB/DDC/OBS/Audio/Fans/Drivers تعمل على كل جهاز.
+## Release policy
+- كل العمل يبقى على `d7-system-intelligence-build`; لا merge إلى `main` ضمن هذا الإصدار.
+- Public release لا ينشر إلا إذا Publish + Shell Health + 6-center contract + Installer + clean-install smoke + self-update smoke كلها PASS.
+- CI يثبت البناء والتثبيت ومسار التحديث؛ لا يثبت أن RGB/DDC/OBS/Audio/Fans/Drivers تعمل على كل جهاز.
+- بعد وصول الإصدار إلى الجهاز المستهدف يبدأ hardware/runtime validation feature-by-feature؛ أي مسار يفشل يُصلح بدل وصفه بأنه جاهز.
 
-## Final remaining gates
-1. إزالة/دمج entry points القديمة والمكررة في الـShell.
-2. مراجعة Feature Registry حتى لا يصف أي Feature غير مختبرة بأنها Production-ready.
-3. Green build للـEXE + Inno installer بعد كل تغييرات الجودة الحالية.
-4. End-to-end: launch → diagnose/repair → game detection → mission → benchmark/HUD → capture → stream → app profiles → restore → restart.
-5. Hardware paths: RGB/Input/Display/Audio/Fans/Network على الجهاز الحقيقي.
-6. Self-update from old public version إلى big release: SHA → install → healthcheck → launch، ثم اختبار rollback المقصود على build تجريبي قبل النشر.
-7. بعدها فقط Release المستخدم الكبير.
+## Device validation queue after delivery
+1. Launch/version/UI contract.
+2. Shadow Capture: OBS WebSocket → Replay Buffer → F8 → actual clip/folder/duration.
+3. Input Lab polling/controller tests.
+4. Game detection + PresentMon session + Benchmark/HUD.
+5. Mission/Auto Scene + restore ownership.
+6. Network Before/After and bufferbloat manual test.
+7. Display/Audio verified writes and restore.
+8. RGB only on detected/supported OpenRGB devices.
+9. Fans remain Read-only unless a verified writable channel exists.
+10. Driver/maintenance flows only outside active gaming/streaming sessions.
