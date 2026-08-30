@@ -42,6 +42,11 @@ begin
   Result := WizardSilent and (ExpandConstant('{param:D7UPDATE|0}') = '1');
 end;
 
+function IsSmokeUpdate: Boolean;
+begin
+  Result := ExpandConstant('{param:D7SMOKE|0}') = '1';
+end;
+
 function RecoveryDir: String;
 begin
   Result := ExpandConstant('{localappdata}\D7SystemIntelligence\UpdateRecovery');
@@ -91,7 +96,8 @@ begin
     if Started and (ResultCode = 0) then
     begin
       LogRecovery('HEALTHCHECK_OK v{#MyAppVersion}');
-      Exec(CurrentExe, '', ExpandConstant('{app}'), SW_SHOWNORMAL, ewNoWait, ResultCode);
+      if not IsSmokeUpdate then
+        Exec(CurrentExe, '', ExpandConstant('{app}'), SW_SHOWNORMAL, ewNoWait, ResultCode);
     end
     else
     begin
@@ -99,7 +105,8 @@ begin
       if FileExists(PreviousExe) and FileCopy(PreviousExe, CurrentExe, False) then
       begin
         LogRecovery('ROLLBACK_OK previous executable restored');
-        Exec(CurrentExe, '', ExpandConstant('{app}'), SW_SHOWNORMAL, ewNoWait, ResultCode);
+        if not IsSmokeUpdate then
+          Exec(CurrentExe, '', ExpandConstant('{app}'), SW_SHOWNORMAL, ewNoWait, ResultCode);
       end
       else
       begin

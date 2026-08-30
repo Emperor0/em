@@ -63,6 +63,26 @@ jobs:
           if ($app.ExitCode -ne 0) { throw "Installed D7 health check failed with exit code $($app.ExitCode)." }
           Write-Host 'Installer + installed shell smoke test passed.'
 
+      - name: Smoke self-update backup and health path
+        shell: pwsh
+        run: |
+          $installer = Join-Path $PWD 'installer\output\D7-System-Intelligence-Setup.exe'
+          $installDir = Join-Path $env:RUNNER_TEMP 'D7-Smoke-Install'
+          $recoveryDir = Join-Path $env:LOCALAPPDATA 'D7SystemIntelligence\UpdateRecovery'
+          $recoveryLog = Join-Path $recoveryDir 'installer-recovery.log'
+          $previousExe = Join-Path $recoveryDir 'D7SystemIntelligence.previous.exe'
+          if (Test-Path $recoveryLog) { Remove-Item $recoveryLog -Force }
+          if (Test-Path $previousExe) { Remove-Item $previousExe -Force }
+          $args = @('/VERYSILENT','/SUPPRESSMSGBOXES','/NORESTART','/D7UPDATE=1','/D7SMOKE=1',"/DIR=$installDir")
+          $setup = Start-Process -FilePath $installer -ArgumentList $args -PassThru -Wait
+          if ($setup.ExitCode -ne 0) { throw "Self-update smoke failed with installer exit code $($setup.ExitCode)." }
+          if (-not (Test-Path $previousExe)) { throw 'Self-update did not preserve the previous executable.' }
+          if (-not (Test-Path $recoveryLog)) { throw 'Self-update recovery log was not created.' }
+          $log = Get-Content $recoveryLog -Raw
+          if ($log -notmatch 'BACKUP_OK') { throw 'Self-update backup was not verified in recovery log.' }
+          if ($log -notmatch 'HEALTHCHECK_OK') { throw 'Self-update health check was not verified in recovery log.' }
+          Write-Host 'Self-update backup + health path passed.'
+
       - name: Upload installer artifact
         uses: actions/upload-artifact@v4
         with:
