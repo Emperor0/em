@@ -3,7 +3,8 @@ export interface GpuSnapshot{name:string;utilizationPercent:number|null;temperat
 export interface DiskSnapshot{mount:string;totalGb:number;freeGb:number}
 export interface GovernorSnapshot{available:boolean;state:string|null;source:string|null;foregroundGame:string|null;detectionReason:string|null;detectionConfidence:number|null;cpuPercent:number|null;ramPercent:number|null;gpuPercent:number|null;gpuTempC:number|null;gatewayPingMs:number|null;internetPingMs:number|null;cpuGuardMode:string|null;restrainedProcesses:string[];hags:string|null}
 export interface OpenCodeSnapshot{available:boolean;version:string|null;endpoint:string}
-export interface LegacyAgentSnapshot{sourcePath:string;sourceAvailable:boolean;pipeServerSourceAvailable:boolean;requestPipe:string;requestPipeAvailable:boolean;eventPipe:string;eventPipeAvailable:boolean;protocolHint:string}
+export interface ProtocolInspection{sourceAvailable:boolean;sourceFingerprint:string|null;lineCount:number;handlerCandidates:string[];framingSignals:string[];protocolSignals:string[]}
+export interface LegacyAgentSnapshot{sourcePath:string;sourceAvailable:boolean;pipeServerSourceAvailable:boolean;requestPipe:string;requestPipeAvailable:boolean;eventPipe:string;eventPipeAvailable:boolean;protocolHint:string;protocol:ProtocolInspection}
 export interface DeviceSnapshot{capturedAt:string;hostname:string;os:string;cpuName:string;cpuUsagePercent:number;logicalCpus:number;ramTotalGb:number;ramUsedGb:number;ramUsagePercent:number;gpu:GpuSnapshot|null;disks:DiskSnapshot[];processCount:number;runningApps:string[];governor:GovernorSnapshot;openCode:OpenCodeSnapshot;legacyAgent:LegacyAgentSnapshot}
 export interface CapabilitySnapshot{id:string;label:string;state:CapabilityState;evidence:string}
 export interface RuntimeStatus{paused:boolean;uptimeSeconds:number;native:boolean;version:string}
