@@ -35,10 +35,76 @@ Name: "desktopicon"; Description: "Create a desktop shortcut"; GroupDescription:
 
 [Run]
 Filename: "{app}\{#MyAppExeName}"; Description: "Launch D7 System Intelligence"; Flags: nowait postinstall skipifsilent
-Filename: "{app}\{#MyAppExeName}"; Flags: nowait; Check: IsSilentUpdate
 
 [Code]
 function IsSilentUpdate: Boolean;
 begin
   Result := WizardSilent and (ExpandConstant('{param:D7UPDATE|0}') = '1');
+end;
+
+function RecoveryDir: String;
+begin
+  Result := ExpandConstant('{localappdata}\D7SystemIntelligence\UpdateRecovery');
+end;
+
+function PreviousExe: String;
+begin
+  Result := RecoveryDir + '\D7SystemIntelligence.previous.exe';
+end;
+
+procedure LogRecovery(const Line: String);
+begin
+  ForceDirectories(RecoveryDir);
+  SaveStringToFile(RecoveryDir + '\installer-recovery.log',
+    FormatDateTime('yyyy-mm-dd hh:nn:ss', Now) + ' ' + Line + #13#10, True);
+end;
+
+procedure CurStepChanged(CurStep: TSetupStep);
+var
+  CurrentExe: String;
+  ResultCode: Integer;
+  Started: Boolean;
+begin
+  if not IsSilentUpdate then
+    exit;
+
+  CurrentExe := ExpandConstant('{app}\{#MyAppExeName}');
+
+  if CurStep = ssInstall then
+  begin
+    ForceDirectories(RecoveryDir);
+    if FileExists(CurrentExe) then
+    begin
+      if FileCopy(CurrentExe, PreviousExe, False) then
+        LogRecovery('BACKUP_OK ' + CurrentExe)
+      else
+        LogRecovery('BACKUP_FAILED ' + CurrentExe);
+    end;
+  end;
+
+  if CurStep = ssPostInstall then
+  begin
+    LogRecovery('HEALTHCHECK_START v{#MyAppVersion}');
+    Started := Exec(CurrentExe, '--post-update-healthcheck', ExpandConstant('{app}'),
+      SW_HIDE, ewWaitUntilTerminated, ResultCode);
+
+    if Started and (ResultCode = 0) then
+    begin
+      LogRecovery('HEALTHCHECK_OK v{#MyAppVersion}');
+      Exec(CurrentExe, '', ExpandConstant('{app}'), SW_SHOWNORMAL, ewNoWait, ResultCode);
+    end
+    else
+    begin
+      LogRecovery('HEALTHCHECK_FAILED code=' + IntToStr(ResultCode));
+      if FileExists(PreviousExe) and FileCopy(PreviousExe, CurrentExe, False) then
+      begin
+        LogRecovery('ROLLBACK_OK previous executable restored');
+        Exec(CurrentExe, '', ExpandConstant('{app}'), SW_SHOWNORMAL, ewNoWait, ResultCode);
+      end
+      else
+      begin
+        LogRecovery('ROLLBACK_FAILED previous executable unavailable or copy failed');
+      end;
+    end;
+  end;
 end;
