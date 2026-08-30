@@ -2,6 +2,7 @@ using D7SystemIntelligence.Core;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Media;
+using System.Windows.Threading;
 
 namespace D7SystemIntelligence;
 
@@ -11,6 +12,7 @@ internal sealed class AppIntelligenceIntegration : IDisposable
     private readonly Window _owner;
     private readonly SemaphoreSlim _gate = new(1, 1);
     private D7Mission _lastMission = (D7Mission)(-1);
+    private Button? _devicesButton;
     private bool _disposed;
 
     private AppIntelligenceIntegration(Window owner)
@@ -25,55 +27,56 @@ internal sealed class AppIntelligenceIntegration : IDisposable
 
     private void OnLoaded(object sender, RoutedEventArgs e)
     {
-        InjectNavigationButton();
+        _devicesButton = FindDescendants<Button>(_owner).FirstOrDefault(x => Equals(x.Tag, "devices"));
+        if (_devicesButton != null) _devicesButton.Click += OnDevicesClicked;
         _ = ApplyMissionProfileAsync(D7RuntimeBus.Mission);
     }
 
-    private void InjectNavigationButton()
+    private void OnDevicesClicked(object sender, RoutedEventArgs e)
+        => _owner.Dispatcher.BeginInvoke(DispatcherPriority.Loaded, InjectDevicesCard);
+
+    private void InjectDevicesCard()
     {
-        var devices = FindDescendants<Button>(_owner).FirstOrDefault(x => Equals(x.Tag, "devices"));
-        if (devices?.Parent is not StackPanel panel) return;
-        if (panel.Children.OfType<Button>().Any(x => Equals(x.Tag, "app-intelligence"))) return;
+        if (_disposed) return;
+        if (FindDescendants<FrameworkElement>(_owner).Any(x => Equals(x.Tag, "app-intelligence-card"))) return;
 
-        var button = new Button
+        var targetGrid = FindDescendants<UniformGrid>(_owner)
+            .FirstOrDefault(g => g.Columns == 4 && ContainsText(g, "Driver Safety") && ContainsText(g, "Storage Center"));
+        if (targetGrid == null) return;
+
+        var card = new Border
         {
-            Tag = "app-intelligence",
-            Margin = new Thickness(0, 3, 0, 3),
-            Padding = new Thickness(12, 9, 12, 9),
-            HorizontalContentAlignment = HorizontalAlignment.Stretch,
-            Background = Brushes.Transparent,
-            BorderBrush = Brushes.Transparent
+            Tag = "app-intelligence-card",
+            Background = Brush("Panel"),
+            BorderBrush = Brush("Border"),
+            BorderThickness = new Thickness(1),
+            CornerRadius = new CornerRadius(16),
+            Padding = new Thickness(15),
+            Margin = new Thickness(4)
         };
-
-        var grid = new Grid();
-        grid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(30) });
-        grid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
-        var icon = new TextBlock
+        var stack = new StackPanel();
+        stack.Children.Add(new TextBlock { Text = "البرامج الذكية", FontSize = 15, FontWeight = FontWeights.Bold });
+        stack.Children.Add(new TextBlock
         {
-            Text = "◇",
-            FontSize = 17,
-            Foreground = Brush("Accent"),
-            HorizontalAlignment = HorizontalAlignment.Center,
-            VerticalAlignment = VerticalAlignment.Center
-        };
-        Grid.SetColumn(icon, 0);
-        grid.Children.Add(icon);
-
-        var text = new StackPanel();
-        text.Children.Add(new TextBlock { Text = "البرامج الذكية", FontSize = 13.3, FontWeight = FontWeights.SemiBold });
-        text.Children.Add(new TextBlock { Text = "Discord • Steam • NVIDIA • Apps", FontSize = 9.3, Foreground = Brush("Muted"), Margin = new Thickness(0, 2, 0, 0) });
-        Grid.SetColumn(text, 1);
-        grid.Children.Add(text);
-        button.Content = grid;
-        button.Click += (_, _) =>
+            Text = "Discord • Steam • NVIDIA App • OBS • TikTok • Browsers\nProfiles + Startup + Cache + Restore",
+            Foreground = Brush("Muted"),
+            TextWrapping = TextWrapping.Wrap,
+            Margin = new Thickness(0, 5, 0, 8),
+            MinHeight = 34
+        });
+        var open = new Button { Content = "فتح", HorizontalAlignment = HorizontalAlignment.Stretch };
+        open.Click += (_, _) =>
         {
             var window = new AppIntelligenceWindow { Owner = _owner, Icon = _owner.Icon };
             window.ShowDialog();
         };
-
-        var index = panel.Children.IndexOf(devices) + 1;
-        panel.Children.Insert(index, button);
+        stack.Children.Add(open);
+        card.Child = stack;
+        targetGrid.Children.Insert(0, card);
     }
+
+    private static bool ContainsText(DependencyObject root, string text)
+        => FindDescendants<TextBlock>(root).Any(x => x.Text.Equals(text, StringComparison.OrdinalIgnoreCase));
 
     private async void OnRuntimeChanged()
     {
@@ -112,6 +115,7 @@ internal sealed class AppIntelligenceIntegration : IDisposable
         _disposed = true;
         D7RuntimeBus.Changed -= OnRuntimeChanged;
         _owner.Loaded -= OnLoaded;
+        if (_devicesButton != null) _devicesButton.Click -= OnDevicesClicked;
         _gate.Dispose();
     }
 
