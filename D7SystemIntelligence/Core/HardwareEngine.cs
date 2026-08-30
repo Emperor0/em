@@ -77,16 +77,14 @@ public sealed class HardwareEngine : IDisposable
                 {
                     s.Control.SetSoftware(percent);
                     var verified = s.Control.SoftwareValue;
-                    if (verified.HasValue && Math.Abs(verified.Value - percent) <= 2f)
+                    if (Math.Abs(verified - percent) <= 2f)
                     {
                         message = $"{s.Name}: {percent:0}% [Applied + Verified].";
                         return true;
                     }
 
                     try { s.Control.SetDefault(); } catch { }
-                    message = verified.HasValue
-                        ? $"{s.Name}: write not verified ({verified.Value:0}% read back vs {percent:0}% requested); restored Default."
-                        : $"{s.Name}: controller accepted SetSoftware but exposed no SoftwareValue for verification; restored Default.";
+                    message = $"{s.Name}: write not verified ({verified:0}% read back vs {percent:0}% requested); restored Default.";
                     return false;
                 }
                 catch (Exception ex)
