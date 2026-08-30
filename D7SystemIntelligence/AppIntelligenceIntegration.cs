@@ -8,17 +8,13 @@ namespace D7SystemIntelligence;
 
 internal sealed class AppIntelligenceIntegration : IDisposable
 {
-    private readonly AppIntelligenceService _service = new();
     private readonly Window _owner;
-    private readonly SemaphoreSlim _gate = new(1, 1);
-    private D7Mission _lastMission = (D7Mission)(-1);
     private Button? _devicesButton;
     private bool _disposed;
 
     private AppIntelligenceIntegration(Window owner)
     {
         _owner = owner;
-        D7RuntimeBus.Changed += OnRuntimeChanged;
         owner.Loaded += OnLoaded;
         owner.Closed += (_, _) => Dispose();
     }
@@ -29,7 +25,6 @@ internal sealed class AppIntelligenceIntegration : IDisposable
     {
         _devicesButton = FindDescendants<Button>(_owner).FirstOrDefault(x => Equals(x.Tag, "devices"));
         if (_devicesButton != null) _devicesButton.Click += OnDevicesClicked;
-        _ = ApplyMissionProfileAsync(D7RuntimeBus.Mission);
     }
 
     private void OnDevicesClicked(object sender, RoutedEventArgs e)
@@ -78,57 +73,13 @@ internal sealed class AppIntelligenceIntegration : IDisposable
     private static bool ContainsText(DependencyObject root, string text)
         => FindDescendants<TextBlock>(root).Any(x => x.Text.Equals(text, StringComparison.OrdinalIgnoreCase));
 
-    private async void OnRuntimeChanged()
-    {
-        if (_disposed) return;
-        var mission = D7RuntimeBus.Mission;
-        if (mission == _lastMission) return;
-        _lastMission = mission;
-        await ApplyMissionProfileAsync(mission);
-    }
-
-    private async Task ApplyMissionProfileAsync(D7Mission mission)
-    {
-        if (_disposed || !await _gate.WaitAsync(0)) return;
-        try
-        {
-            if (mission == D7Mission.None || mission == D7Mission.Silent)
-            {
-                foreach (var id in ManagedIds)
-                    await _service.RestoreProfileAsync(id, silentWhenMissing: true);
-                return;
-            }
-
-            var mode = mission == D7Mission.StreamRanked ? AppProfileMode.Streaming : AppProfileMode.Gaming;
-            foreach (var id in ManagedIds)
-            {
-                try { await _service.ApplyProfileAsync(id, mode); }
-                catch { }
-            }
-        }
-        finally { _gate.Release(); }
-    }
-
     public void Dispose()
     {
         if (_disposed) return;
         _disposed = true;
-        D7RuntimeBus.Changed -= OnRuntimeChanged;
         _owner.Loaded -= OnLoaded;
         if (_devicesButton != null) _devicesButton.Click -= OnDevicesClicked;
-        _gate.Dispose();
     }
-
-    private static readonly ManagedAppId[] ManagedIds =
-    [
-        ManagedAppId.Discord,
-        ManagedAppId.Steam,
-        ManagedAppId.NvidiaApp,
-        ManagedAppId.Obs,
-        ManagedAppId.TikTokLiveStudio,
-        ManagedAppId.Chrome,
-        ManagedAppId.Edge
-    ];
 
     private static IEnumerable<T> FindDescendants<T>(DependencyObject root) where T : DependencyObject
     {
