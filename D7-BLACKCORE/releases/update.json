@@ -1,8 +1,8 @@
 {
-  "version": "1.0.3",
+  "version": "1.0.4",
   "channel": "alpha",
-  "published_at": "2026-08-30T00:02:00Z",
-  "download_url": "https://raw.githubusercontent.com/Emperor0/em/main/D7-BLACKCORE/releases/D7_BLACKCORE_v1.0.3.zip",
-  "sha256": "65124b4dc65fc69413a4d8d5a8e0250de1aa1fc67dd511a59d9022963b9a9e49",
-  "notes": "واجهة عربية RTL حديثة، زر تحديث مباشر من داخل BLACKCORE، حالات تنفيذ حية، وFast Path لمهام الملفات المحلية مع تحقق فعلي."
+  "published_at": "2026-08-30T01:18:38.884517+00:00",
+  "download_url": "https://raw.githubusercontent.com/Emperor0/em/main/D7-BLACKCORE/releases/D7_BLACKCORE_v1.0.4.zip",
+  "sha256": "5f1eda2ddf1b8f107b868a584c42bc23fa58ecd6b45560ce975e5f0af2324edf",
+  "notes": "إصلاح تعليق مهام البحث: مهلات OpenCode محددة، إلغاء الجلسة عند الإيقاف، استرجاع Swarm، ومسار سريع للبحث ثم إنشاء تقرير والتحقق منه."
 }
