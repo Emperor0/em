@@ -1,30 +1,29 @@
 <Application x:Class="D7SystemIntelligence.App"
              xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
-             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-             StartupUri="MainWindow.xaml">
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
     <Application.Resources>
-        <!-- D7 2026 design system: lightweight Fluent-inspired visuals, no expensive blur/transparency. -->
-        <SolidColorBrush x:Key="Bg" Color="#080B11"/>
-        <SolidColorBrush x:Key="Panel" Color="#10151F"/>
-        <SolidColorBrush x:Key="Panel2" Color="#151C28"/>
-        <SolidColorBrush x:Key="Panel3" Color="#1B2433"/>
-        <SolidColorBrush x:Key="PanelHover" Color="#202B3D"/>
-        <SolidColorBrush x:Key="Text" Color="#F7F9FC"/>
-        <SolidColorBrush x:Key="Muted" Color="#98A6BC"/>
-        <SolidColorBrush x:Key="Accent" Color="#7C8CFF"/>
-        <SolidColorBrush x:Key="AccentStrong" Color="#5C6CFF"/>
-        <SolidColorBrush x:Key="AccentSoft" Color="#242D58"/>
-        <SolidColorBrush x:Key="Border" Color="#263247"/>
-        <SolidColorBrush x:Key="Success" Color="#4CD797"/>
-        <SolidColorBrush x:Key="Warning" Color="#F6C35B"/>
-        <SolidColorBrush x:Key="Danger" Color="#FF6B7A"/>
+        <!-- D7KT 2026 design system: black / graphite / blood-red, lightweight and game-safe. -->
+        <SolidColorBrush x:Key="Bg" Color="#060608"/>
+        <SolidColorBrush x:Key="Panel" Color="#0D0E12"/>
+        <SolidColorBrush x:Key="Panel2" Color="#13151A"/>
+        <SolidColorBrush x:Key="Panel3" Color="#191B20"/>
+        <SolidColorBrush x:Key="PanelHover" Color="#241519"/>
+        <SolidColorBrush x:Key="Text" Color="#F4F4F5"/>
+        <SolidColorBrush x:Key="Muted" Color="#9A9CA3"/>
+        <SolidColorBrush x:Key="Accent" Color="#E11D2E"/>
+        <SolidColorBrush x:Key="AccentStrong" Color="#C70F1D"/>
+        <SolidColorBrush x:Key="AccentSoft" Color="#351015"/>
+        <SolidColorBrush x:Key="Border" Color="#2B2225"/>
+        <SolidColorBrush x:Key="Success" Color="#46D48D"/>
+        <SolidColorBrush x:Key="Warning" Color="#F5B942"/>
+        <SolidColorBrush x:Key="Danger" Color="#FF4D5C"/>
 
-        <!-- Force classic WPF popup/system brushes into the dark palette. Fixes the white ComboBox popup. -->
-        <SolidColorBrush x:Key="{x:Static SystemColors.WindowBrushKey}" Color="#151C28"/>
-        <SolidColorBrush x:Key="{x:Static SystemColors.WindowTextBrushKey}" Color="#F7F9FC"/>
-        <SolidColorBrush x:Key="{x:Static SystemColors.ControlBrushKey}" Color="#151C28"/>
-        <SolidColorBrush x:Key="{x:Static SystemColors.ControlTextBrushKey}" Color="#F7F9FC"/>
-        <SolidColorBrush x:Key="{x:Static SystemColors.HighlightBrushKey}" Color="#5C6CFF"/>
+        <!-- Keep native WPF popups dark so no white legacy controls leak into the theme. -->
+        <SolidColorBrush x:Key="{x:Static SystemColors.WindowBrushKey}" Color="#13151A"/>
+        <SolidColorBrush x:Key="{x:Static SystemColors.WindowTextBrushKey}" Color="#F4F4F5"/>
+        <SolidColorBrush x:Key="{x:Static SystemColors.ControlBrushKey}" Color="#13151A"/>
+        <SolidColorBrush x:Key="{x:Static SystemColors.ControlTextBrushKey}" Color="#F4F4F5"/>
+        <SolidColorBrush x:Key="{x:Static SystemColors.HighlightBrushKey}" Color="#C70F1D"/>
         <SolidColorBrush x:Key="{x:Static SystemColors.HighlightTextBrushKey}" Color="#FFFFFF"/>
 
         <Style TargetType="Window">
@@ -42,8 +41,8 @@
 
         <Style TargetType="Button">
             <Setter Property="Margin" Value="4"/>
-            <Setter Property="Padding" Value="16,10"/>
-            <Setter Property="MinHeight" Value="40"/>
+            <Setter Property="Padding" Value="15,9"/>
+            <Setter Property="MinHeight" Value="39"/>
             <Setter Property="Background" Value="{StaticResource Panel2}"/>
             <Setter Property="Foreground" Value="{StaticResource Text}"/>
             <Setter Property="BorderBrush" Value="{StaticResource Border}"/>
@@ -58,7 +57,7 @@
                                 Background="{TemplateBinding Background}"
                                 BorderBrush="{TemplateBinding BorderBrush}"
                                 BorderThickness="{TemplateBinding BorderThickness}"
-                                CornerRadius="11"
+                                CornerRadius="10"
                                 Padding="{TemplateBinding Padding}"
                                 SnapsToDevicePixels="True">
                             <ContentPresenter HorizontalAlignment="{TemplateBinding HorizontalContentAlignment}"
@@ -75,7 +74,7 @@
                                 <Setter TargetName="Chrome" Property="BorderBrush" Value="{StaticResource AccentStrong}"/>
                             </Trigger>
                             <Trigger Property="IsEnabled" Value="False">
-                                <Setter TargetName="Chrome" Property="Opacity" Value="0.45"/>
+                                <Setter TargetName="Chrome" Property="Opacity" Value="0.42"/>
                             </Trigger>
                         </ControlTemplate.Triggers>
                     </ControlTemplate>
@@ -92,7 +91,7 @@
         <Style TargetType="ComboBox">
             <Setter Property="Margin" Value="4"/>
             <Setter Property="Padding" Value="12,8"/>
-            <Setter Property="MinHeight" Value="40"/>
+            <Setter Property="MinHeight" Value="39"/>
             <Setter Property="Background" Value="{StaticResource Panel2}"/>
             <Setter Property="Foreground" Value="{StaticResource Text}"/>
             <Setter Property="BorderBrush" Value="{StaticResource Border}"/>
@@ -106,9 +105,7 @@
             <Setter Property="Padding" Value="12,9"/>
             <Setter Property="MinHeight" Value="36"/>
             <Style.Triggers>
-                <Trigger Property="IsMouseOver" Value="True">
-                    <Setter Property="Background" Value="{StaticResource PanelHover}"/>
-                </Trigger>
+                <Trigger Property="IsMouseOver" Value="True"><Setter Property="Background" Value="{StaticResource PanelHover}"/></Trigger>
                 <Trigger Property="IsSelected" Value="True">
                     <Setter Property="Background" Value="{StaticResource AccentSoft}"/>
                     <Setter Property="Foreground" Value="White"/>
@@ -119,7 +116,7 @@
         <Style TargetType="TextBox">
             <Setter Property="Margin" Value="4"/>
             <Setter Property="Padding" Value="12,9"/>
-            <Setter Property="MinHeight" Value="40"/>
+            <Setter Property="MinHeight" Value="39"/>
             <Setter Property="Background" Value="{StaticResource Panel2}"/>
             <Setter Property="Foreground" Value="{StaticResource Text}"/>
             <Setter Property="CaretBrush" Value="{StaticResource Text}"/>
