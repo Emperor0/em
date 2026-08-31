@@ -21,12 +21,12 @@ jobs:
         shell: cmd
         run: |
           cd /d "%GITHUB_WORKSPACE%\d7-gaming-engine\source"
-          copy /b chunk_00.bin+chunk_01.bin+chunk_02.bin+chunk_03.bin D7_Source_v0.8.0.zip
+          copy /b chunk_00.bin+chunk_01.bin+chunk_02.bin+chunk_03.bin D7_Source_v0.8.1.zip
 
       - name: Expand source
         shell: powershell
         run: |
-          $pkg = Join-Path $env:GITHUB_WORKSPACE 'd7-gaming-engine\source\D7_Source_v0.8.0.zip'
+          $pkg = Join-Path $env:GITHUB_WORKSPACE 'd7-gaming-engine\source\D7_Source_v0.8.1.zip'
           $work = Join-Path $env:RUNNER_TEMP 'D7Source'
           $expanded = Join-Path $env:GITHUB_WORKSPACE 'd7-gaming-engine\expanded'
           Remove-Item $work -Recurse -Force -ErrorAction SilentlyContinue
@@ -59,7 +59,7 @@ jobs:
             -product 'D7 Gaming Engine' `
             -company 'D7' `
             -copyright 'D7' `
-            -version '0.8.0.0'
+            -version '0.8.1.0'
           Copy-Item (Join-Path $src 'config.json') $out -Force
           Copy-Item (Join-Path $src 'README_AR.txt') $out -Force
           Copy-Item (Join-Path $src 'CHANGELOG_AR.txt') $out -Force
@@ -75,7 +75,7 @@ jobs:
           $out = Join-Path $env:RUNNER_TEMP 'D7Release'
           $stable = Join-Path $repo 'd7-gaming-engine\stable'
           New-Item -ItemType Directory -Path $stable -Force | Out-Null
-          $zipName = 'D7_Gaming_Engine_v0.8.0.zip'
+          $zipName = 'D7_Gaming_Engine_v0.8.1.zip'
           $zip = Join-Path $stable $zipName
           Remove-Item $zip -Force -ErrorAction SilentlyContinue
           Compress-Archive -Path (Join-Path $out '*') -DestinationPath $zip -CompressionLevel Optimal
@@ -84,9 +84,9 @@ jobs:
           $manifest = [ordered]@{
             product = 'D7 Gaming Engine'
             channel = 'stable'
-            version = '0.8.0'
+            version = '0.8.1'
             minimumWindowsBuild = 19045
-            packageUrl = 'https://raw.githubusercontent.com/Emperor0/em/main/d7-gaming-engine/stable/D7_Gaming_Engine_v0.8.0.zip'
+            packageUrl = 'https://raw.githubusercontent.com/Emperor0/em/main/d7-gaming-engine/stable/D7_Gaming_Engine_v0.8.1.zip'
             sha256 = $hash
             changelogAr = $notes
             publishedUtc = (Get-Date).ToUniversalTime().ToString('o')
@@ -104,5 +104,5 @@ jobs:
             Write-Host 'No release changes to publish.'
             exit 0
           }
-          git commit -m 'Publish D7 Gaming Engine v0.8.0'
+          git commit -m 'Publish D7 Gaming Engine v0.8.1'
           git push
