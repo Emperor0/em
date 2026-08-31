@@ -60,6 +60,11 @@ fn spawn_server(workspace:&Path)->Result<String,String>{
     Err("OPENCODE_SERVER_START_TIMEOUT".into())
 }
 
+pub fn ensure_server()->Result<String,String>{
+    let workspace=workspace_root()?;
+    spawn_server(&workspace)
+}
+
 fn text_parts(v:&Value)->String{
     v.get("parts").and_then(|x|x.as_array()).map(|parts|{
         parts.iter().filter_map(|p|{
