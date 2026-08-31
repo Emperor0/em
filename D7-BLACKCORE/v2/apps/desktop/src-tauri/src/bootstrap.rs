@@ -34,14 +34,19 @@ fn start_python_module(root:&Path)->Result<String,String>{
     let src=root.join("src");
     let package=src.join("d7_agent");
     if !package.is_dir(){return Err("D7_AGENT_PYTHON_PACKAGE_NOT_FOUND".into())}
-    let has_entry=package.join("__main__.py").is_file()||package.join("main.py").is_file();
-    if !has_entry{return Err("D7_AGENT_PYTHON_ENTRY_NOT_FOUND".into())}
+    let module_entry=package.join("__main__.py");
+    let script_entry=package.join("main.py");
+    if !module_entry.is_file()&&!script_entry.is_file(){return Err("D7_AGENT_PYTHON_ENTRY_NOT_FOUND".into())}
     let mut last=String::new();
     for python in ["pythonw.exe","python.exe","py.exe"]{
         let mut c=hidden_command(python);
         if python.eq_ignore_ascii_case("py.exe"){c.arg("-3");}
-        c.args(["-m","d7_agent"]).current_dir(root).env("PYTHONPATH",&src);
-        match c.spawn(){Ok(_)=>return Ok(format!("started python module d7_agent with {}",python)),Err(e)=>last=format!("{}: {}",python,e)}
+        if module_entry.is_file(){c.args(["-m","d7_agent"]);}else{c.arg(&script_entry);}
+        c.current_dir(root).env("PYTHONPATH",&src);
+        match c.spawn(){
+            Ok(_)=>return Ok(if module_entry.is_file(){format!("started python module d7_agent with {}",python)}else{format!("started {} with {}",script_entry.display(),python)}),
+            Err(e)=>last=format!("{}: {}",python,e)
+        }
     }
     Err(format!("D7_AGENT_PYTHON_START_FAILED:{last}"))
 }
@@ -83,4 +88,5 @@ pub fn launch_background(){
 mod tests{
     use super::*;
     #[test]fn bootstrap_log_root_is_resolvable(){let root=env::var("LOCALAPPDATA").map(PathBuf::from).unwrap_or_else(|_|env::temp_dir()).join("D7_BLACKCORE");assert!(!root.as_os_str().is_empty());}
+    #[test]fn python_entry_selection_is_fail_closed(){let root=env::temp_dir().join("d7-blackcore-bootstrap-test");let package=root.join("src").join("d7_agent");let _=fs::remove_dir_all(&root);fs::create_dir_all(&package).unwrap();assert!(start_python_module(&root).unwrap_err().contains("ENTRY_NOT_FOUND"));let _=fs::remove_dir_all(root);}
 }
