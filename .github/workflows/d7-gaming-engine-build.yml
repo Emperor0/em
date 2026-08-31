@@ -1,0 +1,106 @@
+name: Build D7 Gaming Engine
+
+on:
+  workflow_dispatch:
+  push:
+    paths:
+      - 'd7-gaming-engine/source/**'
+      - '.github/workflows/d7-gaming-engine-build.yml'
+
+permissions:
+  contents: write
+
+jobs:
+  build-windows:
+    runs-on: windows-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Rebuild source package
+        shell: cmd
+        run: |
+          cd /d "%GITHUB_WORKSPACE%\d7-gaming-engine\source"
+          copy /b chunk_00.bin+chunk_01.bin+chunk_02.bin+chunk_03.bin D7_Source_v0.8.0.zip
+
+      - name: Expand source
+        shell: powershell
+        run: |
+          $pkg = Join-Path $env:GITHUB_WORKSPACE 'd7-gaming-engine\source\D7_Source_v0.8.0.zip'
+          $work = Join-Path $env:RUNNER_TEMP 'D7Source'
+          $expanded = Join-Path $env:GITHUB_WORKSPACE 'd7-gaming-engine\expanded'
+          Remove-Item $work -Recurse -Force -ErrorAction SilentlyContinue
+          Remove-Item $expanded -Recurse -Force -ErrorAction SilentlyContinue
+          New-Item -ItemType Directory -Path $work,$expanded -Force | Out-Null
+          Expand-Archive -Path $pkg -DestinationPath $work -Force
+          Copy-Item -Path (Join-Path $work 'source\*') -Destination $expanded -Recurse -Force
+          if (-not (Test-Path (Join-Path $expanded 'D7_Gaming_Engine.ps1'))) { throw 'D7 source reconstruction failed.' }
+
+      - name: Install PS2EXE
+        shell: powershell
+        run: |
+          Set-PSRepository -Name PSGallery -InstallationPolicy Trusted
+          Install-Module ps2exe -Scope CurrentUser -Force -AllowClobber
+          Import-Module ps2exe -Force
+
+      - name: Build Windows EXE
+        shell: powershell
+        run: |
+          $src = Join-Path $env:GITHUB_WORKSPACE 'd7-gaming-engine\expanded'
+          $out = Join-Path $env:RUNNER_TEMP 'D7Release'
+          Remove-Item $out -Recurse -Force -ErrorAction SilentlyContinue
+          New-Item -ItemType Directory -Path (Join-Path $out 'tools') -Force | Out-Null
+          Invoke-ps2exe `
+            -inputFile (Join-Path $src 'D7_Gaming_Engine.ps1') `
+            -outputFile (Join-Path $out 'D7_Gaming_Engine.exe') `
+            -x64 -STA -noConsole -requireAdmin `
+            -iconFile (Join-Path $src 'D7_Gaming_Engine.ico') `
+            -title 'D7 Gaming Engine' `
+            -product 'D7 Gaming Engine' `
+            -company 'D7' `
+            -copyright 'D7' `
+            -version '0.8.0.0'
+          Copy-Item (Join-Path $src 'config.json') $out -Force
+          Copy-Item (Join-Path $src 'README_AR.txt') $out -Force
+          Copy-Item (Join-Path $src 'CHANGELOG_AR.txt') $out -Force
+          Copy-Item (Join-Path $src 'version.txt') $out -Force
+          Copy-Item (Join-Path $src 'tools\PRESENTMON_LICENSE.txt') (Join-Path $out 'tools\PRESENTMON_LICENSE.txt') -Force
+          if (-not (Test-Path (Join-Path $out 'D7_Gaming_Engine.exe'))) { throw 'EXE build failed.' }
+
+      - name: Package stable release and manifest
+        shell: powershell
+        run: |
+          $repo = $env:GITHUB_WORKSPACE
+          $out = Join-Path $env:RUNNER_TEMP 'D7Release'
+          $stable = Join-Path $repo 'd7-gaming-engine\stable'
+          New-Item -ItemType Directory -Path $stable -Force | Out-Null
+          $zipName = 'D7_Gaming_Engine_v0.8.0.zip'
+          $zip = Join-Path $stable $zipName
+          Remove-Item $zip -Force -ErrorAction SilentlyContinue
+          Compress-Archive -Path (Join-Path $out '*') -DestinationPath $zip -CompressionLevel Optimal
+          $hash = (Get-FileHash $zip -Algorithm SHA256).Hash.ToLowerInvariant()
+          $manifest = [ordered]@{
+            product = 'D7 Gaming Engine'
+            channel = 'stable'
+            version = '0.8.0'
+            minimumWindowsBuild = 19045
+            packageUrl = 'https://raw.githubusercontent.com/Emperor0/em/main/d7-gaming-engine/stable/D7_Gaming_Engine_v0.8.0.zip'
+            sha256 = $hash
+            changelogAr = 'واجهة D7 الجديدة بهوية Obsidian Lime، تطبيق EXE حقيقي، تصميم عربي عصري فاخر، تحديث أونلاين من داخل التطبيق مع تحقق SHA-256، وتحسينات على الاسترجاع والمراقبة الحية.'
+            publishedUtc = (Get-Date).ToUniversalTime().ToString('o')
+          }
+          $manifest | ConvertTo-Json -Depth 5 | Set-Content (Join-Path $stable 'latest.json') -Encoding UTF8
+          Write-Host "Release SHA256: $hash"
+
+      - name: Publish stable channel
+        shell: powershell
+        run: |
+          git config user.name 'D7 Release Bot'
+          git config user.email 'd7-release-bot@users.noreply.github.com'
+          git add d7-gaming-engine/stable
+          if (git diff --cached --quiet) {
+            Write-Host 'No release changes to publish.'
+            exit 0
+          }
+          git commit -m 'Publish D7 Gaming Engine v0.8.0'
+          git push
