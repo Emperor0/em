@@ -1,0 +1,10 @@
+﻿{
+    "product":  "D7 Gaming Engine",
+    "channel":  "stable",
+    "version":  "0.8.0",
+    "minimumWindowsBuild":  19045,
+    "packageUrl":  "https://raw.githubusercontent.com/Emperor0/em/main/d7-gaming-engine/stable/D7_Gaming_Engine_v0.8.0.zip",
+    "sha256":  "de00b620e722c84239777e6e243df09060ac7839b728ff0ade5dd01e14577e22",
+    "changelogAr":  "D7 Gaming Engine v0.8.0\n- تحويل D7 إلى تطبيق EXE.\n- هوية D7 Obsidian Lime الجديدة.\n- واجهة عربية RTL حديثة بدون شريط Windows التقليدي.\n- ربط قناة التحديثات أونلاين فعلياً.\n- تحقق SHA-256 قبل أي تحديث.\n- دعم الاسترجاع والتشغيل بعد التحديث من EXE.",
+    "publishedUtc":  "2026-08-31T23:47:51.2118455Z"
+}
