@@ -30,6 +30,15 @@ fn start_batch(path:&Path)->Result<String,String>{
     Ok(format!("started {}",path.display()))
 }
 
+fn python_candidates(root:&Path)->Vec<String>{
+    let mut out=vec![];
+    for p in [root.join(".venv").join("Scripts").join("pythonw.exe"),root.join(".venv").join("Scripts").join("python.exe"),root.join("venv").join("Scripts").join("pythonw.exe"),root.join("venv").join("Scripts").join("python.exe")]{
+        if p.is_file(){out.push(p.display().to_string())}
+    }
+    out.extend(["pythonw.exe","python.exe","py.exe"].into_iter().map(str::to_string));
+    out
+}
+
 fn start_python_module(root:&Path)->Result<String,String>{
     let src=root.join("src");
     let package=src.join("d7_agent");
@@ -38,8 +47,8 @@ fn start_python_module(root:&Path)->Result<String,String>{
     let script_entry=package.join("main.py");
     if !module_entry.is_file()&&!script_entry.is_file(){return Err("D7_AGENT_PYTHON_ENTRY_NOT_FOUND".into())}
     let mut last=String::new();
-    for python in ["pythonw.exe","python.exe","py.exe"]{
-        let mut c=hidden_command(python);
+    for python in python_candidates(root){
+        let mut c=hidden_command(&python);
         if python.eq_ignore_ascii_case("py.exe"){c.arg("-3");}
         if module_entry.is_file(){c.args(["-m","d7_agent"]);}else{c.arg(&script_entry);}
         c.current_dir(root).env("PYTHONPATH",&src);
@@ -89,4 +98,5 @@ mod tests{
     use super::*;
     #[test]fn bootstrap_log_root_is_resolvable(){let root=env::var("LOCALAPPDATA").map(PathBuf::from).unwrap_or_else(|_|env::temp_dir()).join("D7_BLACKCORE");assert!(!root.as_os_str().is_empty());}
     #[test]fn python_entry_selection_is_fail_closed(){let root=env::temp_dir().join("d7-blackcore-bootstrap-test");let package=root.join("src").join("d7_agent");let _=fs::remove_dir_all(&root);fs::create_dir_all(&package).unwrap();assert!(start_python_module(&root).unwrap_err().contains("ENTRY_NOT_FOUND"));let _=fs::remove_dir_all(root);}
+    #[test]fn system_python_fallbacks_exist(){let root=env::temp_dir().join("d7-blackcore-no-venv");let c=python_candidates(&root);assert!(c.iter().any(|x|x.eq_ignore_ascii_case("python.exe")));assert!(c.iter().any(|x|x.eq_ignore_ascii_case("py.exe")));}
 }
