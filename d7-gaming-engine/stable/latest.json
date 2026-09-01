@@ -1,10 +1,10 @@
-﻿{
+{
     "product":  "D7 Gaming Engine",
     "channel":  "stable",
-    "version":  "0.8.0",
+    "version":  "0.9.0",
     "minimumWindowsBuild":  19045,
-    "packageUrl":  "https://raw.githubusercontent.com/Emperor0/em/main/d7-gaming-engine/stable/D7_Gaming_Engine_v0.8.0.zip",
-    "sha256":  "de00b620e722c84239777e6e243df09060ac7839b728ff0ade5dd01e14577e22",
-    "changelogAr":  "D7 Gaming Engine v0.8.0\n- تحويل D7 إلى تطبيق EXE.\n- هوية D7 Obsidian Lime الجديدة.\n- واجهة عربية RTL حديثة بدون شريط Windows التقليدي.\n- ربط قناة التحديثات أونلاين فعلياً.\n- تحقق SHA-256 قبل أي تحديث.\n- دعم الاسترجاع والتشغيل بعد التحديث من EXE.",
-    "publishedUtc":  "2026-08-31T23:47:51.2118455Z"
+    "packageUrl":  "https://raw.githubusercontent.com/Emperor0/em/main/d7-gaming-engine/stable/D7_Gaming_Engine_v0.9.0.zip",
+    "sha256":  "7915fe88ce0a16ebfcd4884ef46cb3788761ab19f3b7e020c679d8e7dbcd53b0",
+    "changelogAr":  "D7 Gaming Engine v0.9.0 — Adaptive Core\n- تحويل التشخيص إلى تنفيذ فعلي أثناء اللعب بدلاً من المراقبة فقط.\n- Game Focus Boost: HighQoS للعبة وAbove Normal عند ضغط المعالج.\n- EcoQoS لتطبيقات الخلفية المناسبة مع عزل Zen 2 / SMT.\n- خفض أولوية البرامج الخلفية الثقيلة في الوضع المتوازن والتنافسي.\n- إنشاء وتفعيل D7 GAME PERFORMANCE تلقائياً عند الحاجة مع استرجاع آمن.\n- Timer Resolution 1ms أثناء جلسة الأداء مع استرجاع تلقائي.\n- مهلة Alt-Tab لمدة 45 ثانية حتى لا تختفي التحسينات بمجرد فتح لوحة D7.\n- عرض التعديلات الفعلية النشطة داخل الواجهة: أولوية اللعبة، QoS، عدد العمليات المعزولة، خطة الطاقة، والمؤقت.\n- Recovery موسع ليشمل QoS وخطة الطاقة إضافة إلى CPU Sets والأولوية.\n- تحسين تردد القياس الحي وتحديثات Stable أونلاين مع SHA-256.",
+    "publishedUtc":  "2026-09-01T03:50:34.9926373Z"
 }
