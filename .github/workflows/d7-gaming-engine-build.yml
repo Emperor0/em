@@ -4,7 +4,6 @@ on:
   workflow_dispatch:
   push:
     paths:
-      - 'd7-gaming-engine/source/D7_Source_v0.8.1.zip'
       - '.github/workflows/d7-gaming-engine-build.yml'
 
 permissions:
@@ -21,17 +20,43 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Expand verified source package
+      - name: Expand D7 premium source
         shell: powershell
         run: |
-          $pkg = Join-Path $env:GITHUB_WORKSPACE 'd7-gaming-engine\source\D7_Source_v0.8.1.zip'
+          $pkg = Join-Path $env:GITHUB_WORKSPACE 'd7-gaming-engine\stable\D7_Gaming_Engine_v0.8.0.zip'
+          if (-not (Test-Path $pkg)) { throw 'Stable D7 v0.8.0 source package is missing.' }
           $work = Join-Path $env:RUNNER_TEMP 'D7Source'
           Remove-Item $work -Recurse -Force -ErrorAction SilentlyContinue
           New-Item -ItemType Directory -Path $work -Force | Out-Null
           Expand-Archive -Path $pkg -DestinationPath $work -Force
-          $src = Join-Path $work 'source'
-          if (-not (Test-Path (Join-Path $src 'D7_Gaming_Engine.ps1'))) { throw 'D7 source package is incomplete.' }
-          if (-not (Test-Path (Join-Path $src 'D7_Gaming_Engine.ico'))) { throw 'D7 icon is missing.' }
+
+          $scriptFile = Get-ChildItem $work -Recurse -File -Filter 'D7_Gaming_Engine.ps1' | Select-Object -First 1
+          if (-not $scriptFile) { throw 'D7_Gaming_Engine.ps1 was not found in v0.8.0 package.' }
+          $src = $scriptFile.Directory.FullName
+          $icon = Get-ChildItem $src -File -Filter 'D7_Gaming_Engine.ico' | Select-Object -First 1
+          if (-not $icon) { throw 'D7 icon was not found in premium source package.' }
+
+          # Promote the source to v0.8.1 and enforce the online stable channel.
+          $scriptText = Get-Content $scriptFile.FullName -Raw -Encoding UTF8
+          $scriptText = $scriptText -replace "\$D7Version\s*=\s*'0\.8\.0'", "`$D7Version = '0.8.1'"
+          [IO.File]::WriteAllText($scriptFile.FullName, $scriptText, (New-Object Text.UTF8Encoding($true)))
+
+          $configPath = Join-Path $src 'config.json'
+          if (Test-Path $configPath) {
+            $cfg = Get-Content $configPath -Raw -Encoding UTF8 | ConvertFrom-Json
+            $cfg.UpdateManifestUrl = 'https://raw.githubusercontent.com/Emperor0/em/main/d7-gaming-engine/stable/latest.json'
+            $cfg | ConvertTo-Json -Depth 10 | Set-Content $configPath -Encoding UTF8
+          }
+          Set-Content (Join-Path $src 'version.txt') -Value '0.8.1' -Encoding ASCII
+          @'
+D7 Gaming Engine v0.8.1
+- تطبيق Windows EXE مستقل 64-بت بصلاحية المسؤول.
+- هوية D7 الداكنة الفاخرة مع الأخضر الكهربائي واللمسة السماوية.
+- واجهة عربية RTL حديثة بالكامل.
+- قناة تحديثات Stable مرتبطة أونلاين عبر GitHub.
+- تحقق SHA-256 من كل حزمة تحديث قبل التثبيت.
+- دعم الاسترجاع الآمن وتشغيل النسخة الجديدة تلقائياً بعد التحديث.
+'@ | Set-Content (Join-Path $src 'CHANGELOG_AR.txt') -Encoding UTF8
           "D7_SRC=$src" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
 
       - name: Install PS2EXE
@@ -60,12 +85,12 @@ jobs:
             -copyright 'D7' `
             -version '0.8.1.0'
 
-          Copy-Item (Join-Path $src 'config.json') $out -Force
-          Copy-Item (Join-Path $src 'README_AR.txt') $out -Force
-          Copy-Item (Join-Path $src 'CHANGELOG_AR.txt') $out -Force
-          Copy-Item (Join-Path $src 'version.txt') $out -Force
-          Copy-Item (Join-Path $src 'D7_Gaming_Engine.ico') $out -Force
-          Copy-Item (Join-Path $src 'tools\PRESENTMON_LICENSE.txt') (Join-Path $out 'tools\PRESENTMON_LICENSE.txt') -Force
+          foreach ($name in @('config.json','README_AR.txt','CHANGELOG_AR.txt','version.txt','D7_Gaming_Engine.ico')) {
+            $p = Join-Path $src $name
+            if (Test-Path $p) { Copy-Item $p $out -Force }
+          }
+          $license = Join-Path $src 'tools\PRESENTMON_LICENSE.txt'
+          if (Test-Path $license) { Copy-Item $license (Join-Path $out 'tools\PRESENTMON_LICENSE.txt') -Force }
 
           $exe = Join-Path $out 'D7_Gaming_Engine.exe'
           if (-not (Test-Path $exe)) { throw 'EXE build failed.' }
@@ -80,12 +105,10 @@ jobs:
           $out = Join-Path $env:RUNNER_TEMP 'D7Release'
           $stable = Join-Path $repo 'd7-gaming-engine\stable'
           New-Item -ItemType Directory -Path $stable -Force | Out-Null
-
           $zipName = 'D7_Gaming_Engine_v0.8.1.zip'
           $zip = Join-Path $stable $zipName
           Remove-Item $zip -Force -ErrorAction SilentlyContinue
           Compress-Archive -Path (Join-Path $out '*') -DestinationPath $zip -CompressionLevel Optimal
-
           $hash = (Get-FileHash $zip -Algorithm SHA256).Hash.ToLowerInvariant()
           $notes = (Get-Content (Join-Path $src 'CHANGELOG_AR.txt') -Raw -Encoding UTF8).Trim()
           $manifest = [ordered]@{
@@ -99,8 +122,7 @@ jobs:
             publishedUtc = (Get-Date).ToUniversalTime().ToString('o')
           }
           $json = $manifest | ConvertTo-Json -Depth 5
-          $utf8 = New-Object System.Text.UTF8Encoding($false)
-          [IO.File]::WriteAllText((Join-Path $stable 'latest.json'), $json, $utf8)
+          [IO.File]::WriteAllText((Join-Path $stable 'latest.json'), $json, (New-Object Text.UTF8Encoding($false)))
           Write-Host "Release SHA256: $hash"
 
       - name: Upload D7 package artifact
@@ -117,9 +139,7 @@ jobs:
           git config user.name 'D7 Release Bot'
           git config user.email 'd7-release-bot@users.noreply.github.com'
           git add d7-gaming-engine/stable
-          if (git diff --cached --quiet) {
-            Write-Host 'No release changes to publish.'
-            exit 0
-          }
+          if (git diff --cached --quiet) { Write-Host 'No release changes to publish.'; exit 0 }
           git commit -m 'Publish D7 Gaming Engine v0.8.1 EXE'
+          git pull --rebase origin main
           git push
