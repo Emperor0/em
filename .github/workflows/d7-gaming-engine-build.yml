@@ -29,18 +29,14 @@ jobs:
           Remove-Item $work -Recurse -Force -ErrorAction SilentlyContinue
           New-Item -ItemType Directory -Path $work -Force | Out-Null
           Expand-Archive -Path $pkg -DestinationPath $work -Force
-
           $scriptFile = Get-ChildItem $work -Recurse -File -Filter 'D7_Gaming_Engine.ps1' | Select-Object -First 1
           if (-not $scriptFile) { throw 'D7_Gaming_Engine.ps1 was not found in v0.8.0 package.' }
           $src = $scriptFile.Directory.FullName
           $icon = Get-ChildItem $src -File -Filter 'D7_Gaming_Engine.ico' | Select-Object -First 1
           if (-not $icon) { throw 'D7 icon was not found in premium source package.' }
-
-          # Promote the source to v0.8.1 and enforce the online stable channel.
           $scriptText = Get-Content $scriptFile.FullName -Raw -Encoding UTF8
           $scriptText = $scriptText -replace "\$D7Version\s*=\s*'0\.8\.0'", "`$D7Version = '0.8.1'"
           [IO.File]::WriteAllText($scriptFile.FullName, $scriptText, (New-Object Text.UTF8Encoding($true)))
-
           $configPath = Join-Path $src 'config.json'
           if (Test-Path $configPath) {
             $cfg = Get-Content $configPath -Raw -Encoding UTF8 | ConvertFrom-Json
@@ -48,15 +44,16 @@ jobs:
             $cfg | ConvertTo-Json -Depth 10 | Set-Content $configPath -Encoding UTF8
           }
           Set-Content (Join-Path $src 'version.txt') -Value '0.8.1' -Encoding ASCII
-          @'
-D7 Gaming Engine v0.8.1
-- تطبيق Windows EXE مستقل 64-بت بصلاحية المسؤول.
-- هوية D7 الداكنة الفاخرة مع الأخضر الكهربائي واللمسة السماوية.
-- واجهة عربية RTL حديثة بالكامل.
-- قناة تحديثات Stable مرتبطة أونلاين عبر GitHub.
-- تحقق SHA-256 من كل حزمة تحديث قبل التثبيت.
-- دعم الاسترجاع الآمن وتشغيل النسخة الجديدة تلقائياً بعد التحديث.
-'@ | Set-Content (Join-Path $src 'CHANGELOG_AR.txt') -Encoding UTF8
+          $changeLines = @(
+            'D7 Gaming Engine v0.8.1',
+            '- تطبيق Windows EXE مستقل 64-بت بصلاحية المسؤول.',
+            '- هوية D7 الداكنة الفاخرة مع الأخضر الكهربائي واللمسة السماوية.',
+            '- واجهة عربية RTL حديثة بالكامل.',
+            '- قناة تحديثات Stable مرتبطة أونلاين عبر GitHub.',
+            '- تحقق SHA-256 من كل حزمة تحديث قبل التثبيت.',
+            '- دعم الاسترجاع الآمن وتشغيل النسخة الجديدة تلقائياً بعد التحديث.'
+          )
+          $changeLines | Set-Content (Join-Path $src 'CHANGELOG_AR.txt') -Encoding UTF8
           "D7_SRC=$src" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
 
       - name: Install PS2EXE
@@ -73,7 +70,6 @@ D7 Gaming Engine v0.8.1
           $out = Join-Path $env:RUNNER_TEMP 'D7Release'
           Remove-Item $out -Recurse -Force -ErrorAction SilentlyContinue
           New-Item -ItemType Directory -Path (Join-Path $out 'tools') -Force | Out-Null
-
           Invoke-ps2exe `
             -inputFile (Join-Path $src 'D7_Gaming_Engine.ps1') `
             -outputFile (Join-Path $out 'D7_Gaming_Engine.exe') `
@@ -84,14 +80,12 @@ D7 Gaming Engine v0.8.1
             -company 'D7' `
             -copyright 'D7' `
             -version '0.8.1.0'
-
           foreach ($name in @('config.json','README_AR.txt','CHANGELOG_AR.txt','version.txt','D7_Gaming_Engine.ico')) {
             $p = Join-Path $src $name
             if (Test-Path $p) { Copy-Item $p $out -Force }
           }
           $license = Join-Path $src 'tools\PRESENTMON_LICENSE.txt'
           if (Test-Path $license) { Copy-Item $license (Join-Path $out 'tools\PRESENTMON_LICENSE.txt') -Force }
-
           $exe = Join-Path $out 'D7_Gaming_Engine.exe'
           if (-not (Test-Path $exe)) { throw 'EXE build failed.' }
           if ((Get-Item $exe).Length -lt 50000) { throw 'EXE build output is unexpectedly small.' }
