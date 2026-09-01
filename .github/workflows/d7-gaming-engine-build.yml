@@ -4,11 +4,15 @@ on:
   workflow_dispatch:
   push:
     paths:
-      - 'd7-gaming-engine/source/**'
+      - 'd7-gaming-engine/source/D7_Source_v0.8.1.zip'
       - '.github/workflows/d7-gaming-engine-build.yml'
 
 permissions:
   contents: write
+
+concurrency:
+  group: d7-gaming-engine-stable
+  cancel-in-progress: true
 
 jobs:
   build-windows:
@@ -17,24 +21,18 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Rebuild source package
-        shell: cmd
-        run: |
-          cd /d "%GITHUB_WORKSPACE%\d7-gaming-engine\source"
-          copy /b chunk_00.bin+chunk_01.bin+chunk_02.bin+chunk_03.bin D7_Source_v0.8.1.zip
-
-      - name: Expand source
+      - name: Expand verified source package
         shell: powershell
         run: |
           $pkg = Join-Path $env:GITHUB_WORKSPACE 'd7-gaming-engine\source\D7_Source_v0.8.1.zip'
           $work = Join-Path $env:RUNNER_TEMP 'D7Source'
-          $expanded = Join-Path $env:GITHUB_WORKSPACE 'd7-gaming-engine\expanded'
           Remove-Item $work -Recurse -Force -ErrorAction SilentlyContinue
-          Remove-Item $expanded -Recurse -Force -ErrorAction SilentlyContinue
-          New-Item -ItemType Directory -Path $work,$expanded -Force | Out-Null
+          New-Item -ItemType Directory -Path $work -Force | Out-Null
           Expand-Archive -Path $pkg -DestinationPath $work -Force
-          Copy-Item -Path (Join-Path $work 'source\*') -Destination $expanded -Recurse -Force
-          if (-not (Test-Path (Join-Path $expanded 'D7_Gaming_Engine.ps1'))) { throw 'D7 source reconstruction failed.' }
+          $src = Join-Path $work 'source'
+          if (-not (Test-Path (Join-Path $src 'D7_Gaming_Engine.ps1'))) { throw 'D7 source package is incomplete.' }
+          if (-not (Test-Path (Join-Path $src 'D7_Gaming_Engine.ico'))) { throw 'D7 icon is missing.' }
+          "D7_SRC=$src" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
 
       - name: Install PS2EXE
         shell: powershell
@@ -46,10 +44,11 @@ jobs:
       - name: Build Windows EXE
         shell: powershell
         run: |
-          $src = Join-Path $env:GITHUB_WORKSPACE 'd7-gaming-engine\expanded'
+          $src = $env:D7_SRC
           $out = Join-Path $env:RUNNER_TEMP 'D7Release'
           Remove-Item $out -Recurse -Force -ErrorAction SilentlyContinue
           New-Item -ItemType Directory -Path (Join-Path $out 'tools') -Force | Out-Null
+
           Invoke-ps2exe `
             -inputFile (Join-Path $src 'D7_Gaming_Engine.ps1') `
             -outputFile (Join-Path $out 'D7_Gaming_Engine.exe') `
@@ -60,25 +59,33 @@ jobs:
             -company 'D7' `
             -copyright 'D7' `
             -version '0.8.1.0'
+
           Copy-Item (Join-Path $src 'config.json') $out -Force
           Copy-Item (Join-Path $src 'README_AR.txt') $out -Force
           Copy-Item (Join-Path $src 'CHANGELOG_AR.txt') $out -Force
           Copy-Item (Join-Path $src 'version.txt') $out -Force
+          Copy-Item (Join-Path $src 'D7_Gaming_Engine.ico') $out -Force
           Copy-Item (Join-Path $src 'tools\PRESENTMON_LICENSE.txt') (Join-Path $out 'tools\PRESENTMON_LICENSE.txt') -Force
-          if (-not (Test-Path (Join-Path $out 'D7_Gaming_Engine.exe'))) { throw 'EXE build failed.' }
+
+          $exe = Join-Path $out 'D7_Gaming_Engine.exe'
+          if (-not (Test-Path $exe)) { throw 'EXE build failed.' }
+          if ((Get-Item $exe).Length -lt 50000) { throw 'EXE build output is unexpectedly small.' }
+          Write-Host "D7 EXE size: $((Get-Item $exe).Length) bytes"
 
       - name: Package stable release and manifest
         shell: powershell
         run: |
           $repo = $env:GITHUB_WORKSPACE
-          $src = Join-Path $repo 'd7-gaming-engine\expanded'
+          $src = $env:D7_SRC
           $out = Join-Path $env:RUNNER_TEMP 'D7Release'
           $stable = Join-Path $repo 'd7-gaming-engine\stable'
           New-Item -ItemType Directory -Path $stable -Force | Out-Null
+
           $zipName = 'D7_Gaming_Engine_v0.8.1.zip'
           $zip = Join-Path $stable $zipName
           Remove-Item $zip -Force -ErrorAction SilentlyContinue
           Compress-Archive -Path (Join-Path $out '*') -DestinationPath $zip -CompressionLevel Optimal
+
           $hash = (Get-FileHash $zip -Algorithm SHA256).Hash.ToLowerInvariant()
           $notes = (Get-Content (Join-Path $src 'CHANGELOG_AR.txt') -Raw -Encoding UTF8).Trim()
           $manifest = [ordered]@{
@@ -91,8 +98,18 @@ jobs:
             changelogAr = $notes
             publishedUtc = (Get-Date).ToUniversalTime().ToString('o')
           }
-          $manifest | ConvertTo-Json -Depth 5 | Set-Content (Join-Path $stable 'latest.json') -Encoding UTF8
+          $json = $manifest | ConvertTo-Json -Depth 5
+          $utf8 = New-Object System.Text.UTF8Encoding($false)
+          [IO.File]::WriteAllText((Join-Path $stable 'latest.json'), $json, $utf8)
           Write-Host "Release SHA256: $hash"
+
+      - name: Upload D7 package artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: D7-Gaming-Engine-v0.8.1
+          path: d7-gaming-engine/stable/D7_Gaming_Engine_v0.8.1.zip
+          if-no-files-found: error
+          retention-days: 30
 
       - name: Publish stable channel
         shell: powershell
@@ -104,5 +121,5 @@ jobs:
             Write-Host 'No release changes to publish.'
             exit 0
           }
-          git commit -m 'Publish D7 Gaming Engine v0.8.1'
+          git commit -m 'Publish D7 Gaming Engine v0.8.1 EXE'
           git push
