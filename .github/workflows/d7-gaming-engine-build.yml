@@ -27,9 +27,7 @@ jobs:
           $src = Join-Path $env:RUNNER_TEMP 'D7v093Source'
           Remove-Item $src -Recurse -Force -ErrorAction SilentlyContinue
           New-Item -ItemType Directory -Path (Join-Path $src 'tools') -Force | Out-Null
-          $parts = Get-ChildItem $root -File -Filter 'source_*.txt' | Sort-Object Name
-          if ($parts.Count -ne 5) { throw ('Expected 5 source chunks; found ' + $parts.Count) }
-          $b64 = (($parts | ForEach-Object { Get-Content $_.FullName -Raw -Encoding UTF8 }) -join '') -replace '[^A-Za-z0-9+/=]',''
+          $b64 = (Get-Content (Join-Path $root 'source_all.txt') -Raw -Encoding UTF8) -replace '[^A-Za-z0-9+/=]',''
           $gzBytes = [Convert]::FromBase64String($b64)
           $inStream = New-Object IO.MemoryStream(,$gzBytes)
           $gzip = New-Object IO.Compression.GzipStream($inStream,[IO.Compression.CompressionMode]::Decompress)
