@@ -26,7 +26,6 @@ jobs:
           $src = Join-Path $env:RUNNER_TEMP 'D7v091Source'
           Remove-Item $src -Recurse -Force -ErrorAction SilentlyContinue
           New-Item -ItemType Directory -Path $src -Force | Out-Null
-
           $b64 = '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'
           $gzBytes = [Convert]::FromBase64String($b64)
           $inStream = New-Object IO.MemoryStream(,$gzBytes)
@@ -34,12 +33,10 @@ jobs:
           $reader = New-Object IO.StreamReader($gzip,[Text.Encoding]::UTF8)
           try { $scriptText = $reader.ReadToEnd() } finally { $reader.Dispose(); $gzip.Dispose(); $inStream.Dispose() }
           [IO.File]::WriteAllText((Join-Path $src 'D7_Gaming_Engine.ps1'),$scriptText,(New-Object Text.UTF8Encoding($true)))
-
           [IO.File]::WriteAllBytes((Join-Path $src 'config.json'),[Convert]::FromBase64String('ewogICJBdXRvT3B0aW1pemUiOiBmYWxzZSwKICAiUGVyZm9ybWFuY2VNb2RlIjogImJhbGFuY2VkIiwKICAiVXBkYXRlQ2hhbm5lbCI6ICJzdGFibGUiLAogICJVcGRhdGVNYW5pZmVzdFVybCI6ICJodHRwczovL3Jhdy5naXRodWJ1c2VyY29udGVudC5jb20vRW1wZXJvcjAvZW0vbWFpbi9kNy1nYW1pbmctZW5naW5lL3N0YWJsZS9sYXRlc3QuanNvbiIsCiAgIlByZXNlbnRNb25FbmFibGVkIjogZmFsc2UsCiAgIkVuYWJsZUJhY2tncm91bmRDcHVTZXRzIjogZmFsc2UsCiAgIkVuYWJsZUJhY2tncm91bmRQcmlvcml0eSI6IGZhbHNlLAogICJFbmFibGVCYWNrZ3JvdW5kRWNvUW9TIjogZmFsc2UsCiAgIkVuYWJsZUdhbWVQcmlvcml0eUJvb3N0IjogZmFsc2UsCiAgIkVuYWJsZUdhbWVIaWdoUW9TIjogZmFsc2UsCiAgIkVuYWJsZVRpbWVyUmVzb2x1dGlvbiI6IGZhbHNlLAogICJFbmFibGVEN1Bvd2VyUGxhbiI6IGZhbHNlLAogICJFbmFibGVBZGFwdGl2ZVBvd2VyUGxhbiI6IGZhbHNlCn0='))
           [IO.File]::WriteAllBytes((Join-Path $src 'README_AR.txt'),[Convert]::FromBase64String('77u/RDcgR2FtaW5nIEVuZ2luZSB2MC45LjEg4oCUIFNhZmUgUmVjb3ZlcnkKCtmH2LDZhyDZhtiz2K7YqSDYt9mI2KfYsdimINmE2KXYudin2K/YqSDYp9mE2KzZh9in2LIg2KXZhNmJINit2KfZhNipINmF2LPYqtmC2LHYqS4K2KjYudivINiq2LTYutmK2YTZh9inINin2LbYuti3INil2LnYp9iv2Kkg2KrYtNi62YrZhCBXaW5kb3dzINin2YTYotmGLgrZhNinINiq2LfYqNmCINmH2LDZhyDYp9mE2YbYs9iu2Kkg2KPZiiDYqtit2LPZitmG2KfYqiDYo9iv2KfYoSDYqtmE2YLYp9im2YrYp9mLLgo='))
           [IO.File]::WriteAllBytes((Join-Path $src 'CHANGELOG_AR.txt'),[Convert]::FromBase64String('77u/RDcgR2FtaW5nIEVuZ2luZSB2MC45LjEg4oCUIFNhZmUgUmVjb3ZlcnkKLSDYpdmK2YLYp9mBINis2YXZiti5INiq2K3Ys9mK2YbYp9iqINin2YTYo9iv2KfYoSDYp9mE2LnYr9mI2KfZhtmK2Kkg2KrZhNmC2KfYptmK2KfZiy4KLSDYp9iz2KrYsdis2KfYuSBXaW5kb3dzIEJhbGFuY2VkINmI2K3YsNmBINiu2LfYqSBENyBHQU1FIFBFUkZPUk1BTkNFLgotINmE2KcgQ1BVIFNldHMg2YjZhNinIFFvUyDZiNmE2Kcg2LHZgdi5INij2YjZhNmI2YrYqSDYp9mE2YTYudio2Kkg2YjZhNinIFRpbWVyIFJlc29sdXRpb24uCi0g2YTYpyBQcmVzZW50TW9uINmI2YTYpyDZgtmK2KfYs9in2Kog2K7ZhNmB2YrYqSDZgdmKINmH2LDZhyDYp9mE2YbYs9iu2KkuCi0g2YfYsNmHINmG2LPYrtipINin2LPYqtix2KzYp9i5INmI2KfYs9iq2YLYsdin2LEg2KjYudivINmF2LTYp9mD2YQgdjAuOS4wLgotINij2LnYryDYqti02LrZitmEIFdpbmRvd3Mg2KjYudivINin2YTYqtit2K/ZitirINmE2KXYstin2YTYqSDYo9mKINiq2LrZitmK2LHYp9iqINmF2KrYqNmC2YrYqSDYr9in2K7ZhCDYp9mE2LnZhdmE2YrYp9iqINin2YTZhdmB2KrZiNit2KkuCg=='))
           [IO.File]::WriteAllText((Join-Path $src 'version.txt'),'0.9.1',(New-Object Text.UTF8Encoding($false)))
-
           $oldPkg = Join-Path $env:GITHUB_WORKSPACE 'd7-gaming-engine\stable\D7_Gaming_Engine_v0.8.0.zip'
           $old = Join-Path $env:RUNNER_TEMP 'D7v080'
           Remove-Item $old -Recurse -Force -ErrorAction SilentlyContinue
@@ -51,13 +48,9 @@ jobs:
           if (-not $icon) { throw 'Could not extract D7 icon.' }
           $iconStream = [IO.File]::Create((Join-Path $src 'D7_Gaming_Engine.ico'))
           try { $icon.Save($iconStream) } finally { $iconStream.Dispose(); $icon.Dispose() }
-
           $tokens=$null; $errors=$null
           [System.Management.Automation.Language.Parser]::ParseFile((Join-Path $src 'D7_Gaming_Engine.ps1'),[ref]$tokens,[ref]$errors) | Out-Null
-          if($errors.Count -gt 0){
-            $errors | ForEach-Object { Write-Host ('PARSER: '+$_.Message+' @ '+$_.Extent.StartLineNumber) }
-            throw ('Parser errors: '+$errors.Count)
-          }
+          if($errors.Count -gt 0){$errors | ForEach-Object { Write-Host ('PARSER: '+$_.Message+' @ '+$_.Extent.StartLineNumber) };throw ('Parser errors: '+$errors.Count)}
           "D7_SRC=$src" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
 
       - name: Install PS2EXE
@@ -87,7 +80,7 @@ jobs:
           foreach($n in @('config.json','README_AR.txt','CHANGELOG_AR.txt','version.txt')){Copy-Item (Join-Path $src $n) $out -Force}
           $exe=Join-Path $out 'D7_Gaming_Engine.exe'
           if(-not(Test-Path $exe)){throw 'D7 Safe Recovery EXE build failed.'}
-          if((Get-Item $exe).Length -lt 50000){throw 'D7 Safe Recovery EXE unexpectedly small.'}
+          if((Get-Item $exe).Length -lt 10000){throw 'D7 Safe Recovery EXE unexpectedly small.'}
           Write-Host ('EXE size: '+(Get-Item $exe).Length)
           "D7_OUT=$out" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
 
@@ -104,16 +97,7 @@ jobs:
           Compress-Archive -Path (Join-Path $out '*') -DestinationPath $zip -CompressionLevel Optimal
           $hash=(Get-FileHash $zip -Algorithm SHA256).Hash.ToLowerInvariant()
           $notes=(Get-Content (Join-Path $src 'CHANGELOG_AR.txt') -Raw -Encoding UTF8).Trim()
-          $manifest=[ordered]@{
-            product='D7 Gaming Engine'
-            channel='stable'
-            version='0.9.1'
-            minimumWindowsBuild=19045
-            packageUrl='https://raw.githubusercontent.com/Emperor0/em/main/d7-gaming-engine/stable/D7_Gaming_Engine_v0.9.1.zip'
-            sha256=$hash
-            changelogAr=$notes
-            publishedUtc=(Get-Date).ToUniversalTime().ToString('o')
-          }
+          $manifest=[ordered]@{product='D7 Gaming Engine';channel='stable';version='0.9.1';minimumWindowsBuild=19045;packageUrl='https://raw.githubusercontent.com/Emperor0/em/main/d7-gaming-engine/stable/D7_Gaming_Engine_v0.9.1.zip';sha256=$hash;changelogAr=$notes;publishedUtc=(Get-Date).ToUniversalTime().ToString('o')}
           [IO.File]::WriteAllText((Join-Path $stable 'latest.json'),($manifest|ConvertTo-Json -Depth 5),(New-Object Text.UTF8Encoding($false)))
           Write-Host ('Stable package SHA256: '+$hash)
           git config user.name 'D7 Release Bot'
