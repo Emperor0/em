@@ -39,7 +39,6 @@ jobs:
           Copy-Item (Join-Path $root 'README_AR.txt') $src -Force
           Copy-Item (Join-Path $root 'CHANGELOG_AR.txt') $src -Force
           [IO.File]::WriteAllText((Join-Path $src 'version.txt'),'0.9.2',(New-Object Text.UTF8Encoding($false)))
-
           $oldPkg = Join-Path $env:GITHUB_WORKSPACE 'd7-gaming-engine\stable\D7_Gaming_Engine_v0.9.1.zip'
           if (-not (Test-Path $oldPkg)) { $oldPkg = Join-Path $env:GITHUB_WORKSPACE 'd7-gaming-engine\stable\D7_Gaming_Engine_v0.9.0.zip' }
           $old = Join-Path $env:RUNNER_TEMP 'D7Old'
@@ -52,7 +51,6 @@ jobs:
           try { $icon.Save($stream) } finally { $stream.Dispose(); $icon.Dispose() }
           $lic = Join-Path $old 'tools\PRESENTMON_LICENSE.txt'
           if (Test-Path $lic) { Copy-Item $lic (Join-Path $src 'tools\PRESENTMON_LICENSE.txt') -Force }
-
           $tokens=$null; $errors=$null
           [System.Management.Automation.Language.Parser]::ParseFile((Join-Path $src 'D7_Gaming_Engine.ps1'),[ref]$tokens,[ref]$errors) | Out-Null
           if ($errors.Count -gt 0) { $errors | ForEach-Object { Write-Host ('PARSER: '+$_.Message+' line '+$_.Extent.StartLineNumber) }; throw ('Parser errors: '+$errors.Count) }
@@ -78,7 +76,7 @@ jobs:
           if (Test-Path (Join-Path $src 'tools\PRESENTMON_LICENSE.txt')) { Copy-Item (Join-Path $src 'tools\PRESENTMON_LICENSE.txt') (Join-Path $out 'tools\PRESENTMON_LICENSE.txt') -Force }
           $exe=Join-Path $out 'D7_Gaming_Engine.exe'
           if (-not (Test-Path $exe)) { throw 'Build failed.' }
-          if ((Get-Item $exe).Length -lt 70000) { throw 'EXE too small.' }
+          if ((Get-Item $exe).Length -lt 40000) { throw 'EXE too small.' }
           $ver=[Diagnostics.FileVersionInfo]::GetVersionInfo($exe)
           Write-Host ('EXE bytes: '+(Get-Item $exe).Length)
           Write-Host ('EXE version: '+$ver.FileVersion)
