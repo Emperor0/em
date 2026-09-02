@@ -1,10 +1,10 @@
 {
     "product":  "D7 Gaming Engine",
     "channel":  "stable",
-    "version":  "0.9.2",
+    "version":  "0.9.3",
     "minimumWindowsBuild":  19045,
-    "packageUrl":  "https://raw.githubusercontent.com/Emperor0/em/main/d7-gaming-engine/stable/D7_Gaming_Engine_v0.9.2.zip",
-    "sha256":  "3f38683f573ddab7f430185cce3e189c1672cf9ffe05d7ae534765c649ec1636",
-    "changelogAr":  "D7 Gaming Engine v0.9.2 — Doctor Core\r\n- D7 يفهم المشكلة أولاً قبل أي تعديل.\r\n- تنظيف تلقائي لبقايا D7 القديمة من Startup وRun وTask Scheduler لمنع نوافذ PowerShell القديمة.\r\n- إذا بقيت خطة D7 GAME PERFORMANCE مفعلة، يرجع Windows Balanced ويحذف خطة D7 القديمة.\r\n- لا CPU Sets ولا QoS ولا Timer 1ms ولا خطة طاقة D7 ولا تعديل داخل اللعبة.\r\n- ثلاث عينات خط أساس قبل أي علاج، ثم ثلاث عينات بعد علاج واحد منخفض المخاطر فقط عند وجود سبب واضح.\r\n- العلاج الحالي: خفض أولوية عدد محدود من تطبيقات الخلفية فقط، بدون لمس اللعبة أو Anti-Cheat.\r\n- يقارن FPS و1% Low وP99 قبل/بعد ويقبل العلاج فقط إذا أثبت تحسناً؛ وإلا يتراجع عنه تلقائياً.\r\n- إذا ظهر تراجع لاحق بعد قبول العلاج، ينفذ Rollback تلقائياً.\r\n- حارس RAM يمنع أي تدخل عند ضغط الذاكرة.\r\n- تحديثات Stable أونلاين مع تحقق SHA-256.",
-    "publishedUtc":  "2026-09-02T22:34:05.0491428Z"
+    "packageUrl":  "https://raw.githubusercontent.com/Emperor0/em/main/d7-gaming-engine/stable/D7_Gaming_Engine_v0.9.3.zip",
+    "sha256":  "992f8f8b0fc950ec299e442eff9a39671ac9ef25c6fcaf3031116cf86f50872b",
+    "changelogAr":  "D7 Gaming Engine v0.9.3 — System Doctor\r\n- فحص شامل لسبب نوافذ PowerShell الزرقاء عند بدء Windows.\r\n- تنظيف تلقائي لبقايا D7 من Run وRunOnce وStartup وTask Scheduler وWMI وPowerShell Profiles.\r\n- حذف أو تعطيل عناصر التشغيل المكسورة فقط عندما تشير إلى ملفات غير موجودة بشكل مؤكد.\r\n- إرجاع Windows Balanced وحذف خطة D7 GAME PERFORMANCE القديمة إذا بقيت.\r\n- فحص Device Manager والتخزين والأخطاء المهمة في Event Viewer لآخر 3 أيام.\r\n- تشغيل DISM RestoreHealth وSFC /scannow وCHKDSK C: /scan بإخفاء نوافذ الأوامر.\r\n- تشغيل Microsoft Defender Quick Scan إذا كان Defender هو الحماية النشطة.\r\n- إنشاء Restore Point عندما يسمح Windows بذلك.\r\n- تقرير تشخيص كامل على سطح المكتب وسجل دائم داخل ProgramData.\r\n- لا حذف عشوائي للبرامج أو الخدمات، ولا تعديل داخل اللعبة أو Anti-Cheat.\r\n- زر تحديثات Stable أونلاين مع تحقق SHA-256 وتثبيت صامت بدون نوافذ PowerShell ظاهرة.",
+    "publishedUtc":  "2026-09-02T22:44:19.5563482Z"
 }
