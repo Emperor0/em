@@ -1,0 +1,80 @@
+name: Build D7 v0.9.0 Clean Lab Fixed
+
+on:
+  workflow_dispatch:
+  push:
+    paths:
+      - '.github/workflows/d7-v090-clean-lab-build2.yml'
+
+permissions:
+  contents: write
+
+jobs:
+  build-windows:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Prepare package
+        shell: powershell
+        run: |
+          $repo=$env:GITHUB_WORKSPACE
+          $pkg=Join-Path $repo 'd7-gaming-engine\stable\D7_Gaming_Engine_v0.9.0.zip'
+          $orig=Join-Path $env:RUNNER_TEMP 'D7v090Original'
+          $out=Join-Path $env:RUNNER_TEMP 'D7v090CleanLab'
+          Remove-Item $orig,$out -Recurse -Force -ErrorAction SilentlyContinue
+          New-Item -ItemType Directory -Path $orig,$out -Force | Out-Null
+          Expand-Archive $pkg $orig -Force
+          $exe=Get-ChildItem $orig -Recurse -File -Filter 'D7_Gaming_Engine.exe' | Select-Object -First 1
+          if(-not $exe){throw 'Original core missing.'}
+          Copy-Item (Join-Path $exe.Directory.FullName '*') $out -Recurse -Force
+          Rename-Item (Join-Path $out 'D7_Gaming_Engine.exe') 'D7_Gaming_Engine_Core_v0.9.0.exe' -Force
+          Copy-Item (Join-Path $repo 'd7-gaming-engine\v090-clean-lab\config.json') (Join-Path $out 'config.json') -Force
+          Copy-Item (Join-Path $repo 'd7-gaming-engine\v090-clean-lab\README_AR.txt') (Join-Path $out 'README_CLEAN_LAB_AR.txt') -Force
+          Add-Type -AssemblyName System.Drawing
+          $icon=[Drawing.Icon]::ExtractAssociatedIcon((Join-Path $out 'D7_Gaming_Engine_Core_v0.9.0.exe'))
+          $iconPath=Join-Path $env:RUNNER_TEMP 'D7CleanLab.ico'
+          $stream=[IO.File]::Create($iconPath); try{$icon.Save($stream)}finally{$stream.Dispose();$icon.Dispose()}
+          "D7_OUT=$out"|Out-File $env:GITHUB_ENV -Encoding utf8 -Append
+          "D7_ICON=$iconPath"|Out-File $env:GITHUB_ENV -Encoding utf8 -Append
+
+      - name: Build launchers
+        shell: powershell
+        run: |
+          Set-PSRepository -Name PSGallery -InstallationPolicy Trusted
+          Install-Module ps2exe -Scope CurrentUser -Force -AllowClobber
+          Import-Module ps2exe -Force
+          $repo=$env:GITHUB_WORKSPACE; $out=$env:D7_OUT; $icon=$env:D7_ICON
+          $bom=New-Object Text.UTF8Encoding($true)
+          $l=Join-Path $env:RUNNER_TEMP 'launcher.ps1'; $s=Join-Path $env:RUNNER_TEMP 'stop.ps1'
+          [IO.File]::WriteAllText($l,(Get-Content (Join-Path $repo 'd7-gaming-engine\v090-clean-lab\D7_Clean_Lab_Launcher.ps1') -Raw -Encoding UTF8),$bom)
+          [IO.File]::WriteAllText($s,(Get-Content (Join-Path $repo 'd7-gaming-engine\v090-clean-lab\D7_Emergency_Stop.ps1') -Raw -Encoding UTF8),$bom)
+          Invoke-ps2exe -inputFile $l -outputFile (Join-Path $out 'D7_Gaming_Engine_v0.9.0_Clean_Lab.exe') -x64 -STA -noConsole -requireAdmin -iconFile $icon -title 'D7 Gaming Engine v0.9.0 Clean Lab' -product 'D7 Gaming Engine Clean Lab' -company 'D7' -version '0.9.0.1'
+          Invoke-ps2exe -inputFile $s -outputFile (Join-Path $out 'D7_Emergency_Stop.exe') -x64 -STA -noConsole -requireAdmin -iconFile $icon -title 'D7 Emergency Stop' -product 'D7 Gaming Engine Clean Lab' -company 'D7' -version '0.9.0.1'
+          foreach($f in @('D7_Gaming_Engine_v0.9.0_Clean_Lab.exe','D7_Emergency_Stop.exe','D7_Gaming_Engine_Core_v0.9.0.exe')){if(-not(Test-Path (Join-Path $out $f))){throw "Missing $f"}}
+
+      - name: Publish Lab package
+        shell: powershell
+        run: |
+          $repo=$env:GITHUB_WORKSPACE; $out=$env:D7_OUT
+          $lab=Join-Path $repo 'd7-gaming-engine\lab'; New-Item -ItemType Directory $lab -Force|Out-Null
+          $zip=Join-Path $lab 'D7_Gaming_Engine_v0.9.0_Clean_Lab.zip'
+          Remove-Item $zip -Force -ErrorAction SilentlyContinue
+          Compress-Archive (Join-Path $out '*') $zip -CompressionLevel Optimal
+          $hash=(Get-FileHash $zip -Algorithm SHA256).Hash.ToLowerInvariant()
+          $m=[ordered]@{product='D7 Gaming Engine Clean Lab';channel='lab';version='0.9.0';packageUrl='https://raw.githubusercontent.com/Emperor0/em/main/d7-gaming-engine/lab/D7_Gaming_Engine_v0.9.0_Clean_Lab.zip';sha256=$hash;noteAr='Original v0.9.0 core isolated by Clean Lab preflight, watchdog, rollback and emergency stop.';publishedUtc=(Get-Date).ToUniversalTime().ToString('o')}
+          [IO.File]::WriteAllText((Join-Path $lab 'latest.json'),($m|ConvertTo-Json -Depth 5),(New-Object Text.UTF8Encoding($false)))
+          Write-Host ('SHA256='+$hash)
+          git config user.name 'D7 Release Bot'
+          git config user.email 'd7-release-bot@users.noreply.github.com'
+          git add d7-gaming-engine/lab/D7_Gaming_Engine_v0.9.0_Clean_Lab.zip d7-gaming-engine/lab/latest.json
+          git commit -m 'Publish D7 v0.9.0 Clean Lab' 2>$null
+          git pull --rebase origin main
+          git push
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: D7-Gaming-Engine-v0.9.0-Clean-Lab
+          path: d7-gaming-engine/lab/D7_Gaming_Engine_v0.9.0_Clean_Lab.zip
+          if-no-files-found: error
+          retention-days: 30
