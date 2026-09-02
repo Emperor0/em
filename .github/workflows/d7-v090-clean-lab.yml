@@ -40,7 +40,6 @@ jobs:
           if(-not (Test-Path $copied)){ throw 'Copied core EXE missing.' }
           Rename-Item $copied 'D7_Gaming_Engine_Core_v0.9.0.exe' -Force
 
-          # Preserve v0.9.0 performance behavior exactly, but isolate updater to Lab.
           Copy-Item (Join-Path $repo 'd7-gaming-engine\v090-clean-lab\config.json') (Join-Path $out 'config.json') -Force
           Copy-Item (Join-Path $repo 'd7-gaming-engine\v090-clean-lab\README_AR.txt') (Join-Path $out 'README_CLEAN_LAB_AR.txt') -Force
 
@@ -66,8 +65,16 @@ jobs:
         shell: powershell
         run: |
           $repo=$env:GITHUB_WORKSPACE; $out=$env:D7_LAB_OUT; $icon=$env:D7_LAB_ICON
-          $launcher=Join-Path $repo 'd7-gaming-engine\v090-clean-lab\D7_Clean_Lab_Launcher.ps1'
-          $stop=Join-Path $repo 'd7-gaming-engine\v090-clean-lab\D7_Emergency_Stop.ps1'
+          $launcherSource=Join-Path $repo 'd7-gaming-engine\v090-clean-lab\D7_Clean_Lab_Launcher.ps1'
+          $stopSource=Join-Path $repo 'd7-gaming-engine\v090-clean-lab\D7_Emergency_Stop.ps1'
+          $launcher=Join-Path $env:RUNNER_TEMP 'D7_Clean_Lab_Launcher_BOM.ps1'
+          $stop=Join-Path $env:RUNNER_TEMP 'D7_Emergency_Stop_BOM.ps1'
+
+          # Windows PowerShell 5.1 needs a BOM to parse Arabic string literals reliably.
+          $utf8Bom=New-Object Text.UTF8Encoding($true)
+          [IO.File]::WriteAllText($launcher,(Get-Content $launcherSource -Raw -Encoding UTF8),$utf8Bom)
+          [IO.File]::WriteAllText($stop,(Get-Content $stopSource -Raw -Encoding UTF8),$utf8Bom)
+
           $tokens=$null;$errors=$null
           [System.Management.Automation.Language.Parser]::ParseFile($launcher,[ref]$tokens,[ref]$errors)|Out-Null
           if($errors.Count){$errors|%{Write-Host $_.Message};throw 'Launcher parser errors.'}
