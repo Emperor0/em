@@ -1,10 +1,10 @@
 {
     "product":  "D7 Gaming Engine",
     "channel":  "stable",
-    "version":  "0.9.0",
+    "version":  "0.9.1",
     "minimumWindowsBuild":  19045,
-    "packageUrl":  "https://raw.githubusercontent.com/Emperor0/em/main/d7-gaming-engine/stable/D7_Gaming_Engine_v0.9.0.zip",
-    "sha256":  "7915fe88ce0a16ebfcd4884ef46cb3788761ab19f3b7e020c679d8e7dbcd53b0",
-    "changelogAr":  "D7 Gaming Engine v0.9.0 — Adaptive Core\n- تحويل التشخيص إلى تنفيذ فعلي أثناء اللعب بدلاً من المراقبة فقط.\n- Game Focus Boost: HighQoS للعبة وAbove Normal عند ضغط المعالج.\n- EcoQoS لتطبيقات الخلفية المناسبة مع عزل Zen 2 / SMT.\n- خفض أولوية البرامج الخلفية الثقيلة في الوضع المتوازن والتنافسي.\n- إنشاء وتفعيل D7 GAME PERFORMANCE تلقائياً عند الحاجة مع استرجاع آمن.\n- Timer Resolution 1ms أثناء جلسة الأداء مع استرجاع تلقائي.\n- مهلة Alt-Tab لمدة 45 ثانية حتى لا تختفي التحسينات بمجرد فتح لوحة D7.\n- عرض التعديلات الفعلية النشطة داخل الواجهة: أولوية اللعبة، QoS، عدد العمليات المعزولة، خطة الطاقة، والمؤقت.\n- Recovery موسع ليشمل QoS وخطة الطاقة إضافة إلى CPU Sets والأولوية.\n- تحسين تردد القياس الحي وتحديثات Stable أونلاين مع SHA-256.",
-    "publishedUtc":  "2026-09-01T03:50:34.9926373Z"
+    "packageUrl":  "https://raw.githubusercontent.com/Emperor0/em/main/d7-gaming-engine/stable/D7_Gaming_Engine_v0.9.1.zip",
+    "sha256":  "10fceb9b9bc8efb8e8e1ef1891b96c67e22cd3fcc5e5ea6c4e120d079f7523a8",
+    "changelogAr":  "D7 Gaming Engine v0.9.1 — Safe Recovery\n- إيقاف جميع تحسينات الأداء العدوانية تلقائياً.\n- استرجاع Windows Balanced وحذف خطة D7 GAME PERFORMANCE.\n- لا CPU Sets ولا QoS ولا رفع أولوية اللعبة ولا Timer Resolution.\n- لا PresentMon ولا قياسات خلفية في هذه النسخة.\n- هذه نسخة استرجاع واستقرار بعد مشاكل v0.9.0.\n- أعد تشغيل Windows بعد التحديث لإزالة أي تغييرات متبقية داخل العمليات المفتوحة.",
+    "publishedUtc":  "2026-09-02T22:17:40.9869861Z"
 }
