@@ -1,0 +1,12 @@
+D7 Gaming Engine v0.9.3 — System Doctor
+- فحص شامل لسبب نوافذ PowerShell الزرقاء عند بدء Windows.
+- تنظيف تلقائي لبقايا D7 من Run وRunOnce وStartup وTask Scheduler وWMI وPowerShell Profiles.
+- حذف أو تعطيل عناصر التشغيل المكسورة فقط عندما تشير إلى ملفات غير موجودة بشكل مؤكد.
+- إرجاع Windows Balanced وحذف خطة D7 GAME PERFORMANCE القديمة إذا بقيت.
+- فحص Device Manager والتخزين والأخطاء المهمة في Event Viewer لآخر 3 أيام.
+- تشغيل DISM RestoreHealth وSFC /scannow وCHKDSK C: /scan بإخفاء نوافذ الأوامر.
+- تشغيل Microsoft Defender Quick Scan إذا كان Defender هو الحماية النشطة.
+- إنشاء Restore Point عندما يسمح Windows بذلك.
+- تقرير تشخيص كامل على سطح المكتب وسجل دائم داخل ProgramData.
+- لا حذف عشوائي للبرامج أو الخدمات، ولا تعديل داخل اللعبة أو Anti-Cheat.
+- زر تحديثات Stable أونلاين مع تحقق SHA-256 وتثبيت صامت بدون نوافذ PowerShell ظاهرة.
