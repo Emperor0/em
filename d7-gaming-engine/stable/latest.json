@@ -1,10 +1,10 @@
 {
     "product":  "D7 Gaming Engine",
     "channel":  "stable",
-    "version":  "0.9.3",
+    "version":  "0.9.4",
     "minimumWindowsBuild":  19045,
-    "packageUrl":  "https://raw.githubusercontent.com/Emperor0/em/main/d7-gaming-engine/stable/D7_Gaming_Engine_v0.9.3.zip",
-    "sha256":  "992f8f8b0fc950ec299e442eff9a39671ac9ef25c6fcaf3031116cf86f50872b",
-    "changelogAr":  "D7 Gaming Engine v0.9.3 — System Doctor\r\n- فحص شامل لسبب نوافذ PowerShell الزرقاء عند بدء Windows.\r\n- تنظيف تلقائي لبقايا D7 من Run وRunOnce وStartup وTask Scheduler وWMI وPowerShell Profiles.\r\n- حذف أو تعطيل عناصر التشغيل المكسورة فقط عندما تشير إلى ملفات غير موجودة بشكل مؤكد.\r\n- إرجاع Windows Balanced وحذف خطة D7 GAME PERFORMANCE القديمة إذا بقيت.\r\n- فحص Device Manager والتخزين والأخطاء المهمة في Event Viewer لآخر 3 أيام.\r\n- تشغيل DISM RestoreHealth وSFC /scannow وCHKDSK C: /scan بإخفاء نوافذ الأوامر.\r\n- تشغيل Microsoft Defender Quick Scan إذا كان Defender هو الحماية النشطة.\r\n- إنشاء Restore Point عندما يسمح Windows بذلك.\r\n- تقرير تشخيص كامل على سطح المكتب وسجل دائم داخل ProgramData.\r\n- لا حذف عشوائي للبرامج أو الخدمات، ولا تعديل داخل اللعبة أو Anti-Cheat.\r\n- زر تحديثات Stable أونلاين مع تحقق SHA-256 وتثبيت صامت بدون نوافذ PowerShell ظاهرة.",
-    "publishedUtc":  "2026-09-02T22:44:19.5563482Z"
+    "packageUrl":  "https://raw.githubusercontent.com/Emperor0/em/main/d7-gaming-engine/stable/D7_Gaming_Engine_v0.9.4.zip",
+    "sha256":  "a14a67d3e8f16019aaca97137464dded7754ce2c813368ac441c473075182aee",
+    "changelogAr":  "D7 Gaming Engine v0.9.4 — Self-Heal\r\n\r\n- تحديث فعلي للتطبيق الأساسي إلى 0.9.4 على قناة Stable.\r\n- إضافة Self-Heal عند التشغيل لترحيل بقايا D7 القديمة قبل أي تشخيص جديد.\r\n- إزالة/عزل مهام D7 القديمة المؤكدة فقط مع Backup مسبق.\r\n- تنظيف خطط D7 القديمة والعودة إلى Windows Balanced.\r\n- إضافة تتبع PowerShell/CMD لمدة 90 ثانية مع Parent Process وCommand Line.\r\n- تحسين تصنيف Camo Code 22 ليظهر كجهاز Disabled بدل خطأ مرتفع تلقائيًا.\r\n- تحسين تقييم Event 6008 وأعطال explorer.exe حسب التكرار والحداثة.\r\n- منع تشغيل DISM/SFC/CHKDSK تلقائيًا عند فتح البرنامج؛ تعمل فقط من زر الإصلاح الشامل.\r\n- إبقاء CPU Sets وEcoQoS وTimer 1ms وخطة D7 وPriority Boost مغلقة افتراضيًا.\r\n- الإبقاء على التحديثات الأونلاين مع تحقق SHA-256 قبل التثبيت.\r\n- لا تعديل لملفات الألعاب أو Anti-Cheat ولا حذف تلقائي لبرامج خارجية.",
+    "publishedUtc":  "2026-09-03T00:03:56.9694008Z"
 }
