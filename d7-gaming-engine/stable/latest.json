@@ -1,10 +1,10 @@
 {
     "product":  "D7 Gaming Engine",
     "channel":  "stable",
-    "version":  "0.9.6",
+    "version":  "0.9.7",
     "minimumWindowsBuild":  19045,
-    "packageUrl":  "https://raw.githubusercontent.com/Emperor0/em/main/d7-gaming-engine/stable/D7_Gaming_Engine_v0.9.6.zip",
-    "sha256":  "ca1584e86e576230a05ade07001093a8d592640b323de7b122e7aedeee9d484d",
-    "changelogAr":  "D7 Gaming Engine v0.9.6 — Stable Gaming Mode\r\n\r\n- تحويل D7 من System Doctor إلى Gaming Mode تلقائي مخصص لجهاز Ryzen 5 3600 + RTX 2060 SUPER + 16GB.\r\n- اكتشاف تلقائي لـ cod26-cod.exe وعائلة Call of Duty كل ثانيتين.\r\n- جلسة لعب مؤقتة مع Rollback تلقائي عند إغلاق اللعبة.\r\n- تفعيل Windows Game Mode أثناء الجلسة فقط.\r\n- استخدام Windows High performance الموجود فقط، بدون إنشاء خطط D7 مخصصة.\r\n- أولوية اللعبة AboveNormal بدل High/Realtime لتجنب مشاكل الصوت والشبكة وAnti-Cheat.\r\n- Smart RAM Guard: خفض أولوية Chrome عند ضغط RAM بدل تنظيف الذاكرة بالقوة.\r\n- خفض أولوية FDM وبعض Updaters أثناء اللعب بدون حذفها.\r\n- Discord يبقى Normal لتجنب تقطيع الصوت.\r\n- تشغيل تلقائي مع Windows عبر EXE مباشرة وبدون PowerShell scheduled tasks.\r\n- Tray background watcher مع استرجاع الإعدادات عند الخروج.\r\n- زر إعدادات COD المقترحة لـ1080p/165Hz.\r\n- CPU Sets / EcoQoS / Timer 1ms / BCD-HPET / RAM purge / custom D7 power plans غير مستخدمة.",
-    "publishedUtc":  "2026-09-03T02:45:49.1109186Z"
+    "packageUrl":  "https://raw.githubusercontent.com/Emperor0/em/main/d7-gaming-engine/stable/D7_Gaming_Engine_v0.9.7.zip",
+    "sha256":  "ee74d84b448cdd8220ed74fe765f2c4db7076588e3d902f3e60b96c9bc40dc9c",
+    "changelogAr":  "D7 Gaming Engine v0.9.7 — Universal Gaming Mode\r\n\r\n- لم يعد D7 مربوطًا بـ COD؛ يكتشف ألعاب Steam/Xbox/Epic/Battle.net وألعاب التختيم بشكل عام.\r\n- اكتشاف اللعبة الأمامية مع فحص GPU/الذاكرة عند الحاجة، بالإضافة إلى مكتبة ألعاب يتعلمها D7.\r\n- زر «تعلم اللعبة الحالية» يحفظ ملف EXE للعبة غير المعروفة مرة واحدة ثم يتعرف عليها مستقبلًا.\r\n- Gaming Session مؤقتة وقابلة للاسترجاع: Windows Game Mode + AboveNormal + High Performance الموجود فقط + Smart RAM Guard.\r\n- Discord يبقى Normal، ولا يتم إغلاق البرامج بالقوة.\r\n- Windows GPU Preference = High performance للعبة المكتشفة.\r\n- NVIDIA Center داخل D7: كشف NVIDIA App وnvidia-smi وفتح NVIDIA App وعرض إعدادات Driver المقترحة.\r\n- زر «إعدادات اللعبة الحالية» بدل إعدادات COD، مع Presets للتختيم/الجودة وBalanced والتنافسي.\r\n- لا CPU Sets/Affinity ولا EcoQoS ولا Timer 1ms ولا BCD/HPET ولا RAM purge ولا خطط D7 مخصصة.\r\n- لا تعديل لملفات الألعاب أو Anti-Cheat أو ذاكرة اللعبة.\r\n\r\nملاحظة NVIDIA: NVIDIA App توفر Program Settings وOptimize للمستخدم، لكن لا توجد واجهة Automation عامة موثقة لكل Driver Settings لطرف ثالث؛ لذلك 0.9.7 لا يكتب قاعدة NVIDIA Profiles بطرق غير موثقة. يمكن إضافة NVAPI helper مخصص في إصدار لاحق مع Backup/Restore.",
+    "publishedUtc":  "2026-09-03T03:17:00.6070577Z"
 }
