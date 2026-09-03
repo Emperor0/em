@@ -1,0 +1,14 @@
+D7 Gaming Engine v0.9.7 — Universal Gaming Mode
+
+- لم يعد D7 مربوطًا بـ COD؛ يكتشف ألعاب Steam/Xbox/Epic/Battle.net وألعاب التختيم بشكل عام.
+- اكتشاف اللعبة الأمامية مع فحص GPU/الذاكرة عند الحاجة، بالإضافة إلى مكتبة ألعاب يتعلمها D7.
+- زر «تعلم اللعبة الحالية» يحفظ ملف EXE للعبة غير المعروفة مرة واحدة ثم يتعرف عليها مستقبلًا.
+- Gaming Session مؤقتة وقابلة للاسترجاع: Windows Game Mode + AboveNormal + High Performance الموجود فقط + Smart RAM Guard.
+- Discord يبقى Normal، ولا يتم إغلاق البرامج بالقوة.
+- Windows GPU Preference = High performance للعبة المكتشفة.
+- NVIDIA Center داخل D7: كشف NVIDIA App وnvidia-smi وفتح NVIDIA App وعرض إعدادات Driver المقترحة.
+- زر «إعدادات اللعبة الحالية» بدل إعدادات COD، مع Presets للتختيم/الجودة وBalanced والتنافسي.
+- لا CPU Sets/Affinity ولا EcoQoS ولا Timer 1ms ولا BCD/HPET ولا RAM purge ولا خطط D7 مخصصة.
+- لا تعديل لملفات الألعاب أو Anti-Cheat أو ذاكرة اللعبة.
+
+ملاحظة NVIDIA: NVIDIA App توفر Program Settings وOptimize للمستخدم، لكن لا توجد واجهة Automation عامة موثقة لكل Driver Settings لطرف ثالث؛ لذلك 0.9.7 لا يكتب قاعدة NVIDIA Profiles بطرق غير موثقة. يمكن إضافة NVAPI helper مخصص في إصدار لاحق مع Backup/Restore.
