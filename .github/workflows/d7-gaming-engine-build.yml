@@ -1,10 +1,11 @@
-name: Build D7 Gaming Engine v0.9.4 Self-Heal
+name: Build D7 Gaming Engine v0.9.5 Functional Core
 
 on:
   workflow_dispatch:
   push:
     paths:
       - '.github/workflows/d7-gaming-engine-build.yml'
+      - 'd7-gaming-engine/v095/**'
 
 permissions:
   contents: write
@@ -20,26 +21,23 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Reconstruct and validate v0.9.4 source
+      - name: Prepare and validate v0.9.5 source
         shell: powershell
         run: |
-          $root = Join-Path $env:GITHUB_WORKSPACE 'd7-gaming-engine\v094'
-          $src = Join-Path $env:RUNNER_TEMP 'D7v094Source'
+          $root = Join-Path $env:GITHUB_WORKSPACE 'd7-gaming-engine\v095'
+          $src = Join-Path $env:RUNNER_TEMP 'D7v095Source'
           Remove-Item $src -Recurse -Force -ErrorAction SilentlyContinue
           New-Item -ItemType Directory -Path $src -Force | Out-Null
-          $b64 = (Get-Content (Join-Path $root 'source_all.txt') -Raw -Encoding UTF8) -replace '[^A-Za-z0-9+/=]',''
-          $gzBytes = [Convert]::FromBase64String($b64)
-          $inStream = New-Object IO.MemoryStream(,$gzBytes)
-          $gzip = New-Object IO.Compression.GzipStream($inStream,[IO.Compression.CompressionMode]::Decompress)
-          $reader = New-Object IO.StreamReader($gzip,[Text.Encoding]::UTF8)
-          try { $scriptText = $reader.ReadToEnd() } finally { $reader.Dispose(); $gzip.Dispose(); $inStream.Dispose() }
+
+          # Rewrite source with UTF-8 BOM for Windows PowerShell 5.1 Arabic strings.
+          $scriptText = Get-Content (Join-Path $root 'D7_Gaming_Engine.ps1') -Raw -Encoding UTF8
           [IO.File]::WriteAllText((Join-Path $src 'D7_Gaming_Engine.ps1'),$scriptText,(New-Object Text.UTF8Encoding($true)))
           Copy-Item (Join-Path $root 'README_AR.txt') $src -Force
           Copy-Item (Join-Path $root 'CHANGELOG_AR.txt') $src -Force
-          [IO.File]::WriteAllText((Join-Path $src 'version.txt'),'0.9.4',(New-Object Text.UTF8Encoding($false)))
+          [IO.File]::WriteAllText((Join-Path $src 'version.txt'),'0.9.5',(New-Object Text.UTF8Encoding($false)))
 
-          $oldPkg = Join-Path $env:GITHUB_WORKSPACE 'd7-gaming-engine\stable\D7_Gaming_Engine_v0.9.3.zip'
-          if (-not (Test-Path $oldPkg)) { throw 'D7 v0.9.3 package missing; cannot preserve icon.' }
+          $oldPkg = Join-Path $env:GITHUB_WORKSPACE 'd7-gaming-engine\stable\D7_Gaming_Engine_v0.9.4.zip'
+          if (-not (Test-Path $oldPkg)) { throw 'D7 v0.9.4 package missing; cannot preserve icon.' }
           $old = Join-Path $env:RUNNER_TEMP 'D7Old'
           Remove-Item $old -Recurse -Force -ErrorAction SilentlyContinue
           Expand-Archive -Path $oldPkg -DestinationPath $old -Force
@@ -56,7 +54,7 @@ jobs:
             $errors | ForEach-Object { Write-Host ('PARSER: '+$_.Message+' line '+$_.Extent.StartLineNumber) }
             throw ('Parser errors: '+$errors.Count)
           }
-          Write-Host ('v0.9.4 source bytes: '+(Get-Item (Join-Path $src 'D7_Gaming_Engine.ps1')).Length)
+          Write-Host ('v0.9.5 source bytes: '+(Get-Item (Join-Path $src 'D7_Gaming_Engine.ps1')).Length)
           "D7_SRC=$src" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
 
       - name: Install PS2EXE
@@ -66,14 +64,14 @@ jobs:
           Install-Module ps2exe -Scope CurrentUser -Force -AllowClobber
           Import-Module ps2exe -Force
 
-      - name: Build D7 v0.9.4 Windows EXE
+      - name: Build D7 v0.9.5 Windows EXE
         shell: powershell
         run: |
           $src=$env:D7_SRC
           $out=Join-Path $env:RUNNER_TEMP 'D7Release'
           Remove-Item $out -Recurse -Force -ErrorAction SilentlyContinue
           New-Item -ItemType Directory -Path $out -Force | Out-Null
-          Invoke-ps2exe -inputFile (Join-Path $src 'D7_Gaming_Engine.ps1') -outputFile (Join-Path $out 'D7_Gaming_Engine.exe') -x64 -STA -noConsole -requireAdmin -iconFile (Join-Path $src 'D7_Gaming_Engine.ico') -title 'D7 Gaming Engine' -product 'D7 Gaming Engine Self-Heal System Doctor' -company 'D7' -copyright 'D7' -version '0.9.4.0'
+          Invoke-ps2exe -inputFile (Join-Path $src 'D7_Gaming_Engine.ps1') -outputFile (Join-Path $out 'D7_Gaming_Engine.exe') -x64 -STA -noConsole -requireAdmin -iconFile (Join-Path $src 'D7_Gaming_Engine.ico') -title 'D7 Gaming Engine' -product 'D7 Gaming Engine Functional Core' -company 'D7' -copyright 'D7' -version '0.9.5.0'
           foreach($n in @('README_AR.txt','CHANGELOG_AR.txt','version.txt')) { Copy-Item (Join-Path $src $n) $out -Force }
           $exe=Join-Path $out 'D7_Gaming_Engine.exe'
           if (-not (Test-Path $exe)) { throw 'Build failed.' }
@@ -81,15 +79,15 @@ jobs:
           $ver=[Diagnostics.FileVersionInfo]::GetVersionInfo($exe)
           Write-Host ('EXE bytes: '+(Get-Item $exe).Length)
           Write-Host ('EXE version: '+$ver.FileVersion)
-          if ($ver.FileVersion -notlike '0.9.4*') { throw 'EXE version mismatch.' }
+          if ($ver.FileVersion -notlike '0.9.5*') { throw 'EXE version mismatch.' }
           "D7_OUT=$out" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
 
-      - name: Package and publish stable v0.9.4
+      - name: Package and publish stable v0.9.5
         shell: powershell
         run: |
           $repo=$env:GITHUB_WORKSPACE; $src=$env:D7_SRC; $out=$env:D7_OUT
           $stable=Join-Path $repo 'd7-gaming-engine\stable'
-          $zip=Join-Path $stable 'D7_Gaming_Engine_v0.9.4.zip'
+          $zip=Join-Path $stable 'D7_Gaming_Engine_v0.9.5.zip'
           Remove-Item $zip -Force -ErrorAction SilentlyContinue
           Compress-Archive -Path (Join-Path $out '*') -DestinationPath $zip -CompressionLevel Optimal
           $hash=(Get-FileHash $zip -Algorithm SHA256).Hash.ToLowerInvariant()
@@ -97,9 +95,9 @@ jobs:
           $m=[ordered]@{
             product='D7 Gaming Engine'
             channel='stable'
-            version='0.9.4'
+            version='0.9.5'
             minimumWindowsBuild=19045
-            packageUrl='https://raw.githubusercontent.com/Emperor0/em/main/d7-gaming-engine/stable/D7_Gaming_Engine_v0.9.4.zip'
+            packageUrl='https://raw.githubusercontent.com/Emperor0/em/main/d7-gaming-engine/stable/D7_Gaming_Engine_v0.9.5.zip'
             sha256=$hash
             changelogAr=$notes
             publishedUtc=(Get-Date).ToUniversalTime().ToString('o')
@@ -109,17 +107,17 @@ jobs:
 
           git config user.name 'D7 Release Bot'
           git config user.email 'd7-release-bot@users.noreply.github.com'
-          git add d7-gaming-engine/stable/D7_Gaming_Engine_v0.9.4.zip d7-gaming-engine/stable/latest.json
+          git add d7-gaming-engine/stable/D7_Gaming_Engine_v0.9.5.zip d7-gaming-engine/stable/latest.json
           if (-not (git diff --cached --quiet)) {
-            git commit -m 'Publish D7 Gaming Engine v0.9.4 Self-Heal'
+            git commit -m 'Publish D7 Gaming Engine v0.9.5 Functional Core'
             git pull --rebase origin main
             git push
           }
 
-      - name: Upload D7 v0.9.4 artifact
+      - name: Upload D7 v0.9.5 artifact
         uses: actions/upload-artifact@v4
         with:
-          name: D7-Gaming-Engine-v0.9.4-Windows
-          path: d7-gaming-engine/stable/D7_Gaming_Engine_v0.9.4.zip
+          name: D7-Gaming-Engine-v0.9.5-Windows
+          path: d7-gaming-engine/stable/D7_Gaming_Engine_v0.9.5.zip
           if-no-files-found: error
           retention-days: 30
