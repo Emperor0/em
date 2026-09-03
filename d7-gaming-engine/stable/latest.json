@@ -1,10 +1,10 @@
 {
     "product":  "D7 Gaming Engine",
     "channel":  "stable",
-    "version":  "0.9.5",
+    "version":  "0.9.6",
     "minimumWindowsBuild":  19045,
-    "packageUrl":  "https://raw.githubusercontent.com/Emperor0/em/main/d7-gaming-engine/stable/D7_Gaming_Engine_v0.9.5.zip",
-    "sha256":  "4db7a6eb413456964dcef94232dbc63842ffeb47ea27bc8b058fa2828e0a1acd",
-    "changelogAr":  "D7 Gaming Engine v0.9.5 — Functional Core\r\n\r\n- إعادة بناء الواجهة التنفيذية بدل واجهة 0.9.4 الصامتة.\r\n- ربط كل زر بوظيفة فعلية مع سجل مباشر داخل التطبيق.\r\n- فحص سريع للمعالج والكرت والرام والطاقة والأجهزة والأحداث وبقايا D7.\r\n- Self-Heal فعلي لمهام ومجلدات D7 القديمة مع Backup.\r\n- تحضير لعب آمن بدون CPU Sets/EcoQoS/Timer 1ms/Priority Boost.\r\n- إصلاح شامل DISM ثم SFC ثم CHKDSK يعمل بالخلفية ويعرض Exit Codes.\r\n- تحديث أونلاين فعلي مع SHA-256 ثم استبدال النسخة وإعادة التشغيل.\r\n- تقارير محفوظة تحت ProgramData.",
-    "publishedUtc":  "2026-09-03T00:25:24.2343231Z"
+    "packageUrl":  "https://raw.githubusercontent.com/Emperor0/em/main/d7-gaming-engine/stable/D7_Gaming_Engine_v0.9.6.zip",
+    "sha256":  "ca1584e86e576230a05ade07001093a8d592640b323de7b122e7aedeee9d484d",
+    "changelogAr":  "D7 Gaming Engine v0.9.6 — Stable Gaming Mode\r\n\r\n- تحويل D7 من System Doctor إلى Gaming Mode تلقائي مخصص لجهاز Ryzen 5 3600 + RTX 2060 SUPER + 16GB.\r\n- اكتشاف تلقائي لـ cod26-cod.exe وعائلة Call of Duty كل ثانيتين.\r\n- جلسة لعب مؤقتة مع Rollback تلقائي عند إغلاق اللعبة.\r\n- تفعيل Windows Game Mode أثناء الجلسة فقط.\r\n- استخدام Windows High performance الموجود فقط، بدون إنشاء خطط D7 مخصصة.\r\n- أولوية اللعبة AboveNormal بدل High/Realtime لتجنب مشاكل الصوت والشبكة وAnti-Cheat.\r\n- Smart RAM Guard: خفض أولوية Chrome عند ضغط RAM بدل تنظيف الذاكرة بالقوة.\r\n- خفض أولوية FDM وبعض Updaters أثناء اللعب بدون حذفها.\r\n- Discord يبقى Normal لتجنب تقطيع الصوت.\r\n- تشغيل تلقائي مع Windows عبر EXE مباشرة وبدون PowerShell scheduled tasks.\r\n- Tray background watcher مع استرجاع الإعدادات عند الخروج.\r\n- زر إعدادات COD المقترحة لـ1080p/165Hz.\r\n- CPU Sets / EcoQoS / Timer 1ms / BCD-HPET / RAM purge / custom D7 power plans غير مستخدمة.",
+    "publishedUtc":  "2026-09-03T02:45:49.1109186Z"
 }
