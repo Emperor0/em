@@ -1,0 +1,15 @@
+D7 Gaming Engine v0.9.6 — Stable Gaming Mode
+
+- تحويل D7 من System Doctor إلى Gaming Mode تلقائي مخصص لجهاز Ryzen 5 3600 + RTX 2060 SUPER + 16GB.
+- اكتشاف تلقائي لـ cod26-cod.exe وعائلة Call of Duty كل ثانيتين.
+- جلسة لعب مؤقتة مع Rollback تلقائي عند إغلاق اللعبة.
+- تفعيل Windows Game Mode أثناء الجلسة فقط.
+- استخدام Windows High performance الموجود فقط، بدون إنشاء خطط D7 مخصصة.
+- أولوية اللعبة AboveNormal بدل High/Realtime لتجنب مشاكل الصوت والشبكة وAnti-Cheat.
+- Smart RAM Guard: خفض أولوية Chrome عند ضغط RAM بدل تنظيف الذاكرة بالقوة.
+- خفض أولوية FDM وبعض Updaters أثناء اللعب بدون حذفها.
+- Discord يبقى Normal لتجنب تقطيع الصوت.
+- تشغيل تلقائي مع Windows عبر EXE مباشرة وبدون PowerShell scheduled tasks.
+- Tray background watcher مع استرجاع الإعدادات عند الخروج.
+- زر إعدادات COD المقترحة لـ1080p/165Hz.
+- CPU Sets / EcoQoS / Timer 1ms / BCD-HPET / RAM purge / custom D7 power plans غير مستخدمة.
