@@ -1,10 +1,11 @@
 {
     "product":  "D7 Gaming Engine",
     "channel":  "stable",
-    "version":  "0.9.7",
+    "version":  "1.0.0",
     "minimumWindowsBuild":  19045,
-    "packageUrl":  "https://raw.githubusercontent.com/Emperor0/em/main/d7-gaming-engine/stable/D7_Gaming_Engine_v0.9.7.zip",
-    "sha256":  "ee74d84b448cdd8220ed74fe765f2c4db7076588e3d902f3e60b96c9bc40dc9c",
-    "changelogAr":  "D7 Gaming Engine v0.9.7 — Universal Gaming Mode\r\n\r\n- لم يعد D7 مربوطًا بـ COD؛ يكتشف ألعاب Steam/Xbox/Epic/Battle.net وألعاب التختيم بشكل عام.\r\n- اكتشاف اللعبة الأمامية مع فحص GPU/الذاكرة عند الحاجة، بالإضافة إلى مكتبة ألعاب يتعلمها D7.\r\n- زر «تعلم اللعبة الحالية» يحفظ ملف EXE للعبة غير المعروفة مرة واحدة ثم يتعرف عليها مستقبلًا.\r\n- Gaming Session مؤقتة وقابلة للاسترجاع: Windows Game Mode + AboveNormal + High Performance الموجود فقط + Smart RAM Guard.\r\n- Discord يبقى Normal، ولا يتم إغلاق البرامج بالقوة.\r\n- Windows GPU Preference = High performance للعبة المكتشفة.\r\n- NVIDIA Center داخل D7: كشف NVIDIA App وnvidia-smi وفتح NVIDIA App وعرض إعدادات Driver المقترحة.\r\n- زر «إعدادات اللعبة الحالية» بدل إعدادات COD، مع Presets للتختيم/الجودة وBalanced والتنافسي.\r\n- لا CPU Sets/Affinity ولا EcoQoS ولا Timer 1ms ولا BCD/HPET ولا RAM purge ولا خطط D7 مخصصة.\r\n- لا تعديل لملفات الألعاب أو Anti-Cheat أو ذاكرة اللعبة.\r\n\r\nملاحظة NVIDIA: NVIDIA App توفر Program Settings وOptimize للمستخدم، لكن لا توجد واجهة Automation عامة موثقة لكل Driver Settings لطرف ثالث؛ لذلك 0.9.7 لا يكتب قاعدة NVIDIA Profiles بطرق غير موثقة. يمكن إضافة NVAPI helper مخصص في إصدار لاحق مع Backup/Restore.",
-    "publishedUtc":  "2026-09-03T03:17:00.6070577Z"
+    "updateMode":  "online-only",
+    "packageUrl":  "https://raw.githubusercontent.com/Emperor0/em/main/d7-gaming-engine/stable/D7_Gaming_Engine_v1.0.0.zip",
+    "sha256":  "0e774a78127d7641776332a71b38673036470ba75bead4d4907752aec117b237",
+    "changelogAr":  "D7 Gaming Engine v1.0.0 — Adaptive Performance Engine\r\n\r\n- محرك Adaptive جديد يراقب حالة الجهاز كل 2.5 ثانية أثناء اللعب.\r\n- Telemetry مباشر: CPU الكلي، CPU الخاص باللعبة، GPU utilization، حرارة GPU، VRAM، GPU clock/power، RAM المتاحة.\r\n- تصنيف ذكي للحالة مع Confidence: GPU_BOUND / CPU_BOUND / THERMAL_LIMIT / MEMORY_PRESSURE / BACKGROUND_INTERFERENCE / BALANCED.\r\n- Adaptive Scheduler يتدخل فقط عند الحاجة ويخفض أولوية برامج الخلفية المعروفة بدون إغلاقها بالقوة.\r\n- ذاكرة تعلم لكل لعبة تحفظ عدد الجلسات والعينات وأنواع الاختناقات التي ظهرت على الجهاز.\r\n- جلسة لعب قابلة للاسترجاع: Game Mode + AboveNormal + High Performance الموجود فقط + استرجاع تلقائي عند خروج اللعبة.\r\n- تحديثات ONLINE ONLY: يفحص stable/latest.json على GitHub، ينزل الحزمة، يتحقق من SHA-256، ثم يحدث نفس EXE ويعيد تشغيله.\r\n- زر تحديث أونلاين داخل التطبيق + فحص تلقائي بعد بدء التشغيل.\r\n- لا BCD/HPET/Timer forcing، لا RAM purge، لا Real-Time priority، لا إغلاق برامج بالقوة، ولا وصول لذاكرة اللعبة/Anti-Cheat.\r\n\r\nملاحظة: v1.0.0 يبني طبقة الذكاء التكيفية والقياس النظامي. قياس frametime/1% lows عبر PresentMon سيكون طبقة Benchmark لاحقة بعد تثبيت هذا الأساس واختباره على الجهاز الحقيقي.",
+    "publishedUtc":  "2026-09-08T11:10:59.8427260Z"
 }
