@@ -1,0 +1,92 @@
+name: Build D7 BLACKCORE v2.0
+
+on:
+  workflow_dispatch:
+  push:
+    paths:
+      - '.github/workflows/d7-blackcore-v200.yml'
+      - 'd7-gaming-engine/v200/**'
+
+permissions:
+  contents: write
+
+concurrency:
+  group: d7-blackcore-stable
+  cancel-in-progress: true
+
+jobs:
+  build-windows:
+    runs-on: windows-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Validate source
+        shell: powershell
+        run: |
+          $root=Join-Path $env:GITHUB_WORKSPACE 'd7-gaming-engine\v200'
+          $src=Join-Path $root 'D7_BLACKCORE.ps1'
+          $tokens=$null;$errors=$null
+          [System.Management.Automation.Language.Parser]::ParseFile($src,[ref]$tokens,[ref]$errors)|Out-Null
+          if($errors.Count -gt 0){$errors|ForEach-Object{Write-Host ('PARSER: '+$_.Message+' line '+$_.Extent.StartLineNumber)};throw('Parser errors: '+$errors.Count)}
+          $raw=Get-Content $src -Raw -Encoding UTF8
+          foreach($bad in @('return$false','return$true','return$null','return[','return(')){if($raw.Contains($bad)){throw('Unsafe PowerShell token pattern: '+$bad)}}
+          Write-Host ('Source bytes: '+(Get-Item $src).Length)
+
+      - name: Install PS2EXE
+        shell: powershell
+        run: |
+          Set-PSRepository -Name PSGallery -InstallationPolicy Trusted
+          Install-Module ps2exe -Scope CurrentUser -Force -AllowClobber
+          Import-Module ps2exe -Force
+
+      - name: Build EXE
+        shell: powershell
+        run: |
+          $root=Join-Path $env:GITHUB_WORKSPACE 'd7-gaming-engine\v200'
+          $out=Join-Path $env:RUNNER_TEMP 'D7BlackcoreRelease'
+          New-Item $out -ItemType Directory -Force|Out-Null
+          $iconPath=Join-Path $env:RUNNER_TEMP 'D7.ico'
+          $oldPkg=Join-Path $env:GITHUB_WORKSPACE 'd7-gaming-engine\stable\D7_Gaming_Engine_v1.1.1.zip'
+          if(Test-Path $oldPkg){$tmp=Join-Path $env:RUNNER_TEMP 'D7Old';Expand-Archive $oldPkg $tmp -Force;$old=Get-ChildItem $tmp -Recurse -Filter D7_Gaming_Engine.exe|Select-Object -First 1;if($old){Add-Type -AssemblyName System.Drawing;$ic=[Drawing.Icon]::ExtractAssociatedIcon($old.FullName);$st=[IO.File]::Create($iconPath);try{$ic.Save($st)}finally{$st.Dispose();$ic.Dispose()}}}
+          $args=@{inputFile=(Join-Path $root 'D7_BLACKCORE.ps1');outputFile=(Join-Path $out 'D7_Gaming_Engine.exe');x64=$true;STA=$true;noConsole=$true;requireAdmin=$true;title='D7 BLACKCORE';product='D7 BLACKCORE Gaming System Orchestrator';company='D7';copyright='D7';version='2.0.0.0'}
+          if(Test-Path $iconPath){$args.iconFile=$iconPath}
+          Invoke-ps2exe @args
+          Copy-Item (Join-Path $root 'README_AR.txt') $out -Force
+          Copy-Item (Join-Path $root 'CHANGELOG_AR.txt') $out -Force
+          Set-Content (Join-Path $out 'version.txt') '2.0.0' -Encoding ASCII
+          $exe=Join-Path $out 'D7_Gaming_Engine.exe'
+          if(-not(Test-Path $exe)){throw'EXE build failed'}
+          $v=[Diagnostics.FileVersionInfo]::GetVersionInfo($exe);if($v.FileVersion -notlike '2.0.0*'){throw('Version mismatch: '+$v.FileVersion)}
+          "D7_OUT=$out"|Out-File $env:GITHUB_ENV -Encoding utf8 -Append
+
+      - name: Package
+        shell: powershell
+        run: |
+          $zip=Join-Path $env:RUNNER_TEMP 'D7_BLACKCORE_v2.0.0.zip'
+          Compress-Archive -Path (Join-Path $env:D7_OUT '*') -DestinationPath $zip -CompressionLevel Optimal -Force
+          $hash=(Get-FileHash $zip -Algorithm SHA256).Hash.ToLowerInvariant()
+          "D7_ZIP=$zip"|Out-File $env:GITHUB_ENV -Encoding utf8 -Append
+          "D7_HASH=$hash"|Out-File $env:GITHUB_ENV -Encoding utf8 -Append
+
+      - name: Publish stable online channel
+        if: github.ref == 'refs/heads/main'
+        shell: powershell
+        run: |
+          $stable=Join-Path $env:GITHUB_WORKSPACE 'd7-gaming-engine\stable'
+          $dest=Join-Path $stable 'D7_BLACKCORE_v2.0.0.zip'
+          Copy-Item $env:D7_ZIP $dest -Force
+          $notes=(Get-Content (Join-Path $env:GITHUB_WORKSPACE 'd7-gaming-engine\v200\CHANGELOG_AR.txt') -Raw -Encoding UTF8).Trim()
+          $m=[ordered]@{product='D7 BLACKCORE';channel='stable';version='2.0.0';minimumWindowsBuild=19045;updateMode='online-only';packageUrl='https://raw.githubusercontent.com/Emperor0/em/main/d7-gaming-engine/stable/D7_BLACKCORE_v2.0.0.zip';sha256=$env:D7_HASH;changelogAr=$notes;publishedUtc=(Get-Date).ToUniversalTime().ToString('o')}
+          [IO.File]::WriteAllText((Join-Path $stable 'latest.json'),($m|ConvertTo-Json -Depth 5),(New-Object Text.UTF8Encoding($false)))
+          git config user.name 'D7 Release Bot'
+          git config user.email 'd7-release-bot@users.noreply.github.com'
+          git add d7-gaming-engine/stable/D7_BLACKCORE_v2.0.0.zip d7-gaming-engine/stable/latest.json
+          if(-not(git diff --cached --quiet)){git commit -m 'Publish D7 BLACKCORE v2.0.0';git pull --rebase origin main;git push}
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: D7-BLACKCORE-v2.0.0-Windows
+          path: ${{ env.D7_ZIP }}
+          retention-days: 30
