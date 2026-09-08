@@ -5,6 +5,8 @@ using System.Windows.Threading;
 using D7.App.Services;
 using D7.Core.Foundation;
 using D7.Core.Logging;
+using D7.Hardware.Discovery;
+using D7.Hardware.Telemetry;
 
 namespace D7.App;
 
@@ -41,7 +43,9 @@ public partial class App : Application
 
         var safeMode = e.Args.Any(x => string.Equals(x, "--safe-mode", StringComparison.OrdinalIgnoreCase));
         var bootstrap = new BootstrapService(paths, _logger, new HttpClient());
-        var window = new MainWindow(bootstrap, _logger, safeMode);
+        var hardwareDiscovery = new WindowsHardwareDiscoveryService();
+        var telemetry = new SystemTelemetrySampler();
+        var window = new MainWindow(bootstrap, _logger, hardwareDiscovery, telemetry, safeMode);
         MainWindow = window;
         window.Show();
     }
