@@ -10,7 +10,7 @@ public sealed record ActiveGame(
     string ConfidenceAr,
     IReadOnlyList<string> Evidence);
 
-public sealed class GameDetectionService
+public sealed class GameDetectionService : IActiveGameDetector
 {
     private static readonly HashSet<string> KnownGameProcessNames = new(StringComparer.OrdinalIgnoreCase)
     {
