@@ -13,5 +13,11 @@
   <ItemGroup>
     <ProjectReference Include="..\D7.Core\D7.Core.csproj" />
     <ProjectReference Include="..\D7.Hardware\D7.Hardware.csproj" />
+    <ProjectReference Include="..\D7.Games\D7.Games.csproj" />
+    <ProjectReference Include="..\D7.Tools\D7.Tools.csproj" />
+    <ProjectReference Include="..\D7.Benchmark\D7.Benchmark.csproj" />
+    <ProjectReference Include="..\D7.Rollback\D7.Rollback.csproj" />
+    <ProjectReference Include="..\D7.Optimization\D7.Optimization.csproj" />
+    <ProjectReference Include="..\D7.Orchestration\D7.Orchestration.csproj" />
   </ItemGroup>
 </Project>
