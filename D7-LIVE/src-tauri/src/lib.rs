@@ -3,6 +3,7 @@ mod core;
 mod crash_recovery;
 mod events;
 mod logging;
+mod media;
 mod performance;
 mod persistence;
 mod profiles;
@@ -105,10 +106,99 @@ async fn check_for_updates(state: tauri::State<'_, AppState>) -> Result<updater:
     updater::check(&endpoint, env!("CARGO_PKG_VERSION")).await.map_err(|e| e.to_string())
 }
 
+#[tauri::command]
+async fn media_launch(
+    app: tauri::AppHandle,
+    state: tauri::State<'_, media::MediaEngineState>,
+) -> Result<media::MediaStatus, String> {
+    media::launch(app, state).await
+}
+
+#[tauri::command]
+async fn media_status(state: tauri::State<'_, media::MediaEngineState>) -> Result<media::MediaStatus, String> {
+    media::status(state).await
+}
+
+#[tauri::command]
+async fn media_scenes(state: tauri::State<'_, media::MediaEngineState>) -> Result<Vec<String>, String> {
+    media::scenes(state).await
+}
+
+#[tauri::command]
+async fn media_create_scene(name: String, state: tauri::State<'_, media::MediaEngineState>) -> Result<(), String> {
+    media::create_scene(name, state).await
+}
+
+#[tauri::command]
+async fn media_set_scene(name: String, state: tauri::State<'_, media::MediaEngineState>) -> Result<(), String> {
+    media::set_scene(name, state).await
+}
+
+#[tauri::command]
+async fn media_record_start(state: tauri::State<'_, media::MediaEngineState>) -> Result<(), String> {
+    media::record_start(state).await
+}
+
+#[tauri::command]
+async fn media_record_stop(state: tauri::State<'_, media::MediaEngineState>) -> Result<String, String> {
+    media::record_stop(state).await
+}
+
+#[tauri::command]
+async fn media_replay_start(state: tauri::State<'_, media::MediaEngineState>) -> Result<(), String> {
+    media::replay_start(state).await
+}
+
+#[tauri::command]
+async fn media_replay_save(state: tauri::State<'_, media::MediaEngineState>) -> Result<Option<String>, String> {
+    media::replay_save(state).await
+}
+
+#[tauri::command]
+async fn media_replay_stop(state: tauri::State<'_, media::MediaEngineState>) -> Result<(), String> {
+    media::replay_stop(state).await
+}
+
+#[tauri::command]
+async fn media_virtual_camera_start(state: tauri::State<'_, media::MediaEngineState>) -> Result<(), String> {
+    media::virtual_camera_start(state).await
+}
+
+#[tauri::command]
+async fn media_virtual_camera_stop(state: tauri::State<'_, media::MediaEngineState>) -> Result<(), String> {
+    media::virtual_camera_stop(state).await
+}
+
+#[tauri::command]
+fn media_install_virtual_camera(state: tauri::State<'_, media::MediaEngineState>) -> Result<(), String> {
+    media::install_virtual_camera(state)
+}
+
+#[tauri::command]
+async fn media_set_rtmp(server: String, key: String, state: tauri::State<'_, media::MediaEngineState>) -> Result<(), String> {
+    media::set_rtmp(server, key, state).await
+}
+
+#[tauri::command]
+async fn media_stream_start(state: tauri::State<'_, media::MediaEngineState>) -> Result<(), String> {
+    media::stream_start(state).await
+}
+
+#[tauri::command]
+async fn media_stream_stop(state: tauri::State<'_, media::MediaEngineState>) -> Result<(), String> {
+    media::stream_stop(state).await
+}
+
+#[tauri::command]
+async fn media_shutdown(state: tauri::State<'_, media::MediaEngineState>) -> Result<(), String> {
+    media::shutdown(state).await
+}
+
 pub fn run() {
     logging::init();
     tauri::Builder::default()
         .manage(AppState::default())
+        .manage(media::MediaEngineState::default())
         .setup(|app| {
             let state = app.state::<AppState>();
             let config = state.runtime.read().config.clone();
@@ -128,7 +218,24 @@ pub fn run() {
             connect_mock_tiktok,
             disconnect_mock_tiktok,
             performance_snapshot,
-            check_for_updates
+            check_for_updates,
+            media_launch,
+            media_status,
+            media_scenes,
+            media_create_scene,
+            media_set_scene,
+            media_record_start,
+            media_record_stop,
+            media_replay_start,
+            media_replay_save,
+            media_replay_stop,
+            media_virtual_camera_start,
+            media_virtual_camera_stop,
+            media_install_virtual_camera,
+            media_set_rtmp,
+            media_stream_start,
+            media_stream_stop,
+            media_shutdown
         ])
         .run(tauri::generate_context!())
         .expect("error while running D7 LIVE");
