@@ -12,6 +12,7 @@ using D7.Hardware.Discovery;
 using D7.Hardware.Telemetry;
 using D7.Optimization.Operations;
 using D7.Orchestration;
+using D7.Orchestration.Planning;
 using D7.Rollback.Journal;
 using D7.Stability;
 using D7.Tools.Acquisition;
@@ -72,8 +73,16 @@ public partial class App : Application
         var journal = new TransactionJournal(paths);
         var stability = new EventLogStabilityProbe();
         var coreFlow = new CoreFlowCoordinator(gameDetector, frameCapture, journal, _logger, stability);
+
+        var powerPlanExperiment = new HighPerformancePowerPlanOptimization();
         var priorityExperiment = new ProcessPriorityOptimization();
-        var recovery = new StartupRecoveryService(journal, [priorityExperiment], _logger);
+        var automaticOperations = new D7.Optimization.Contracts.IReversibleOptimizationOperation[]
+        {
+            powerPlanExperiment,
+            priorityExperiment
+        };
+        var planner = new OptimizationPlanner(automaticOperations);
+        var recovery = new StartupRecoveryService(journal, automaticOperations, _logger);
 
         var window = new MainWindow(
             bootstrap,
@@ -81,7 +90,7 @@ public partial class App : Application
             hardwareDiscovery,
             telemetry,
             coreFlow,
-            priorityExperiment,
+            planner,
             recovery,
             safeMode);
         MainWindow = window;
