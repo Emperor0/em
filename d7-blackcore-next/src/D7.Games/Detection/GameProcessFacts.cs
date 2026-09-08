@@ -7,7 +7,8 @@ public sealed record GameProcessFacts(
     bool IsForeground,
     bool HasGraphicsActivity,
     bool IsLearned,
-    bool IsKnownGameInstallPath = false);
+    bool IsKnownGameInstallPath = false,
+    bool IsKnownExecutable = false);
 
 public sealed record GameDetectionDecision(
     bool IsGame,
