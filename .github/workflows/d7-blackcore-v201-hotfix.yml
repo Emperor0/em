@@ -1,0 +1,66 @@
+name: Build D7 BLACKCORE v2.0.1 Runtime Safe
+
+on:
+  workflow_dispatch:
+  push:
+    paths:
+      - '.github/workflows/d7-blackcore-v201-hotfix.yml'
+
+permissions:
+  contents: write
+
+jobs:
+  build-windows:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Prepare runtime-safe source
+        shell: powershell
+        run: |
+          $src=Join-Path $env:GITHUB_WORKSPACE 'd7-gaming-engine\v200\D7_BLACKCORE.ps1'
+          $safe=Join-Path $env:RUNNER_TEMP 'D7_BLACKCORE_SAFE.ps1'
+          $raw=Get-Content $src -Raw -Encoding UTF8
+          $raw=$raw -replace "\$Version='2\.0\.0'","`$Version='2.0.1'"
+          $raw=[regex]::Replace($raw,'\breturn(?=\$|\[|\()','return ')
+          $raw=[regex]::Replace($raw,'\bif(?=\()','if ')
+          $raw=[regex]::Replace($raw,'\bforeach(?=\()','foreach ')
+          [IO.File]::WriteAllText($safe,$raw,(New-Object Text.UTF8Encoding($true)))
+          $tokens=$null;$errors=$null
+          [System.Management.Automation.Language.Parser]::ParseFile($safe,[ref]$tokens,[ref]$errors)|Out-Null
+          if($errors.Count -gt 0){$errors|ForEach-Object{Write-Host ('PARSER: '+$_.Message+' line '+$_.Extent.StartLineNumber)};throw('Parser errors: '+$errors.Count)}
+          foreach($bad in @('return$false','return$true','return$null','return[','return(')){if($raw.Contains($bad)){throw('Runtime-dangerous token remains: '+$bad)}}
+          "D7_SRC=$safe"|Out-File $env:GITHUB_ENV -Encoding utf8 -Append
+
+      - name: Install PS2EXE
+        shell: powershell
+        run: |
+          Set-PSRepository -Name PSGallery -InstallationPolicy Trusted
+          Install-Module ps2exe -Scope CurrentUser -Force -AllowClobber
+          Import-Module ps2exe -Force
+
+      - name: Build
+        shell: powershell
+        run: |
+          $out=Join-Path $env:RUNNER_TEMP 'D7Blackcore201';New-Item $out -ItemType Directory -Force|Out-Null
+          $iconPath=Join-Path $env:RUNNER_TEMP 'D7.ico';$oldPkg=Join-Path $env:GITHUB_WORKSPACE 'd7-gaming-engine\stable\D7_Gaming_Engine_v1.1.1.zip'
+          if(Test-Path $oldPkg){$tmp=Join-Path $env:RUNNER_TEMP 'Old';Expand-Archive $oldPkg $tmp -Force;$old=Get-ChildItem $tmp -Recurse -Filter D7_Gaming_Engine.exe|Select-Object -First 1;if($old){Add-Type -AssemblyName System.Drawing;$ic=[Drawing.Icon]::ExtractAssociatedIcon($old.FullName);$st=[IO.File]::Create($iconPath);try{$ic.Save($st)}finally{$st.Dispose();$ic.Dispose()}}}
+          $a=@{inputFile=$env:D7_SRC;outputFile=(Join-Path $out 'D7_Gaming_Engine.exe');x64=$true;STA=$true;noConsole=$true;requireAdmin=$true;title='D7 BLACKCORE';product='D7 BLACKCORE Gaming System Orchestrator';company='D7';version='2.0.1.0'};if(Test-Path $iconPath){$a.iconFile=$iconPath};Invoke-ps2exe @a
+          Copy-Item (Join-Path $env:GITHUB_WORKSPACE 'd7-gaming-engine\v200\README_AR.txt') $out -Force
+          Set-Content (Join-Path $out 'version.txt') '2.0.1' -Encoding ASCII
+          "D7_OUT=$out"|Out-File $env:GITHUB_ENV -Encoding utf8 -Append
+
+      - name: Package and publish
+        shell: powershell
+        run: |
+          $zip=Join-Path $env:RUNNER_TEMP 'D7_BLACKCORE_v2.0.1.zip';Compress-Archive -Path (Join-Path $env:D7_OUT '*') -DestinationPath $zip -Force
+          $hash=(Get-FileHash $zip -Algorithm SHA256).Hash.ToLowerInvariant();$stable=Join-Path $env:GITHUB_WORKSPACE 'd7-gaming-engine\stable';Copy-Item $zip (Join-Path $stable 'D7_BLACKCORE_v2.0.1.zip') -Force
+          $m=[ordered]@{product='D7 BLACKCORE';channel='stable';version='2.0.1';minimumWindowsBuild=19045;updateMode='online-only';packageUrl='https://raw.githubusercontent.com/Emperor0/em/main/d7-gaming-engine/stable/D7_BLACKCORE_v2.0.1.zip';sha256=$hash;changelogAr='BLACKSCAN + adaptive local learning + deep reversible gaming/streaming profile + Tool Hub + runtime syntax hardening.';publishedUtc=(Get-Date).ToUniversalTime().ToString('o')}
+          [IO.File]::WriteAllText((Join-Path $stable 'latest.json'),($m|ConvertTo-Json -Depth 5),(New-Object Text.UTF8Encoding($false)))
+          git config user.name 'D7 Release Bot';git config user.email 'd7-release-bot@users.noreply.github.com';git add d7-gaming-engine/stable/D7_BLACKCORE_v2.0.1.zip d7-gaming-engine/stable/latest.json;git commit -m 'Publish D7 BLACKCORE v2.0.1';git pull --rebase origin main;git push
+          "D7_ZIP=$zip"|Out-File $env:GITHUB_ENV -Encoding utf8 -Append
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: D7-BLACKCORE-v2.0.1-Windows
+          path: ${{ env.D7_ZIP }}
+          retention-days: 30
