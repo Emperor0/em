@@ -1,0 +1,94 @@
+name: Build D7 BLACKCORE v2.1.3 Runtime Safety R2
+
+on:
+  workflow_dispatch:
+  push:
+    paths:
+      - '.github/workflows/d7-blackcore-v213-runtime-safety-r2.yml'
+
+permissions:
+  contents: write
+
+jobs:
+  build-windows:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Compose clean v2.1.3
+        shell: powershell
+        run: |
+          $base=Join-Path $env:GITHUB_WORKSPACE 'd7-gaming-engine\v210\D7_BLACKCORE.ps1'
+          $fast=Get-Content (Join-Path $env:GITHUB_WORKSPACE 'd7-gaming-engine\v211\fast-tool-inventory.ps1') -Raw -Encoding UTF8
+          $learn=Get-Content (Join-Path $env:GITHUB_WORKSPACE 'd7-gaming-engine\v212\learn-game-hotfix.ps1') -Raw -Encoding UTF8
+          $raw=Get-Content $base -Raw -Encoding UTF8
+          $outDir=Join-Path $env:GITHUB_WORKSPACE 'd7-gaming-engine\v213';New-Item $outDir -ItemType Directory -Force|Out-Null
+          $out=Join-Path $outDir 'D7_BLACKCORE.ps1'
+          $raw=$raw.Replace("`$Version='2.1.0'","`$Version='2.1.3'").Replace("`$form.Text='D7 BLACKCORE v2.1'","`$form.Text='D7 BLACKCORE v2.1.3'")
+
+          # Preserve literal $_ tokens by replacing matched ranges with Substring concatenation, never Regex replacement strings.
+          $m=[regex]::Match($raw,'(?s)function Find-ExeDeep\s*\{.*?(?=function Get-PresentMonPath\s*\{)');if(-not $m.Success){throw 'Tool block marker missing'}
+          $raw=$raw.Substring(0,$m.Index)+$fast+"`r`n`r`n"+$raw.Substring($m.Index+$m.Length)
+          $m=[regex]::Match($raw,'(?s)function LearnForeground\s*\{.*?(?=function SetPrioritySafe\()');if(-not $m.Success){throw 'Learn block marker missing'}
+          $raw=$raw.Substring(0,$m.Index)+$learn+"`r`n`r`n"+$raw.Substring($m.Index+$m.Length)
+
+          $marker='[System.Windows.Forms.Application]::EnableVisualStyles()'
+          $guard=@'
+          $script:D7MutexCreated=$false
+          $script:D7Mutex=New-Object System.Threading.Mutex($true,'Local\D7_BLACKCORE_SINGLE_INSTANCE',[ref]$script:D7MutexCreated)
+          if(-not $script:D7MutexCreated){[Windows.Forms.MessageBox]::Show('D7 BLACKCORE is already running. Use the existing window.','D7 BLACKCORE')|Out-Null;exit}
+          '@
+          if(-not $raw.Contains($marker)){throw 'VisualStyles marker missing'};$raw=$raw.Replace($marker,$marker+"`r`n"+$guard)
+
+          $old=@'
+          $bMeasure.Add_Click({$stat.Text='State: MEASURING';$stat.ForeColor=[Drawing.Color]::DeepSkyBlue;[void](Run-MeasurementBaseline);$stat.Text='State: MEASUREMENT COMPLETE';$stat.ForeColor=[Drawing.Color]::LawnGreen})
+          $bLatency.Add_Click({[void](Run-LatencyAudit)})
+          $bCompare.Add_Click({Compare-LastMeasurements})
+          '@
+          $new=@'
+          $bMeasure.Add_Click({$stat.Text='State: MEASURING';$stat.ForeColor=[Drawing.Color]::DeepSkyBlue;try{[void](Run-MeasurementBaseline);$stat.Text='State: MEASUREMENT COMPLETE';$stat.ForeColor=[Drawing.Color]::LawnGreen}catch{$msg=$_.Exception.Message;Log ('Measurement failed: '+$msg);$stat.Text='State: MEASUREMENT ERROR';$stat.ForeColor=[Drawing.Color]::OrangeRed;[Windows.Forms.MessageBox]::Show(('Measurement failed: '+$msg),'D7 BLACKCORE')|Out-Null}})
+          $bLatency.Add_Click({try{[void](Run-LatencyAudit)}catch{$msg=$_.Exception.Message;Log ('Latency Lab failed: '+$msg);[Windows.Forms.MessageBox]::Show(('Latency Lab failed: '+$msg),'D7 BLACKCORE')|Out-Null}})
+          $bCompare.Add_Click({try{Compare-LastMeasurements}catch{$msg=$_.Exception.Message;Log ('A/B Compare failed: '+$msg);[Windows.Forms.MessageBox]::Show(('A/B Compare failed: '+$msg),'D7 BLACKCORE')|Out-Null}})
+          '@
+          if(-not $raw.Contains($old.Trim())){throw 'Measurement handler marker missing'};$raw=$raw.Replace($old.Trim(),$new.Trim())
+          $raw=$raw.Replace('$samples=@();1..10|ForEach-Object{$samples+=Get-SystemSample;Start-Sleep -Milliseconds 750}','$samples=@();1..10|ForEach-Object{$samples+=Get-SystemSample;[Windows.Forms.Application]::DoEvents();Start-Sleep -Milliseconds 750}')
+          [IO.File]::WriteAllText($out,$raw,(New-Object Text.UTF8Encoding($true)))
+
+          $tokens=$null;$errors=$null;$ast=[System.Management.Automation.Language.Parser]::ParseFile($out,[ref]$tokens,[ref]$errors)
+          if($errors.Count){$errors|%{Write-Host ('PARSER: '+$_.Message+' line '+$_.Extent.StartLineNumber)};throw ('Parser errors: '+$errors.Count)}
+          foreach($bad in @('return$false','return$true','return$null','return[','return(',';finally','; finally')){if($raw.Contains($bad)){throw ('Runtime-dangerous token: '+$bad)}}
+          if($raw -match '(?m)(?<![\w$])\.DisplayName\b'){throw 'Standalone .DisplayName token remains'}
+          if(-not $raw.Contains('$_.DisplayName')){throw 'Literal $_.DisplayName missing'}
+          if(-not $raw.Contains('$_.Exception.Message')){throw 'Literal $_.Exception.Message missing'}
+          $badAst=@($ast.FindAll({param($n)if($n -is [System.Management.Automation.Language.CommandAst]){$c=$n.GetCommandName();if($c -eq 'finally' -or $c -match '^\.[A-Za-z_][A-Za-z0-9_]*$'){return $true}}return $false},$true));if($badAst.Count){$badAst|%{Write-Host ('BAD AST: '+$_.Extent.Text)};throw ('Suspicious command AST nodes: '+$badAst.Count)}
+          $bytes=(Get-Item $out).Length;if($bytes -gt 140KB){throw ('Source unexpectedly large: '+$bytes)};Write-Host ('Clean source bytes: '+$bytes)
+          "D7_SRC=$out"|Out-File $env:GITHUB_ENV -Encoding utf8 -Append
+
+      - name: Install PS2EXE
+        shell: powershell
+        run: |
+          Set-PSRepository PSGallery -InstallationPolicy Trusted;Install-Module ps2exe -Scope CurrentUser -Force -AllowClobber;Import-Module ps2exe -Force
+
+      - name: Build EXE
+        shell: powershell
+        run: |
+          $out=Join-Path $env:RUNNER_TEMP 'D7Blackcore213';New-Item $out -ItemType Directory -Force|Out-Null
+          $a=@{inputFile=$env:D7_SRC;outputFile=(Join-Path $out 'D7_Gaming_Engine.exe');x64=$true;STA=$true;noConsole=$true;requireAdmin=$true;title='D7 BLACKCORE';product='D7 BLACKCORE Gaming System Orchestrator';company='D7';version='2.1.3.0'};Invoke-ps2exe @a
+          Set-Content (Join-Path $out 'version.txt') '2.1.3' -Encoding ASCII
+          Set-Content (Join-Path $out 'README_HOTFIX.txt') 'D7 BLACKCORE v2.1.3 - clean runtime-safety rebuild; fixes .DisplayName measurement crash, preserves Learn Game, adds single-instance protection and guarded measurement errors.' -Encoding UTF8
+          "D7_OUT=$out"|Out-File $env:GITHUB_ENV -Encoding utf8 -Append
+
+      - name: Package and publish stable
+        shell: powershell
+        run: |
+          $zip=Join-Path $env:RUNNER_TEMP 'D7_BLACKCORE_v2.1.3.zip';Compress-Archive -Path (Join-Path $env:D7_OUT '*') -DestinationPath $zip -Force
+          $hash=(Get-FileHash $zip -Algorithm SHA256).Hash.ToLowerInvariant();$stable=Join-Path $env:GITHUB_WORKSPACE 'd7-gaming-engine\stable';Copy-Item $zip (Join-Path $stable 'D7_BLACKCORE_v2.1.3.zip') -Force
+          $m=[ordered]@{product='D7 BLACKCORE';channel='stable';version='2.1.3';minimumWindowsBuild=19045;updateMode='online-only';packageUrl='https://raw.githubusercontent.com/Emperor0/em/main/d7-gaming-engine/stable/D7_BLACKCORE_v2.1.3.zip';sha256=$hash;changelogAr='Runtime Safety: clean rebuild fixes .DisplayName measurement crash; preserves Learn Game and fast tool detection; adds single-instance and guarded measurement errors.';publishedUtc=(Get-Date).ToUniversalTime().ToString('o')};[IO.File]::WriteAllText((Join-Path $stable 'latest.json'),($m|ConvertTo-Json -Depth 5),(New-Object Text.UTF8Encoding($false)))
+          git config user.name 'D7 Release Bot';git config user.email 'd7-release-bot@users.noreply.github.com';git add d7-gaming-engine/v213/D7_BLACKCORE.ps1 d7-gaming-engine/stable/D7_BLACKCORE_v2.1.3.zip d7-gaming-engine/stable/latest.json;git commit -m 'Publish D7 BLACKCORE v2.1.3 runtime safety';git pull --rebase origin main;git push
+          "D7_ZIP=$zip"|Out-File $env:GITHUB_ENV -Encoding utf8 -Append
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: D7-BLACKCORE-v2.1.3-Windows
+          path: ${{ env.D7_ZIP }}
+          retention-days: 30
