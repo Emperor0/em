@@ -59,7 +59,8 @@ public partial class App : Application
         _bootstrapHttp = new HttpClient();
         _toolsHttp = new HttpClient();
 
-        var bootstrap = new BootstrapService(paths, _logger, _bootstrapHttp);
+        var tools = new ToolAcquisitionService(paths, _logger, _toolsHttp);
+        var bootstrap = new BootstrapService(paths, _logger, _bootstrapHttp, tools);
         var hardwareDiscovery = new WindowsHardwareDiscoveryService();
         var telemetry = new SystemTelemetrySampler();
         var diagnostics = new DiagnosticsPackageService(paths, _logger);
@@ -71,7 +72,6 @@ public partial class App : Application
             new GameProcessClassifier(),
             profiles);
 
-        var tools = new ToolAcquisitionService(paths, _logger, _toolsHttp);
         var frameCapture = new PresentMonCaptureService(paths, _logger, tools);
         var journal = new TransactionJournal(paths);
         var stability = new EventLogStabilityProbe();
