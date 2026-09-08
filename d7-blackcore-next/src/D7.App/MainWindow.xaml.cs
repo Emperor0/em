@@ -2,7 +2,9 @@ using System.Windows;
 using D7.App.Services;
 using D7.Benchmark.Models;
 using D7.Core.Logging;
+using D7.Diagnostics;
 using D7.Hardware.Discovery;
+using D7.Hardware.Models;
 using D7.Hardware.Telemetry;
 using D7.Orchestration;
 using D7.Orchestration.Planning;
@@ -18,8 +20,10 @@ public partial class MainWindow : Window
     private readonly CoreFlowCoordinator _coreFlow;
     private readonly OptimizationPlanner _planner;
     private readonly StartupRecoveryService _recovery;
+    private readonly DiagnosticsPackageService _diagnostics;
     private readonly bool _safeMode;
     private readonly CancellationTokenSource _lifetime = new();
+    private HardwareSnapshot? _latestHardware;
     private bool _baselinePassed;
     private bool _busy;
 
@@ -31,6 +35,7 @@ public partial class MainWindow : Window
         CoreFlowCoordinator coreFlow,
         OptimizationPlanner planner,
         StartupRecoveryService recovery,
+        DiagnosticsPackageService diagnostics,
         bool safeMode)
     {
         InitializeComponent();
@@ -41,9 +46,11 @@ public partial class MainWindow : Window
         _coreFlow = coreFlow;
         _planner = planner;
         _recovery = recovery;
+        _diagnostics = diagnostics;
         _safeMode = safeMode;
         Loaded += OnLoaded;
         Closed += OnClosed;
+        DiagnosticsButton.Click += OnDiagnosticsClicked;
         MeasureButton.Click += OnMeasureClicked;
         OptimizeButton.Click += OnOptimizeClicked;
     }
@@ -52,6 +59,7 @@ public partial class MainWindow : Window
     {
         try
         {
+            DiagnosticsButton.IsEnabled = false;
             MeasureButton.IsEnabled = false;
             OptimizeButton.IsEnabled = false;
             SubtitleText.Text = "جارٍ فحص سجل التراجع السابق...";
@@ -73,6 +81,8 @@ public partial class MainWindow : Window
 
             var result = await bootstrapTask;
             var hardware = await hardwareTask;
+            _latestHardware = hardware;
+            DiagnosticsButton.IsEnabled = true;
 
             ChecksList.ItemsSource = result.Checks.Select(x => new
             {
@@ -148,12 +158,38 @@ public partial class MainWindow : Window
         }
     }
 
+    private async void OnDiagnosticsClicked(object sender, RoutedEventArgs e)
+    {
+        if (_busy || _latestHardware is null || _lifetime.IsCancellationRequested) return;
+        _busy = true;
+        SetActionButtonsEnabled(false);
+
+        try
+        {
+            HealthText.Text = "إنشاء تقرير التشخيص";
+            ExperimentText.Text = "يجمع D7 فقط سجلاته وملخص النظام وسجل العمليات وملفات القياس الوصفية، بدون ملفاتك الشخصية.";
+            var result = await _diagnostics.CreateAsync(_latestHardware, _safeMode, _lifetime.Token);
+            HealthText.Text = result.Success ? "تم إنشاء التقرير" : "تعذر إنشاء التقرير";
+            ExperimentText.Text = result.Success && !string.IsNullOrWhiteSpace(result.ZipPath)
+                ? $"تم حفظ تقرير التشخيص هنا: {result.ZipPath}"
+                : result.MessageAr;
+        }
+        catch (OperationCanceledException)
+        {
+            // Normal during shutdown.
+        }
+        finally
+        {
+            _busy = false;
+            RestoreActionButtons();
+        }
+    }
+
     private async void OnMeasureClicked(object sender, RoutedEventArgs e)
     {
         if (_busy || _lifetime.IsCancellationRequested) return;
         _busy = true;
-        MeasureButton.IsEnabled = false;
-        OptimizeButton.IsEnabled = false;
+        SetActionButtonsEnabled(false);
 
         try
         {
@@ -198,11 +234,7 @@ public partial class MainWindow : Window
         finally
         {
             _busy = false;
-            if (!_lifetime.IsCancellationRequested)
-            {
-                MeasureButton.IsEnabled = true;
-                OptimizeButton.IsEnabled = _baselinePassed && !_safeMode;
-            }
+            RestoreActionButtons();
         }
     }
 
@@ -210,8 +242,7 @@ public partial class MainWindow : Window
     {
         if (_busy || _safeMode || !_baselinePassed || _lifetime.IsCancellationRequested) return;
         _busy = true;
-        MeasureButton.IsEnabled = false;
-        OptimizeButton.IsEnabled = false;
+        SetActionButtonsEnabled(false);
 
         try
         {
@@ -295,12 +326,23 @@ public partial class MainWindow : Window
         finally
         {
             _busy = false;
-            if (!_lifetime.IsCancellationRequested)
-            {
-                MeasureButton.IsEnabled = true;
-                OptimizeButton.IsEnabled = _baselinePassed && !_safeMode;
-            }
+            RestoreActionButtons();
         }
+    }
+
+    private void SetActionButtonsEnabled(bool enabled)
+    {
+        DiagnosticsButton.IsEnabled = enabled && _latestHardware is not null;
+        MeasureButton.IsEnabled = enabled;
+        OptimizeButton.IsEnabled = enabled && _baselinePassed && !_safeMode;
+    }
+
+    private void RestoreActionButtons()
+    {
+        if (_lifetime.IsCancellationRequested) return;
+        DiagnosticsButton.IsEnabled = _latestHardware is not null;
+        MeasureButton.IsEnabled = true;
+        OptimizeButton.IsEnabled = _baselinePassed && !_safeMode;
     }
 
     private void ShowFrameAnalysis(string gameName, FrameAnalysis analysis)
