@@ -3,7 +3,9 @@ name: D7 LIVE Windows CI
 on:
   workflow_dispatch:
   push:
-    branches: [main]
+    branches:
+      - main
+      - d7-live/media-core
     paths:
       - 'D7-LIVE/**'
       - '.github/workflows/d7-live-ci.yml'
@@ -12,8 +14,12 @@ permissions:
   contents: read
 
 concurrency:
-  group: d7-live-windows-ci
+  group: d7-live-windows-ci-${{ github.ref }}
   cancel-in-progress: true
+
+env:
+  OBS_VERSION: '32.2.2'
+  OBS_X64_SHA256: '4d6e40e3ab155f56b30de517380566a206d74b63cdf5ad49aa596924768f97e1'
 
 jobs:
   build-windows:
@@ -35,6 +41,18 @@ jobs:
         with:
           targets: x86_64-pc-windows-msvc
 
+      - name: Prepare verified OBS media runtime
+        shell: powershell
+        run: |
+          $dir = Join-Path $PWD 'src-tauri\resources\obs'
+          New-Item -ItemType Directory -Path $dir -Force | Out-Null
+          $zip = Join-Path $dir 'obs.zip'
+          $url = "https://github.com/obsproject/obs-studio/releases/download/$env:OBS_VERSION/OBS-Studio-$env:OBS_VERSION-Windows-x64.zip"
+          Invoke-WebRequest -Uri $url -OutFile $zip -UseBasicParsing
+          $actual = (Get-FileHash $zip -Algorithm SHA256).Hash.ToLowerInvariant()
+          if ($actual -ne $env:OBS_X64_SHA256) { throw "OBS SHA-256 mismatch. Expected $env:OBS_X64_SHA256 got $actual" }
+          Write-Host "Verified OBS Studio $env:OBS_VERSION runtime: $actual"
+
       - name: Install frontend dependencies
         run: npm install --no-audit --no-fund
 
@@ -52,8 +70,10 @@ jobs:
         run: |
           $bundle = Get-ChildItem 'src-tauri\target\release\bundle\nsis' -Filter '*.exe' -File -ErrorAction SilentlyContinue | Select-Object -First 1
           if (-not $bundle) { throw 'D7 LIVE NSIS installer was not produced.' }
+          $hash = (Get-FileHash $bundle.FullName -Algorithm SHA256).Hash.ToLowerInvariant()
           Write-Host ('Installer: ' + $bundle.FullName)
           Write-Host ('Bytes: ' + $bundle.Length)
+          Write-Host ('SHA256: ' + $hash)
 
       - name: Upload Windows installer
         uses: actions/upload-artifact@v4
