@@ -25,7 +25,8 @@ public sealed record BenchmarkCaptureResult(
     string? CsvPath,
     FrameAnalysis? Analysis,
     string MessageAr,
-    string? TechnicalError = null);
+    string? TechnicalError = null,
+    string? ManifestPath = null);
 
 public enum BenchmarkVerdict
 {
