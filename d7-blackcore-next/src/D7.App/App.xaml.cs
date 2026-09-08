@@ -6,6 +6,7 @@ using D7.App.Services;
 using D7.Benchmark.Capture;
 using D7.Core.Foundation;
 using D7.Core.Logging;
+using D7.Diagnostics;
 using D7.Games.Detection;
 using D7.Games.Profiles;
 using D7.Hardware.Discovery;
@@ -60,6 +61,7 @@ public partial class App : Application
         var bootstrap = new BootstrapService(paths, _logger, _bootstrapHttp);
         var hardwareDiscovery = new WindowsHardwareDiscoveryService();
         var telemetry = new SystemTelemetrySampler();
+        var diagnostics = new DiagnosticsPackageService(paths, _logger);
 
         var profiles = new GameProfileStore(paths);
         var gameDetector = new GameDetectionService(
@@ -92,6 +94,7 @@ public partial class App : Application
             coreFlow,
             planner,
             recovery,
+            diagnostics,
             safeMode);
         MainWindow = window;
         window.Show();
