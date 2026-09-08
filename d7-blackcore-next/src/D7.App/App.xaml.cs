@@ -1,3 +1,5 @@
+using System.Net.Http;
+using System.Threading;
 using System.Windows;
 using System.Windows.Threading;
 using D7.App.Services;
