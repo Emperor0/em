@@ -1,4 +1,5 @@
 using System.Diagnostics;
+using System.Text.Json;
 using D7.Benchmark.Csv;
 using D7.Benchmark.Models;
 using D7.Core.Foundation;
@@ -10,6 +11,7 @@ namespace D7.Benchmark.Capture;
 
 public sealed class PresentMonCaptureService : IFrameCaptureService
 {
+    private static readonly JsonSerializerOptions ManifestJson = new(JsonSerializerDefaults.Web) { WriteIndented = true };
     private readonly AppPaths _paths;
     private readonly JsonLineLogger _logger;
     private readonly ToolAcquisitionService _tools;
@@ -29,7 +31,8 @@ public sealed class PresentMonCaptureService : IFrameCaptureService
 
         var started = DateTimeOffset.UtcNow;
         var operationId = $"PM-{processId}-{started:yyyyMMddHHmmss}";
-        var tool = await _tools.EnsurePortableAsync(OfficialToolCatalog.PresentMon, cancellationToken).ConfigureAwait(false);
+        var descriptor = OfficialToolCatalog.PresentMon;
+        var tool = await _tools.EnsurePortableAsync(descriptor, cancellationToken).ConfigureAwait(false);
         if (!tool.Ready || string.IsNullOrWhiteSpace(tool.ExecutablePath))
         {
             return new BenchmarkCaptureResult(false, processId, started, duration, null, null, tool.MessageAr);
@@ -94,13 +97,45 @@ public sealed class PresentMonCaptureService : IFrameCaptureService
             }
 
             var analysis = await PresentMonCsvParser.ParseAsync(csvPath, cancellationToken).ConfigureAwait(false);
+            var manifestPath = await TryWriteManifestAsync(
+                directory,
+                new MeasurementManifest(
+                    "D7.Measurement.v1",
+                    started,
+                    processId,
+                    duration.TotalSeconds,
+                    Environment.OSVersion.VersionString,
+                    Environment.Version.ToString(),
+                    descriptor.Version,
+                    descriptor.Sha256,
+                    descriptor.AssetName,
+                    Path.GetFileName(csvPath),
+                    analysis),
+                operationId,
+                cancellationToken).ConfigureAwait(false);
+
             var success = process.ExitCode == 0 && analysis.Valid;
             var message = success
                 ? "اكتمل قياس الأداء الحقيقي بنجاح."
                 : "تم إنشاء القياس لكن البيانات غير كافية أو غير متوافقة لإصدار حكم.";
 
-            await _logger.WriteAsync("Benchmark", operationId, success ? "Information" : "Warning", message, new { process.ExitCode, analysis }, CancellationToken.None);
-            return new BenchmarkCaptureResult(success, processId, started, duration, csvPath, analysis, message, string.IsNullOrWhiteSpace(stderr) ? null : stderr);
+            await _logger.WriteAsync(
+                "Benchmark",
+                operationId,
+                success ? "Information" : "Warning",
+                message,
+                new { process.ExitCode, analysis, manifestPath },
+                CancellationToken.None);
+            return new BenchmarkCaptureResult(
+                success,
+                processId,
+                started,
+                duration,
+                csvPath,
+                analysis,
+                message,
+                string.IsNullOrWhiteSpace(stderr) ? null : stderr,
+                manifestPath);
         }
         catch (OperationCanceledException)
         {
@@ -115,11 +150,59 @@ public sealed class PresentMonCaptureService : IFrameCaptureService
         }
     }
 
+    private async Task<string?> TryWriteManifestAsync(
+        string directory,
+        MeasurementManifest manifest,
+        string operationId,
+        CancellationToken cancellationToken)
+    {
+        var target = Path.Combine(directory, "measurement.json");
+        var temp = target + ".tmp";
+        try
+        {
+            await using (var stream = new FileStream(temp, FileMode.Create, FileAccess.Write, FileShare.None, 81920, useAsync: true))
+            {
+                await JsonSerializer.SerializeAsync(stream, manifest, ManifestJson, cancellationToken).ConfigureAwait(false);
+                await stream.FlushAsync(cancellationToken).ConfigureAwait(false);
+            }
+            File.Move(temp, target, true);
+            return target;
+        }
+        catch (OperationCanceledException)
+        {
+            TryDelete(temp);
+            throw;
+        }
+        catch (Exception ex)
+        {
+            TryDelete(temp);
+            await _logger.WriteAsync(
+                "Benchmark",
+                operationId,
+                "Warning",
+                "اكتمل القياس لكن تعذر حفظ ملف بيانات إعادة الاختبار.",
+                new { ex.Message },
+                CancellationToken.None);
+            return null;
+        }
+    }
+
     private static void TryKill(Process process)
     {
         try
         {
             if (!process.HasExited) process.Kill(entireProcessTree: true);
+        }
+        catch
+        {
+        }
+    }
+
+    private static void TryDelete(string path)
+    {
+        try
+        {
+            if (File.Exists(path)) File.Delete(path);
         }
         catch
         {
