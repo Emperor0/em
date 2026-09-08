@@ -216,28 +216,31 @@ public partial class MainWindow : Window
         try
         {
             HealthText.Text = "تجربة A/B";
-            ExperimentText.Text = "ارجع إلى اللعبة الآن. بعد 5 ثوانٍ سيقيس D7 الحالة الأصلية ثم يختبر تعديلًا واحدًا ويقيسه مرة أخرى.";
+            ExperimentText.Text = "ارجع إلى اللعبة الآن. بعد 5 ثوانٍ سيقيس D7 الحالة الأصلية، يختبر تعديلًا واحدًا، ثم يطلب قياس تأكيد إذا ظهر تحسن.";
             await Task.Delay(TimeSpan.FromSeconds(5), _lifetime.Token);
 
             var result = await _coreFlow.RunExperimentAsync(_priorityExperiment, TimeSpan.FromSeconds(20), _lifetime.Token);
             ExperimentText.Text = result.MessageAr;
 
-            var analysis = result.Candidate?.Analysis ?? result.Baseline?.Analysis;
+            var analysis = result.Confirmation?.Analysis ?? result.Candidate?.Analysis ?? result.Baseline?.Analysis;
             if (analysis is not null)
                 ShowFrameAnalysis(result.Game?.ProcessName ?? "اللعبة", analysis);
 
-            if (result.Comparison is not null)
+            var finalComparison = result.ConfirmationComparison ?? result.Comparison;
+            if (finalComparison is not null)
             {
-                FrameDetailText.Text = $"1% Low: {result.Comparison.OnePercentLowDeltaPercent:+0.0;-0.0;0.0}% | P99: {result.Comparison.P99DeltaPercent:+0.0;-0.0;0.0}% | فرق التقطيع: {result.Comparison.StutterDelta:+#;-#;0}";
+                FrameDetailText.Text = $"1% Low: {finalComparison.OnePercentLowDeltaPercent:+0.0;-0.0;0.0}% | P99: {finalComparison.P99DeltaPercent:+0.0;-0.0;0.0}% | فرق التقطيع: {finalComparison.StutterDelta:+#;-#;0}";
             }
 
-            HealthText.Text = result.Comparison?.Verdict switch
-            {
-                BenchmarkVerdict.Keep => "تم اعتماد التحسن",
-                BenchmarkVerdict.Rollback => "تم التراجع تلقائيًا",
-                BenchmarkVerdict.Inconclusive => "النتيجة غير حاسمة",
-                _ => result.Success ? "اكتملت التجربة" : "لم يعتمد أي تعديل"
-            };
+            HealthText.Text = result.RolledBack
+                ? "تم التراجع تلقائيًا"
+                : finalComparison?.Verdict switch
+                {
+                    BenchmarkVerdict.Keep => "تم اعتماد التحسن",
+                    BenchmarkVerdict.Rollback => "تم التراجع تلقائيًا",
+                    BenchmarkVerdict.Inconclusive => "النتيجة غير حاسمة",
+                    _ => result.Success ? "اكتملت التجربة" : "لم يعتمد أي تعديل"
+                };
         }
         catch (OperationCanceledException)
         {
