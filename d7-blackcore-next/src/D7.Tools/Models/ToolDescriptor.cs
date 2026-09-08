@@ -9,7 +9,10 @@ public sealed record ToolDescriptor(
     Uri DownloadUri,
     string Sha256,
     string Integration,
-    string License);
+    string License,
+    bool VerifyAuthenticode = true,
+    bool RequireTrustedSignature = false,
+    string? ExpectedSignerContains = null);
 
 public sealed record ToolReadyResult(
     ToolDescriptor Tool,
