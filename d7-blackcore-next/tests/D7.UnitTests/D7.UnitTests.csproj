@@ -21,5 +21,6 @@
     <ProjectReference Include="..\..\src\D7.Stability\D7.Stability.csproj" />
     <ProjectReference Include="..\..\src\D7.Optimization\D7.Optimization.csproj" />
     <ProjectReference Include="..\..\src\D7.Orchestration\D7.Orchestration.csproj" />
+    <ProjectReference Include="..\..\src\D7.Diagnostics\D7.Diagnostics.csproj" />
   </ItemGroup>
 </Project>
