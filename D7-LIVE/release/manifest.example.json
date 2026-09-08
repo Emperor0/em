@@ -1,0 +1,10 @@
+{
+  "version": "1.0.1",
+  "notes": "Example signed D7 LIVE update manifest.",
+  "published_at": "2026-09-08T00:00:00Z",
+  "windows": {
+    "url": "https://example.invalid/D7-LIVE-1.0.1.exe",
+    "sha256": "REPLACE_WITH_SHA256",
+    "signature": "REPLACE_WITH_ED25519_SIGNATURE"
+  }
+}
