@@ -34,7 +34,7 @@ public sealed class HardwareCapabilityTests
     }
 
     private static Capability Find(IReadOnlyList<Capability> capabilities, string id) =>
-        Assert.Single(capabilities.Where(x => x.Id == id));
+        Assert.Single(capabilities, x => x.Id == id);
 
     private static HardwareSnapshot SampleSnapshot(string gpuName) =>
         new(
