@@ -28,7 +28,8 @@ jobs:
           $src = Join-Path $env:RUNNER_TEMP 'D7v110Source'
           Remove-Item $src -Recurse -Force -ErrorAction SilentlyContinue
           New-Item -ItemType Directory -Path $src -Force | Out-Null
-          Copy-Item (Join-Path $root 'D7_Gaming_Engine.ps1') $src -Force
+          $scriptText = Get-Content (Join-Path $root 'D7_Gaming_Engine.ps1') -Raw -Encoding UTF8
+          [IO.File]::WriteAllText((Join-Path $src 'D7_Gaming_Engine.ps1'),$scriptText,(New-Object Text.UTF8Encoding($true)))
           Copy-Item (Join-Path $root 'README_AR.txt') $src -Force
           Copy-Item (Join-Path $root 'CHANGELOG_AR.txt') $src -Force
           [IO.File]::WriteAllText((Join-Path $src 'version.txt'),'1.1.0',(New-Object Text.UTF8Encoding($false)))
