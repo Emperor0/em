@@ -7,10 +7,14 @@ namespace D7.Hardware.Telemetry;
 public sealed class SystemTelemetrySampler
 {
     private readonly object _cpuGate = new();
+    private readonly object _selfCpuGate = new();
     private bool _hasCpuBaseline;
     private ulong _previousIdle;
     private ulong _previousKernel;
     private ulong _previousUser;
+    private bool _hasSelfCpuBaseline;
+    private TimeSpan _previousSelfCpu;
+    private DateTimeOffset _previousSelfWall;
     private string? _nvidiaSmiPath;
     private bool _resolvedNvidiaSmi;
 
@@ -22,6 +26,7 @@ public sealed class SystemTelemetrySampler
 
         using var process = Process.GetCurrentProcess();
         process.Refresh();
+        var selfCpu = ReadSelfCpuUtilization(process);
 
         return new SystemTelemetrySample(
             DateTimeOffset.UtcNow,
@@ -32,7 +37,10 @@ public sealed class SystemTelemetrySampler
             Math.Round(process.TotalProcessorTime.TotalSeconds, 3),
             process.WorkingSet64,
             process.PrivateMemorySize64,
-            process.Threads.Count);
+            process.Threads.Count)
+        {
+            D7CpuUtilizationPercent = selfCpu
+        };
     }
 
     public double? ReadCpuUtilization()
@@ -65,6 +73,33 @@ public sealed class SystemTelemetrySampler
             if (total == 0) return null;
             var busy = total > idleDelta ? total - idleDelta : 0;
             return Math.Round(Math.Clamp(busy * 100d / total, 0d, 100d), 1);
+        }
+    }
+
+    private double? ReadSelfCpuUtilization(Process process)
+    {
+        var now = DateTimeOffset.UtcNow;
+        var cpu = process.TotalProcessorTime;
+
+        lock (_selfCpuGate)
+        {
+            if (!_hasSelfCpuBaseline)
+            {
+                _previousSelfCpu = cpu;
+                _previousSelfWall = now;
+                _hasSelfCpuBaseline = true;
+                return null;
+            }
+
+            var cpuSeconds = (cpu - _previousSelfCpu).TotalSeconds;
+            var wallSeconds = (now - _previousSelfWall).TotalSeconds;
+            _previousSelfCpu = cpu;
+            _previousSelfWall = now;
+
+            if (wallSeconds <= 0) return null;
+            var logicalProcessors = Math.Max(1, Environment.ProcessorCount);
+            var percent = cpuSeconds / (wallSeconds * logicalProcessors) * 100d;
+            return Math.Round(Math.Clamp(percent, 0d, 100d), 2);
         }
     }
 
