@@ -17,6 +17,7 @@ public partial class MainWindow : Window
     private readonly JsonLineLogger _logger;
     private readonly WindowsHardwareDiscoveryService _hardwareDiscovery;
     private readonly SystemTelemetrySampler _telemetry;
+    private readonly D7SelfOverheadGuard _overheadGuard = new();
     private readonly CoreFlowCoordinator _coreFlow;
     private readonly OptimizationPlanner _planner;
     private readonly StartupRecoveryService _recovery;
@@ -381,7 +382,21 @@ public partial class MainWindow : Window
                     GpuUsageText.Text = "القياس اللحظي غير متاح حاليًا";
                 }
 
-                await Task.Delay(TimeSpan.FromSeconds(1), cancellationToken);
+                var overhead = _overheadGuard.Observe(sample.D7CpuUtilizationPercent);
+                if (overhead.StateChanged)
+                {
+                    await _logger.WriteAsync(
+                        "PerformanceBudget",
+                        "SELF-OVERHEAD",
+                        overhead.ThrottleTelemetry ? "Warning" : "Information",
+                        overhead.MessageAr,
+                        new { sample.D7CpuUtilizationPercent, overhead.ThrottleTelemetry },
+                        CancellationToken.None);
+                }
+
+                await Task.Delay(
+                    overhead.ThrottleTelemetry ? TimeSpan.FromSeconds(3) : TimeSpan.FromSeconds(1),
+                    cancellationToken);
             }
             catch (OperationCanceledException)
             {
