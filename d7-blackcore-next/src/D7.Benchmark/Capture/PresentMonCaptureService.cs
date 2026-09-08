@@ -8,7 +8,7 @@ using D7.Tools.Catalog;
 
 namespace D7.Benchmark.Capture;
 
-public sealed class PresentMonCaptureService
+public sealed class PresentMonCaptureService : IFrameCaptureService
 {
     private readonly AppPaths _paths;
     private readonly JsonLineLogger _logger;
