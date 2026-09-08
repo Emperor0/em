@@ -53,9 +53,14 @@ jobs:
           Invoke-WebRequest -Uri $pm.downloadUrl -OutFile $tmp -UseBasicParsing
           $hash=(Get-FileHash $tmp -Algorithm SHA256).Hash.ToLowerInvariant()
           if($hash -ne ([string]$pm.sha256).ToLowerInvariant()){throw ('PresentMon hash mismatch: '+$hash)}
-          $help=& $tmp --help 2>&1|Out-String
+          $hout=Join-Path $env:RUNNER_TEMP 'presentmon-help-out.txt'
+          $herr=Join-Path $env:RUNNER_TEMP 'presentmon-help-err.txt'
+          $proc=Start-Process -FilePath $tmp -ArgumentList '--help' -RedirectStandardOutput $hout -RedirectStandardError $herr -Wait -PassThru
+          $help=''
+          if(Test-Path $hout){$help+=(Get-Content $hout -Raw -ErrorAction SilentlyContinue)}
+          if(Test-Path $herr){$help+=(Get-Content $herr -Raw -ErrorAction SilentlyContinue)}
           foreach($flag in @('--process_id','--output_file','--timed','--terminate_after_timed','--v2_metrics','--session_name')){if($help -notmatch [regex]::Escape($flag)){throw ('PresentMon CLI flag missing: '+$flag)}}
-          Write-Host ('PresentMon '+$pm.version+' verified SHA256 '+$hash)
+          Write-Host ('PresentMon '+$pm.version+' verified SHA256 '+$hash+' helpExit='+$proc.ExitCode)
 
       - name: Install PS2EXE
         shell: powershell
