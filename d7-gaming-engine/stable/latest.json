@@ -1,11 +1,11 @@
 {
     "product":  "D7 BLACKCORE",
     "channel":  "stable",
-    "version":  "2.1.0",
+    "version":  "2.1.1",
     "minimumWindowsBuild":  19045,
     "updateMode":  "online-only",
-    "packageUrl":  "https://raw.githubusercontent.com/Emperor0/em/main/d7-gaming-engine/stable/D7_BLACKCORE_v2.1.0.zip",
-    "sha256":  "ab91d51697c4b5bf68b0aa6242e9acc2ace6c243ed027f3dc0621f9df2aaac4f",
-    "changelogAr":  "Measurement Core: improved tool detection, PresentMon capture and frametime analysis, stability/WHEA audit, MSI and interrupt read-only audit, deep network audit, A/B compare. No blind low-level tuning.",
-    "publishedUtc":  "2026-09-08T12:28:41.2085929Z"
+    "packageUrl":  "https://raw.githubusercontent.com/Emperor0/em/main/d7-gaming-engine/stable/D7_BLACKCORE_v2.1.1.zip",
+    "sha256":  "11508735281ed5ae59864f201293f7257ab72206fbda5e281cc763ddf0ede15b",
+    "changelogAr":  "Hotfix: BLACKSCAN no longer recursively scans Program Files for every tool. Fast registry/task/path detection plus UI responsiveness between scan stages.",
+    "publishedUtc":  "2026-09-08T12:36:49.9020301Z"
 }
