@@ -1,0 +1,11 @@
+D7 LIVE third-party media runtime
+
+Component: OBS Studio
+Version: 32.2.2
+Project: https://github.com/obsproject/obs-studio
+Release package: https://github.com/obsproject/obs-studio/releases/download/32.2.2/OBS-Studio-32.2.2-Windows-x64.zip
+Pinned package SHA-256: 4d6e40e3ab155f56b30de517380566a206d74b63cdf5ad49aa596924768f97e1
+License information: https://github.com/obsproject/obs-studio/blob/master/COPYING
+Corresponding source release: https://github.com/obsproject/obs-studio/archive/refs/tags/32.2.2.tar.gz
+
+D7 LIVE launches the verified OBS Studio portable runtime as a separate local media-engine process and controls it through OBS' built-in obs-websocket interface. This notice is included with the bundled runtime so downstream builds can identify the exact third-party component and source release.
