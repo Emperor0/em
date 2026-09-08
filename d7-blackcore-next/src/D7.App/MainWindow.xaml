@@ -113,12 +113,13 @@
                         </Grid.ColumnDefinitions>
                         <StackPanel>
                             <TextBlock Text="الوضع الذكي" FontSize="22" FontWeight="Bold" />
-                            <TextBlock Text="يقيس D7 اللعبة أولًا، ثم يختبر تعديلًا واحدًا قابلًا للتراجع ويحتفظ به فقط إذا أثبت القياس تحسنًا واضحًا." Foreground="{StaticResource MutedBrush}" TextWrapping="Wrap" Margin="0,5,0,0" />
+                            <TextBlock Text="يقيس D7 اللعبة أولًا، ثم يختار تعديلًا منخفض المخاطر ينطبق فعليًا، ويحتفظ به فقط إذا أثبت القياس والتحقق من الثبات تحسنًا متكررًا." Foreground="{StaticResource MutedBrush}" TextWrapping="Wrap" Margin="0,5,0,0" />
                             <TextBlock x:Name="ExperimentText" Text="ابدأ بقياس خط أساس أثناء اللعب." Foreground="{StaticResource MutedBrush}" TextWrapping="Wrap" Margin="0,8,0,0" />
                         </StackPanel>
                         <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center">
-                            <Button x:Name="MeasureButton" Content="قياس اللعبة" Width="145" Height="48" IsEnabled="False" />
-                            <Button x:Name="OptimizeButton" Content="تجربة A/B آمنة" Width="170" Height="48" Background="{StaticResource AccentBrush}" Foreground="#061009" FontWeight="Bold" IsEnabled="False" />
+                            <Button x:Name="DiagnosticsButton" Content="تقرير تشخيص" Width="125" Height="48" />
+                            <Button x:Name="MeasureButton" Content="قياس اللعبة" Width="135" Height="48" IsEnabled="False" />
+                            <Button x:Name="OptimizeButton" Content="تحسين ذكي" Width="145" Height="48" Background="{StaticResource AccentBrush}" Foreground="#061009" FontWeight="Bold" IsEnabled="False" />
                         </StackPanel>
                     </Grid>
                 </Border>
