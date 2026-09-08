@@ -52,6 +52,11 @@ public sealed class GameProcessClassifier
             score += 70;
             evidence.Add("اللعبة محفوظة سابقًا في ملف موثوق.");
         }
+        if (facts.IsKnownExecutable)
+        {
+            score += 35;
+            evidence.Add("اسم الملف التنفيذي موجود في كتالوج ألعاب موثوق داخل D7.");
+        }
         if (facts.IsKnownGameInstallPath || PositiveGamePathFragments.Any(path.Contains))
         {
             score += 50;
