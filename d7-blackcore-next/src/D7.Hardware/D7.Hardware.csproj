@@ -1,0 +1,9 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <AssemblyName>D7.Hardware</AssemblyName>
+    <RootNamespace>D7.Hardware</RootNamespace>
+  </PropertyGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\D7.Core\D7.Core.csproj" />
+  </ItemGroup>
+</Project>
