@@ -1,0 +1,13 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <AssemblyName>D7.Orchestration</AssemblyName>
+    <RootNamespace>D7.Orchestration</RootNamespace>
+  </PropertyGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\D7.Core\D7.Core.csproj" />
+    <ProjectReference Include="..\D7.Games\D7.Games.csproj" />
+    <ProjectReference Include="..\D7.Benchmark\D7.Benchmark.csproj" />
+    <ProjectReference Include="..\D7.Optimization\D7.Optimization.csproj" />
+    <ProjectReference Include="..\D7.Rollback\D7.Rollback.csproj" />
+  </ItemGroup>
+</Project>
