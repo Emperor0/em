@@ -1,5 +1,6 @@
 using D7.Core.Foundation;
 using D7.Core.Models;
+using Xunit;
 
 namespace D7.UnitTests;
 
