@@ -13,6 +13,7 @@ using D7.Hardware.Telemetry;
 using D7.Optimization.Operations;
 using D7.Orchestration;
 using D7.Rollback.Journal;
+using D7.Stability;
 using D7.Tools.Acquisition;
 
 namespace D7.App;
@@ -69,7 +70,8 @@ public partial class App : Application
         var tools = new ToolAcquisitionService(paths, _logger, _toolsHttp);
         var frameCapture = new PresentMonCaptureService(paths, _logger, tools);
         var journal = new TransactionJournal(paths);
-        var coreFlow = new CoreFlowCoordinator(gameDetector, frameCapture, journal, _logger);
+        var stability = new EventLogStabilityProbe();
+        var coreFlow = new CoreFlowCoordinator(gameDetector, frameCapture, journal, _logger, stability);
         var priorityExperiment = new ProcessPriorityOptimization();
         var recovery = new StartupRecoveryService(journal, [priorityExperiment], _logger);
 
