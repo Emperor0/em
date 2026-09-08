@@ -1,0 +1,37 @@
+name: D7 Audit Decode
+
+on:
+  push:
+    branches: [ d7-audit-temp ]
+    paths:
+      - '.github/workflows/d7-audit-decode.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  decode:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: d7-audit-temp
+      - name: Decode v0.9.7 source into plaintext for audit
+        shell: powershell
+        run: |
+          $root = Join-Path $env:GITHUB_WORKSPACE 'd7-gaming-engine\v097'
+          $b64 = (Get-Content (Join-Path $root 'source_all.txt') -Raw -Encoding UTF8) -replace '[^A-Za-z0-9+/=]',''
+          $gzBytes = [Convert]::FromBase64String($b64)
+          $inStream = New-Object IO.MemoryStream(,$gzBytes)
+          $gzip = New-Object IO.Compression.GzipStream($inStream,[IO.Compression.CompressionMode]::Decompress)
+          $reader = New-Object IO.StreamReader($gzip,[Text.Encoding]::UTF8)
+          try { $scriptText = $reader.ReadToEnd() } finally { $reader.Dispose(); $gzip.Dispose(); $inStream.Dispose() }
+          [IO.File]::WriteAllText((Join-Path $root 'D7_Gaming_Engine.decoded.ps1'),$scriptText,(New-Object Text.UTF8Encoding($true)))
+          git config user.name 'D7 Audit Bot'
+          git config user.email 'd7-audit-bot@users.noreply.github.com'
+          git add d7-gaming-engine/v097/D7_Gaming_Engine.decoded.ps1
+          if (-not (git diff --cached --quiet)) {
+            git commit -m 'Audit: decode D7 v0.9.7 source'
+            git push origin HEAD:d7-audit-temp
+          }
