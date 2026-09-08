@@ -38,7 +38,8 @@ public sealed class HighPerformancePowerPlanOptimization : IReversibleOptimizati
                     "خطة الطاقة عالية الأداء مفعلة مسبقًا، لذلك لم يغير D7 شيئًا."));
             }
 
-            var result = PowerSetActiveScheme(IntPtr.Zero, ref HighPerformance);
+            var target = HighPerformance;
+            var result = PowerSetActiveScheme(IntPtr.Zero, ref target);
             if (result != 0)
             {
                 return Task.FromResult(new OperationApplyResult(
@@ -49,11 +50,12 @@ public sealed class HighPerformancePowerPlanOptimization : IReversibleOptimizati
                     $"PowerSetActiveScheme returned {result}."));
             }
 
-            var verified = GetActiveScheme() == HighPerformance;
+            var active = GetActiveScheme();
+            var verified = active == HighPerformance;
             return Task.FromResult(new OperationApplyResult(
                 verified,
                 verified,
-                JsonSerializer.Serialize(new PowerPlanState(GetActiveScheme())),
+                JsonSerializer.Serialize(new PowerPlanState(active)),
                 verified ? "تم تفعيل خطة الطاقة عالية الأداء مؤقتًا للاختبار." : "تعذر التحقق من خطة الطاقة الجديدة.",
                 verified ? null : "Power plan verification failed."));
         }
