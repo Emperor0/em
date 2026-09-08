@@ -1,0 +1,10 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <AssemblyName>D7.Diagnostics</AssemblyName>
+    <RootNamespace>D7.Diagnostics</RootNamespace>
+  </PropertyGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\D7.Core\D7.Core.csproj" />
+    <ProjectReference Include="..\D7.Hardware\D7.Hardware.csproj" />
+  </ItemGroup>
+</Project>
