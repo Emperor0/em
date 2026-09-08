@@ -11,7 +11,7 @@ jobs:
     runs-on: windows-latest
     steps:
       - uses: actions/checkout@v4
-      - name: Patch updater null timer bug and bump to 1.0.1
+      - name: Patch updater null timer bug and bump source to 1.0.1
         shell: powershell
         run: |
           $root = Join-Path $env:GITHUB_WORKSPACE 'd7-gaming-engine\v100'
@@ -27,7 +27,7 @@ jobs:
           $new = '$script:StartupUpdateTimer=New-Object Windows.Forms.Timer;$script:StartupUpdateTimer.Interval=3500;$script:StartupUpdateTimer.Add_Tick({if($script:StartupUpdateTimer){$script:StartupUpdateTimer.Stop()};Check-OnlineUpdate $false});$script:StartupUpdateTimer.Start()'
           if (-not $scriptText.Contains($old)) { throw 'Expected updater timer block not found.' }
           $scriptText = $scriptText.Replace($old,$new)
-          $scriptText = $scriptText.Replace("$Version = '1.0.0'","$Version = '1.0.1'")
+          $scriptText = $scriptText.Replace("`$Version = '1.0.0'","`$Version = '1.0.1'")
 
           $bytes=[Text.Encoding]::UTF8.GetBytes($scriptText)
           $outStream=New-Object IO.MemoryStream
@@ -36,21 +36,9 @@ jobs:
           $encoded=[Convert]::ToBase64String($outStream.ToArray());$outStream.Dispose()
           [IO.File]::WriteAllText($sourceFile,$encoded,(New-Object Text.UTF8Encoding($false)))
 
-          $wf = Join-Path $env:GITHUB_WORKSPACE '.github\workflows\d7-gaming-engine-build.yml'
-          $w = Get-Content $wf -Raw -Encoding UTF8
-          $w = $w.Replace('v1.0 Adaptive Performance Engine','v1.0.1 Adaptive Performance Engine')
-          $w = $w.Replace("'1.0.0'","'1.0.1'")
-          $w = $w.Replace("'1.0.0.0'","'1.0.1.0'")
-          $w = $w.Replace("'1.0.0*'","'1.0.1*'")
-          $w = $w.Replace('D7_Gaming_Engine_v1.0.0.zip','D7_Gaming_Engine_v1.0.1.zip')
-          $w = $w.Replace('D7-Gaming-Engine-v1.0.0-Windows','D7-Gaming-Engine-v1.0.1-Windows')
-          $w = $w.Replace("version='1.0.0'","version='1.0.1'")
-          $w = $w.Replace('Publish D7 Gaming Engine v1.0 Adaptive Performance Engine','Publish D7 Gaming Engine v1.0.1 updater hotfix')
-          [IO.File]::WriteAllText($wf,$w,(New-Object Text.UTF8Encoding($false)))
-
           git config user.name 'D7 Hotfix Bot'
           git config user.email 'd7-hotfix-bot@users.noreply.github.com'
-          git add d7-gaming-engine/v100/source_all.txt .github/workflows/d7-gaming-engine-build.yml d7-gaming-engine/v100/CHANGELOG_AR.txt
+          git add d7-gaming-engine/v100/source_all.txt
           git commit -m 'Fix D7 v1.0.1 startup updater timer null bug'
           git pull --rebase origin main
           git push
