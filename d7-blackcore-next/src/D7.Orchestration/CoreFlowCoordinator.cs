@@ -7,6 +7,7 @@ using D7.Optimization.Contracts;
 using D7.Orchestration.Models;
 using D7.Rollback.Journal;
 using D7.Rollback.Models;
+using D7.Stability;
 
 namespace D7.Orchestration;
 
@@ -16,17 +17,20 @@ public sealed class CoreFlowCoordinator
     private readonly IFrameCaptureService _frames;
     private readonly TransactionJournal _journal;
     private readonly JsonLineLogger _logger;
+    private readonly IStabilityProbe _stability;
 
     public CoreFlowCoordinator(
         IActiveGameDetector games,
         IFrameCaptureService frames,
         TransactionJournal journal,
-        JsonLineLogger logger)
+        JsonLineLogger logger,
+        IStabilityProbe? stability = null)
     {
         _games = games;
         _frames = frames;
         _journal = journal;
         _logger = logger;
+        _stability = stability ?? new NullStabilityProbe();
     }
 
     public async Task<BaselineFlowResult> CaptureBaselineAsync(TimeSpan duration, CancellationToken cancellationToken)
@@ -70,6 +74,7 @@ public sealed class CoreFlowCoordinator
 
         try
         {
+            var stabilityBefore = await _stability.CaptureAsync(cancellationToken).ConfigureAwait(false);
             captured = await operation.CaptureStateAsync(context, cancellationToken).ConfigureAwait(false);
             transaction = await _journal.BeginAsync($"تجربة A/B: {operation.NameAr}", cancellationToken).ConfigureAwait(false);
             transaction = await _journal.UpsertOperationAsync(
@@ -136,7 +141,25 @@ public sealed class CoreFlowCoordinator
                     "القياس بعد التعديل غير صالح، لذلك عاد D7 إلى الحالة السابقة.");
             }
 
-            var comparison = BenchmarkComparator.Compare(baselineFlow.Baseline.Analysis, candidate.Analysis);
+            var stabilityAfterCandidate = await _stability.CaptureAsync(cancellationToken).ConfigureAwait(false);
+            var candidateStability = StabilityComparer.Compare(stabilityBefore, stabilityAfterCandidate);
+            if (candidateStability.Available && candidateStability.NewIssueCount > 0)
+            {
+                await _logger.WriteAsync(
+                    "Stability",
+                    operationId,
+                    "Warning",
+                    "ظهرت أحداث ثبات جديدة بعد التعديل.",
+                    new { operation.Id, candidateStability.NewIssueCount, candidateStability.NewCriticalCount, candidateStability.NewIssues },
+                    CancellationToken.None);
+            }
+
+            var comparison = BenchmarkComparator.Compare(
+                baselineFlow.Baseline.Analysis,
+                candidate.Analysis,
+                baselineStabilityIssues: 0,
+                candidateStabilityIssues: candidateStability.Available ? candidateStability.NewIssueCount : 0);
+
             if (comparison.Verdict == BenchmarkVerdict.Keep)
             {
                 await _logger.WriteAsync(
@@ -164,7 +187,24 @@ public sealed class CoreFlowCoordinator
                         Confirmation: confirmation);
                 }
 
-                var confirmationComparison = BenchmarkComparator.Compare(baselineFlow.Baseline.Analysis, confirmation.Analysis);
+                var stabilityAfterConfirmation = await _stability.CaptureAsync(cancellationToken).ConfigureAwait(false);
+                var confirmationStability = StabilityComparer.Compare(stabilityBefore, stabilityAfterConfirmation);
+                if (confirmationStability.Available && confirmationStability.NewIssueCount > 0)
+                {
+                    await _logger.WriteAsync(
+                        "Stability",
+                        operationId,
+                        "Warning",
+                        "قياس التأكيد رصد أحداث ثبات جديدة.",
+                        new { operation.Id, confirmationStability.NewIssueCount, confirmationStability.NewCriticalCount, confirmationStability.NewIssues },
+                        CancellationToken.None);
+                }
+
+                var confirmationComparison = BenchmarkComparator.Compare(
+                    baselineFlow.Baseline.Analysis,
+                    confirmation.Analysis,
+                    baselineStabilityIssues: 0,
+                    candidateStabilityIssues: confirmationStability.Available ? confirmationStability.NewIssueCount : 0);
                 if (confirmationComparison.Verdict == BenchmarkVerdict.Keep)
                 {
                     transaction = await _journal.SetStatusAsync(transaction, TransactionStatus.Committed, null, cancellationToken).ConfigureAwait(false);
@@ -172,7 +212,7 @@ public sealed class CoreFlowCoordinator
                         "CoreFlow",
                         operationId,
                         "Information",
-                        "تم الاحتفاظ بالتعديل بعد نجاح قياسي التحسن والتأكيد.",
+                        "تم الاحتفاظ بالتعديل بعد نجاح قياسي التحسن والتأكيد دون أحداث ثبات جديدة.",
                         new { operation.Id, comparison, confirmationComparison },
                         CancellationToken.None);
                     return new OptimizationExperimentResult(
@@ -183,7 +223,7 @@ public sealed class CoreFlowCoordinator
                         confirmationComparison,
                         transaction.TransactionId,
                         false,
-                        "أثبت القياس ثم قياس التأكيد تحسنًا متكررًا؛ تم اعتماد التعديل.",
+                        "أثبت القياس ثم قياس التأكيد تحسنًا متكررًا دون مشاكل ثبات جديدة؛ تم اعتماد التعديل.",
                         Confirmation: confirmation,
                         ConfirmationComparison: confirmationComparison);
                 }
@@ -195,7 +235,9 @@ public sealed class CoreFlowCoordinator
                     captured,
                     apply,
                     rolledBack,
-                    "Confirmation did not reproduce improvement",
+                    confirmationStability.Available && confirmationStability.NewIssueCount > 0
+                        ? "Stability issue detected during confirmation"
+                        : "Confirmation did not reproduce improvement",
                     cancellationToken).ConfigureAwait(false);
                 return new OptimizationExperimentResult(
                     true,
@@ -205,7 +247,9 @@ public sealed class CoreFlowCoordinator
                     confirmationComparison,
                     transaction.TransactionId,
                     rolledBack,
-                    "التحسن لم يتكرر في قياس التأكيد؛ لذلك استعاد D7 الحالة الأصلية.",
+                    confirmationStability.Available && confirmationStability.NewIssueCount > 0
+                        ? "ظهر حدث ثبات جديد أثناء الاختبار؛ لذلك استعاد D7 الحالة الأصلية."
+                        : "التحسن لم يتكرر في قياس التأكيد؛ لذلك استعاد D7 الحالة الأصلية.",
                     Confirmation: confirmation,
                     ConfirmationComparison: confirmationComparison);
             }
@@ -217,12 +261,16 @@ public sealed class CoreFlowCoordinator
                 captured,
                 apply,
                 rolledBack,
-                comparison.Verdict == BenchmarkVerdict.Rollback ? "Performance regression" : "Inconclusive result",
+                candidateStability.Available && candidateStability.NewIssueCount > 0
+                    ? "Stability issue detected"
+                    : comparison.Verdict == BenchmarkVerdict.Rollback ? "Performance regression" : "Inconclusive result",
                 cancellationToken).ConfigureAwait(false);
 
-            var message = comparison.Verdict == BenchmarkVerdict.Rollback
-                ? "أظهر القياس تراجعًا، لذلك استعاد D7 الإعداد السابق."
-                : "الفرق غير حاسم، لذلك اختار D7 الحالة الأصلية الأكثر أمانًا.";
+            var message = candidateStability.Available && candidateStability.NewIssueCount > 0
+                ? "ظهر حدث ثبات جديد بعد التعديل، لذلك استعاد D7 الإعداد السابق فورًا."
+                : comparison.Verdict == BenchmarkVerdict.Rollback
+                    ? "أظهر القياس تراجعًا، لذلك استعاد D7 الإعداد السابق."
+                    : "الفرق غير حاسم، لذلك اختار D7 الحالة الأصلية الأكثر أمانًا.";
             return new OptimizationExperimentResult(
                 true, game, baselineFlow.Baseline, candidate, comparison, transaction.TransactionId, rolledBack, message);
         }
