@@ -2,6 +2,8 @@
   <Project Path="src/D7.Core/D7.Core.csproj" />
   <Project Path="src/D7.Tools/D7.Tools.csproj" />
   <Project Path="src/D7.Benchmark/D7.Benchmark.csproj" />
+  <Project Path="src/D7.Rollback/D7.Rollback.csproj" />
+  <Project Path="src/D7.Games/D7.Games.csproj" />
   <Project Path="src/D7.App/D7.App.csproj" />
   <Project Path="tests/D7.UnitTests/D7.UnitTests.csproj" />
 </Solution>
