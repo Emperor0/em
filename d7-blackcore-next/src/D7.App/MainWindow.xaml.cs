@@ -7,6 +7,7 @@ using D7.Hardware.Discovery;
 using D7.Hardware.Models;
 using D7.Hardware.Telemetry;
 using D7.Orchestration;
+using D7.Orchestration.Learning;
 using D7.Orchestration.Planning;
 
 namespace D7.App;
@@ -22,6 +23,7 @@ public partial class MainWindow : Window
     private readonly OptimizationPlanner _planner;
     private readonly StartupRecoveryService _recovery;
     private readonly DiagnosticsPackageService _diagnostics;
+    private readonly OptimizationLearningService _learning;
     private readonly bool _safeMode;
     private readonly CancellationTokenSource _lifetime = new();
     private HardwareSnapshot? _latestHardware;
@@ -37,6 +39,7 @@ public partial class MainWindow : Window
         OptimizationPlanner planner,
         StartupRecoveryService recovery,
         DiagnosticsPackageService diagnostics,
+        OptimizationLearningService learning,
         bool safeMode)
     {
         InitializeComponent();
@@ -48,6 +51,7 @@ public partial class MainWindow : Window
         _planner = planner;
         _recovery = recovery;
         _diagnostics = diagnostics;
+        _learning = learning;
         _safeMode = safeMode;
         Loaded += OnLoaded;
         Closed += OnClosed;
@@ -278,7 +282,12 @@ public partial class MainWindow : Window
                 HealthText.Text = "لا يوجد تعديل مفيد الآن";
                 ExperimentText.Text = plan.MessageAr;
                 var lastCheck = plan.Checks.LastOrDefault();
-                if (lastCheck is not null) FrameDetailText.Text = lastCheck.MessageAr;
+                if (lastCheck is not null)
+                {
+                    FrameDetailText.Text = string.IsNullOrWhiteSpace(lastCheck.LearningNoteAr)
+                        ? lastCheck.MessageAr
+                        : $"{lastCheck.MessageAr} {lastCheck.LearningNoteAr}";
+                }
                 return;
             }
 
@@ -286,6 +295,7 @@ public partial class MainWindow : Window
             ExperimentText.Text = $"التجربة المختارة: {plan.Operation.NameAr}. سيقيس D7 الحالة الأصلية ثم التعديل ويطلب تأكيدًا إذا ظهر تحسن.";
 
             var result = await _coreFlow.RunExperimentAsync(plan.Operation, TimeSpan.FromSeconds(20), _lifetime.Token);
+            await _learning.RecordAsync(game, plan.Operation, result, CancellationToken.None);
             ExperimentText.Text = result.MessageAr;
 
             var analysis = result.Confirmation?.Analysis ?? result.Candidate?.Analysis ?? result.Baseline?.Analysis;
