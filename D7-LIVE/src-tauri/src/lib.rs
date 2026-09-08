@@ -1,9 +1,13 @@
 mod alerts;
+mod core;
 mod crash_recovery;
 mod events;
 mod logging;
 mod performance;
+mod persistence;
 mod profiles;
+mod rules;
+mod runtime;
 mod scenes;
 mod settings;
 mod tiktok;
@@ -11,45 +15,121 @@ mod ticker;
 mod updater;
 mod virtual_output;
 
+use parking_lot::RwLock;
 use serde::Serialize;
 use std::sync::Arc;
-use parking_lot::RwLock;
+use tauri::Manager;
 
 #[derive(Default)]
 struct AppState {
-    events: Arc<RwLock<events::EventEngine>>,
+    runtime: Arc<RwLock<runtime::RuntimeState>>,
 }
 
 #[derive(Serialize)]
 struct HealthSnapshot {
     app_version: &'static str,
     mode: &'static str,
-    tiktok: &'static str,
-    virtual_camera: &'static str,
-    virtual_audio: &'static str,
+    tiktok: tiktok::ConnectorState,
+    virtual_camera: virtual_output::DeviceState,
+    virtual_audio: virtual_output::DeviceState,
 }
 
 #[tauri::command]
-fn health_snapshot() -> HealthSnapshot {
-    HealthSnapshot { app_version: env!("CARGO_PKG_VERSION"), mode:"Desktop", tiktok:"Disconnected", virtual_camera:"Unavailable", virtual_audio:"Unavailable" }
+fn health_snapshot(state: tauri::State<AppState>) -> HealthSnapshot {
+    let runtime = state.runtime.read();
+    HealthSnapshot {
+        app_version: env!("CARGO_PKG_VERSION"),
+        mode: "Desktop",
+        tiktok: runtime.connector_state(),
+        virtual_camera: runtime.virtual_output.camera,
+        virtual_audio: runtime.virtual_output.audio,
+    }
 }
 
 #[tauri::command]
-fn inject_test_event(kind: String, state: tauri::State<AppState>) -> Result<(), String> {
-    let event = events::LiveEvent::mock(&kind);
-    state.events.write().ingest(event).map_err(|e| e.to_string())
+fn get_config(state: tauri::State<AppState>) -> persistence::AppConfig {
+    state.runtime.read().config.clone()
 }
 
 #[tauri::command]
-async fn check_for_updates() -> Result<String, String> {
-    updater::human_check_message().await.map_err(|e| e.to_string())
+fn save_config(config: persistence::AppConfig, state: tauri::State<AppState>) -> Result<(), String> {
+    persistence::save(&config).map_err(|e| e.to_string())?;
+    state.runtime.write().config = config;
+    Ok(())
+}
+
+#[tauri::command]
+fn inject_test_event(kind: String, state: tauri::State<AppState>) -> Result<runtime::ProcessedEvent, String> {
+    state.runtime.write().process_event(events::LiveEvent::mock(&kind))
+}
+
+#[tauri::command]
+fn event_history(state: tauri::State<AppState>) -> Vec<events::LiveEvent> {
+    state.runtime.read().events.history()
+}
+
+#[tauri::command]
+fn alert_queue(state: tauri::State<AppState>) -> Vec<alerts::AlertJob> {
+    state.runtime.read().alerts.snapshot()
+}
+
+#[tauri::command]
+fn pop_alert(state: tauri::State<AppState>) -> Option<alerts::AlertJob> {
+    state.runtime.write().alerts.next()
+}
+
+#[tauri::command]
+fn connect_mock_tiktok(state: tauri::State<AppState>) -> Result<tiktok::ConnectorState, String> {
+    use tiktok::LiveProvider;
+    let mut runtime = state.runtime.write();
+    runtime.mock_tiktok.connect().map_err(|e| e.to_string())?;
+    Ok(runtime.mock_tiktok.status())
+}
+
+#[tauri::command]
+fn disconnect_mock_tiktok(state: tauri::State<AppState>) -> tiktok::ConnectorState {
+    use tiktok::LiveProvider;
+    let mut runtime = state.runtime.write();
+    runtime.mock_tiktok.disconnect();
+    runtime.mock_tiktok.status()
+}
+
+#[tauri::command]
+fn performance_snapshot(state: tauri::State<AppState>) -> performance::PerformanceSnapshot {
+    state.runtime.write().performance.snapshot()
+}
+
+#[tauri::command]
+async fn check_for_updates(state: tauri::State<'_, AppState>) -> Result<updater::UpdateCheck, String> {
+    let endpoint = state.runtime.read().config.updates.endpoint.clone().ok_or_else(|| "update endpoint is not configured".to_string())?;
+    updater::check(&endpoint, env!("CARGO_PKG_VERSION")).await.map_err(|e| e.to_string())
 }
 
 pub fn run() {
     logging::init();
     tauri::Builder::default()
         .manage(AppState::default())
-        .invoke_handler(tauri::generate_handler![health_snapshot, inject_test_event, check_for_updates])
+        .setup(|app| {
+            let state = app.state::<AppState>();
+            let config = state.runtime.read().config.clone();
+            if let Err(error) = persistence::save(&config) {
+                tracing::warn!(%error, "initial config save skipped");
+            }
+            Ok(())
+        })
+        .invoke_handler(tauri::generate_handler![
+            health_snapshot,
+            get_config,
+            save_config,
+            inject_test_event,
+            event_history,
+            alert_queue,
+            pop_alert,
+            connect_mock_tiktok,
+            disconnect_mock_tiktok,
+            performance_snapshot,
+            check_for_updates
+        ])
         .run(tauri::generate_context!())
         .expect("error while running D7 LIVE");
 }

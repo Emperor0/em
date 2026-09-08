@@ -1,6 +1,6 @@
 [package]
 name = "d7-live"
-version = "1.0.0"
+version = "0.9.0-alpha.1"
 edition = "2021"
 
 [lib]
@@ -23,6 +23,7 @@ reqwest = { version = "0.12", default-features = false, features = ["json", "rus
 tracing = "0.1"
 tracing-subscriber = { version = "0.3", features = ["fmt", "env-filter"] }
 directories = "6"
+sysinfo = "0.33"
 
 [dev-dependencies]
 tempfile = "3"
