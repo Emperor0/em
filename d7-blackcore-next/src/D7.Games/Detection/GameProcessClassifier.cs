@@ -54,7 +54,7 @@ public sealed class GameProcessClassifier
         }
         if (facts.IsKnownExecutable)
         {
-            score += 35;
+            score += 75;
             evidence.Add("اسم الملف التنفيذي موجود في كتالوج ألعاب موثوق داخل D7.");
         }
         if (facts.IsKnownGameInstallPath || PositiveGamePathFragments.Any(path.Contains))
