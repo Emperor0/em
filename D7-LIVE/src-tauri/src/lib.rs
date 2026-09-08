@@ -4,6 +4,7 @@ mod crash_recovery;
 mod events;
 mod logging;
 mod media;
+mod media_inputs;
 mod performance;
 mod persistence;
 mod profiles;
@@ -18,6 +19,7 @@ mod virtual_output;
 
 use parking_lot::RwLock;
 use serde::Serialize;
+use serde_json::Value;
 use std::sync::Arc;
 use tauri::Manager;
 
@@ -107,10 +109,7 @@ async fn check_for_updates(state: tauri::State<'_, AppState>) -> Result<updater:
 }
 
 #[tauri::command]
-async fn media_launch(
-    app: tauri::AppHandle,
-    state: tauri::State<'_, media::MediaEngineState>,
-) -> Result<media::MediaStatus, String> {
+async fn media_launch(app: tauri::AppHandle, state: tauri::State<'_, media::MediaEngineState>) -> Result<media::MediaStatus, String> {
     media::launch(app, state).await
 }
 
@@ -194,6 +193,61 @@ async fn media_shutdown(state: tauri::State<'_, media::MediaEngineState>) -> Res
     media::shutdown(state).await
 }
 
+#[tauri::command]
+async fn media_inputs_list(app: tauri::AppHandle) -> Result<Vec<media_inputs::InputSummary>, String> {
+    media_inputs::list(app).await
+}
+
+#[tauri::command]
+async fn media_input_kinds(app: tauri::AppHandle) -> Result<Vec<String>, String> {
+    media_inputs::kinds(app).await
+}
+
+#[tauri::command]
+async fn media_input_create(app: tauri::AppHandle, scene: String, name: String, kind: String, settings: Value) -> Result<media_inputs::CreatedInput, String> {
+    media_inputs::create(app, scene, name, kind, settings).await
+}
+
+#[tauri::command]
+async fn media_input_remove(app: tauri::AppHandle, name: String) -> Result<(), String> {
+    media_inputs::remove(app, name).await
+}
+
+#[tauri::command]
+async fn media_input_rename(app: tauri::AppHandle, name: String, new_name: String) -> Result<(), String> {
+    media_inputs::rename(app, name, new_name).await
+}
+
+#[tauri::command]
+async fn media_input_set_muted(app: tauri::AppHandle, name: String, muted: bool) -> Result<(), String> {
+    media_inputs::set_muted(app, name, muted).await
+}
+
+#[tauri::command]
+async fn media_input_toggle_mute(app: tauri::AppHandle, name: String) -> Result<bool, String> {
+    media_inputs::toggle_mute(app, name).await
+}
+
+#[tauri::command]
+async fn media_input_set_volume_db(app: tauri::AppHandle, name: String, db: f32) -> Result<(), String> {
+    media_inputs::set_volume_db(app, name, db).await
+}
+
+#[tauri::command]
+async fn media_input_settings(app: tauri::AppHandle, name: String) -> Result<Value, String> {
+    media_inputs::settings(app, name).await
+}
+
+#[tauri::command]
+async fn media_input_set_settings(app: tauri::AppHandle, name: String, settings: Value, overlay: bool) -> Result<(), String> {
+    media_inputs::set_settings(app, name, settings, overlay).await
+}
+
+#[tauri::command]
+async fn media_input_property_items(app: tauri::AppHandle, name: String, property: String) -> Result<Value, String> {
+    media_inputs::property_items(app, name, property).await
+}
+
 pub fn run() {
     logging::init();
     tauri::Builder::default()
@@ -208,34 +262,15 @@ pub fn run() {
             Ok(())
         })
         .invoke_handler(tauri::generate_handler![
-            health_snapshot,
-            get_config,
-            save_config,
-            inject_test_event,
-            event_history,
-            alert_queue,
-            pop_alert,
-            connect_mock_tiktok,
-            disconnect_mock_tiktok,
-            performance_snapshot,
-            check_for_updates,
-            media_launch,
-            media_status,
-            media_scenes,
-            media_create_scene,
-            media_set_scene,
-            media_record_start,
-            media_record_stop,
-            media_replay_start,
-            media_replay_save,
-            media_replay_stop,
-            media_virtual_camera_start,
-            media_virtual_camera_stop,
-            media_install_virtual_camera,
-            media_set_rtmp,
-            media_stream_start,
-            media_stream_stop,
-            media_shutdown
+            health_snapshot, get_config, save_config, inject_test_event, event_history, alert_queue, pop_alert,
+            connect_mock_tiktok, disconnect_mock_tiktok, performance_snapshot, check_for_updates,
+            media_launch, media_status, media_scenes, media_create_scene, media_set_scene,
+            media_record_start, media_record_stop, media_replay_start, media_replay_save, media_replay_stop,
+            media_virtual_camera_start, media_virtual_camera_stop, media_install_virtual_camera,
+            media_set_rtmp, media_stream_start, media_stream_stop, media_shutdown,
+            media_inputs_list, media_input_kinds, media_input_create, media_input_remove, media_input_rename,
+            media_input_set_muted, media_input_toggle_mute, media_input_set_volume_db,
+            media_input_settings, media_input_set_settings, media_input_property_items
         ])
         .run(tauri::generate_context!())
         .expect("error while running D7 LIVE");
