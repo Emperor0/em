@@ -1,11 +1,11 @@
 {
     "product":  "D7 Gaming Engine",
     "channel":  "stable",
-    "version":  "1.0.0",
+    "version":  "1.0.1",
     "minimumWindowsBuild":  19045,
     "updateMode":  "online-only",
-    "packageUrl":  "https://raw.githubusercontent.com/Emperor0/em/main/d7-gaming-engine/stable/D7_Gaming_Engine_v1.0.0.zip",
-    "sha256":  "4d6d3cd4a6d4d6996002e5543b4b69da2485cc20e7565da85db1b8911f4fc5e2",
+    "packageUrl":  "https://raw.githubusercontent.com/Emperor0/em/main/d7-gaming-engine/stable/D7_Gaming_Engine_v1.0.1.zip",
+    "sha256":  "3b92b008e074baf96f60ba3e0d2a5a326e964b488c8d216cd1863e212d3b8175",
     "changelogAr":  "D7 Gaming Engine v1.0.1 — Hotfix\r\n\r\n- إصلاح خطأ التحديث الأونلاين الذي كان يظهر رسالة: You cannot call a method on a null-valued expression.\r\n- تحسين التحقق من latest.json والقيم الفارغة قبل المقارنة أو التحديث.\r\n- منع فشل واجهة التطبيق عند تعذر قراءة أي حقل اختياري من Manifest.\r\n- الإبقاء على Adaptive Performance Engine ونظام ONLINE ONLY كما هو.",
-    "publishedUtc":  "2026-09-08T11:17:46.8584666Z"
+    "publishedUtc":  "2026-09-08T11:21:37.6808061Z"
 }
