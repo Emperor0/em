@@ -1,0 +1,6 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <AssemblyName>D7.Core</AssemblyName>
+    <RootNamespace>D7.Core</RootNamespace>
+  </PropertyGroup>
+</Project>
