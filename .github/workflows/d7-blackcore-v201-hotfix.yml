@@ -20,7 +20,7 @@ jobs:
           $src=Join-Path $env:GITHUB_WORKSPACE 'd7-gaming-engine\v200\D7_BLACKCORE.ps1'
           $safe=Join-Path $env:RUNNER_TEMP 'D7_BLACKCORE_SAFE.ps1'
           $raw=Get-Content $src -Raw -Encoding UTF8
-          $raw=$raw -replace "\$Version='2\.0\.0'","`$Version='2.0.1'"
+          $raw=$raw.Replace('$Version=''2.0.0''','$Version=''2.0.1''')
           $raw=[regex]::Replace($raw,'\breturn(?=\$|\[|\()','return ')
           $raw=[regex]::Replace($raw,'\bif(?=\()','if ')
           $raw=[regex]::Replace($raw,'\bforeach(?=\()','foreach ')
