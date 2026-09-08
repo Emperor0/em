@@ -35,7 +35,7 @@ jobs:
           if(-not $raw.Contains($oldButtons)){throw 'Tool UI marker missing'}
           $raw=$raw.Replace($oldButtons,$newButtons)
           $handler="`$bMeasure.Add_Click({`$stat.Text='State: MEASURING';`$stat.ForeColor=[Drawing.Color]::DeepSkyBlue;[void](Run-MeasurementBaseline);`$stat.Text='State: MEASUREMENT COMPLETE';`$stat.ForeColor=[Drawing.Color]::LawnGreen})`r`n`$bLatency.Add_Click({[void](Run-LatencyAudit)})`r`n`$bCompare.Add_Click({Compare-LastMeasurements})`r`n"
-          $timerMarker='`$timer=New-Object Windows.Forms.Timer;'
+          $timerMarker="`$timer=New-Object Windows.Forms.Timer;"
           if(-not $raw.Contains($timerMarker)){throw 'Timer marker missing'}
           $raw=$raw.Replace($timerMarker,($handler+$timerMarker))
           [IO.File]::WriteAllText($out,$raw,(New-Object Text.UTF8Encoding($true)))
