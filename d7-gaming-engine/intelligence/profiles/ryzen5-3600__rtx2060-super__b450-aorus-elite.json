@@ -1,0 +1,106 @@
+{
+  "schema": "D7.BLACKCORE.Profile.v1",
+  "profileId": "ryzen5-3600__rtx2060-super__b450-aorus-elite",
+  "match": {
+    "cpu": "AMD Ryzen 5 3600",
+    "gpu": "NVIDIA GeForce RTX 2060 SUPER",
+    "motherboard": "B450 AORUS ELITE",
+    "ramGB": 16,
+    "windowsBuild": 19045
+  },
+  "observed": {
+    "bios": "F68a",
+    "nvidiaDriver": "616.56",
+    "ramConfiguredMHz": 3200,
+    "powerScheme": "High Performance",
+    "hags": "enabled",
+    "gameDvr": "disabled",
+    "vbs": "disabled",
+    "networkAdapter": "Realtek Gaming GbE Family Controller",
+    "networkDriver": "10.36.701.2019",
+    "pagefileMB": 13312
+  },
+  "policy": {
+    "goal": "gaming_streaming_only",
+    "preservePagefile": true,
+    "preserveDefender": true,
+    "noHpetBcdTimerHacks": true,
+    "noRealtimePriority": true,
+    "noBlindRamPurge": true,
+    "requireRollbackForPersistentChanges": true,
+    "requireABValidationForDriverChanges": true
+  },
+  "priorityFindings": [
+    {
+      "id": "tool-detection-bug",
+      "severity": "high",
+      "action": "fix",
+      "detail": "BLACKSCAN reported 0 detected tools while installed-app inventory contains MSI Afterburner, LatencyMon, NZXT CAM and other relevant utilities. Tool discovery must inspect uninstall registry and scheduled tasks, not only fixed paths."
+    },
+    {
+      "id": "realtek-driver-age",
+      "severity": "high",
+      "action": "review_update",
+      "detail": "Realtek Gaming GbE driver 10.36.701.2019 is very old. BLACKCORE should locate the board/vendor-supported driver and benchmark DPC/network stability before and after update."
+    },
+    {
+      "id": "bios-update-available",
+      "severity": "medium",
+      "action": "recommend_manual",
+      "detail": "Installed BIOS F68a. Gigabyte currently lists F68c for B450 AORUS ELITE rev.1.x. BIOS flashing must remain manual with model/revision verification and backup guidance."
+    },
+    {
+      "id": "game-mode-unset",
+      "severity": "medium",
+      "action": "enable_reversible",
+      "detail": "GameMode registry state was absent while GameDVR is disabled. Set Game Mode ON through the reversible gaming profile."
+    },
+    {
+      "id": "startup-urbanvpn",
+      "severity": "high",
+      "action": "disable_startup_if_not_needed",
+      "detail": "UrbanVPN updater starts with Windows. For a gaming/streaming-only profile, disable its startup entry unless the user explicitly needs the VPN for that session."
+    },
+    {
+      "id": "fdm-helper-task",
+      "severity": "medium",
+      "action": "disable_during_game",
+      "detail": "Free Download Manager helper scheduled task is enabled. Suppress download/update activity during game sessions."
+    },
+    {
+      "id": "parsec-virtual-devices",
+      "severity": "medium",
+      "action": "conditional",
+      "detail": "Parsec Virtual Display and Virtual USB drivers are installed. Keep only if Parsec is actively used; otherwise offer user-confirmed removal because virtual display/input drivers add kernel/device complexity."
+    },
+    {
+      "id": "nvidia-bloat-review",
+      "severity": "medium",
+      "action": "conditional",
+      "detail": "NVIDIA App, ShadowPlay, FrameView SDK, Telemetry, Virtual Audio and USB-C components are installed. Preserve only components required for the user's capture/streaming/display workflow; never strip blindly."
+    },
+    {
+      "id": "developer-stack",
+      "severity": "low",
+      "action": "optional_cleanup",
+      "detail": "Visual Studio Build Tools, Windows SDKs, Python and Node are installed. They are not gaming performance problems by themselves, but BLACKCORE may offer user-confirmed cleanup if this PC is truly gaming/streaming-only."
+    },
+    {
+      "id": "storage-policy",
+      "severity": "medium",
+      "action": "optimize_placement",
+      "detail": "System has two NVMe SSDs plus SATA and USB HDDs. Prefer active games, OBS cache and shader/cache workloads on NVMe; avoid recording high-bitrate streams to slow USB HDD unless tested."
+    }
+  ],
+  "runtimeRules": {
+    "gameSession": {
+      "protect": ["game", "obs64", "audiodg"],
+      "deprioritizeIfActive": ["UrbanVPN updater", "Free Download Manager", "Google updater", "Edge updater", "OneDrive setup"],
+      "pauseOrWarn": ["large downloads", "software updates", "drive indexing on game volume"],
+      "telemetry": ["PresentMon", "LibreHardwareMonitor"],
+      "gpuProfile": "per-game-only",
+      "fanPolicy": "temperature-aware",
+      "driverPolicy": "benchmark-before-keep"
+    }
+  }
+}
