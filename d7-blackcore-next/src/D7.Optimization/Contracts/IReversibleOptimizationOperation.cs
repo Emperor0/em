@@ -5,6 +5,11 @@ public sealed record OperationContext(
     string ProcessName,
     string? ExecutablePath);
 
+public sealed record OperationPreflightResult(
+    bool Applicable,
+    string MessageAr,
+    string? TechnicalReason = null);
+
 public sealed record CapturedOperationState(
     string Kind,
     string Target,
@@ -22,6 +27,9 @@ public interface IReversibleOptimizationOperation
     string Id { get; }
     string NameAr { get; }
     string Risk { get; }
+
+    Task<OperationPreflightResult> PreflightAsync(OperationContext context, CancellationToken cancellationToken) =>
+        Task.FromResult(new OperationPreflightResult(true, "العملية قابلة للاختبار."));
 
     Task<CapturedOperationState> CaptureStateAsync(OperationContext context, CancellationToken cancellationToken);
     Task<OperationApplyResult> ApplyAsync(OperationContext context, CancellationToken cancellationToken);
