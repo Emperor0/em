@@ -13,6 +13,7 @@ using D7.Hardware.Discovery;
 using D7.Hardware.Telemetry;
 using D7.Optimization.Operations;
 using D7.Orchestration;
+using D7.Orchestration.Learning;
 using D7.Orchestration.Planning;
 using D7.Rollback.Journal;
 using D7.Stability;
@@ -83,7 +84,10 @@ public partial class App : Application
             powerPlanExperiment,
             priorityExperiment
         };
-        var planner = new OptimizationPlanner(automaticOperations);
+
+        var history = new OptimizationHistoryStore(paths);
+        var learning = new OptimizationLearningService(history);
+        var planner = new OptimizationPlanner(automaticOperations, history);
         var recovery = new StartupRecoveryService(journal, automaticOperations, _logger);
 
         var window = new MainWindow(
@@ -95,6 +99,7 @@ public partial class App : Application
             planner,
             recovery,
             diagnostics,
+            learning,
             safeMode);
         MainWindow = window;
         window.Show();
