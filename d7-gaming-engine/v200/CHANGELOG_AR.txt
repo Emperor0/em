@@ -1,0 +1,12 @@
+D7 BLACKCORE v2.0.0
+
+- BLACKSCAN شامل للهاردوير وWindows والتعريفات والبرامج وStartup والمهام المجدولة والشبكة والأدوات.
+- حفظ JSON + TXT ليتحول الفحص إلى ملف تعلم ومراجعة حقيقي.
+- D7 Plan يبني توصيات مخصصة محليا بدل تويكات عامة.
+- Deep Gaming + Streaming Profile قابل للاسترجاع بالكامل.
+- تعلم الألعاب محليا وAdaptive Session يرفع اللعبة وOBS إلى AboveNormal ويخفض D7 أثناء اللعب.
+- Tool Hub لاكتشاف MSI Afterburner وRTSS وISLC وLatencyMon وFan Control وSystem Informer وPresentMon وNVIDIA Profile Inspector وDDU.
+- مراجعة تحديثات البرامج عبر winget بدون تحديث عشوائي.
+- Online Only updater مع SHA-256.
+- منع HPET/BCD/timer hacks وRealTime priority وDefender/pagefile/VBS auto-disable.
+- هذه النسخة تؤسس طبقة BLACKCORE Orchestrator التي ستربط الأدوات الخارجية مع القياس وA/B validation في الإصدارات التالية.
