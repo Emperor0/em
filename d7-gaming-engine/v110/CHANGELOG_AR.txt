@@ -1,0 +1,15 @@
+D7 Gaming Engine v1.1.0 — Gaming + Streaming Edition
+
+- إعادة بناء الحلقة الحية لتكون أخف بكثير على الجهاز.
+- إزالة WMI/CIM من المراقبة المستمرة؛ تستخدم فقط في الفحص العميق اليدوي.
+- CPU/RAM عبر Win32 مباشرة، وGPU كل 5 ثوانٍ أثناء اللعب فقط.
+- إضافة وضع ألعاب + بث قابل للاسترجاع بالكامل.
+- Game Mode ON وBackground Capture OFF.
+- تقليل المؤثرات المرئية وتطبيقات الخلفية غير الضرورية.
+- إيقاف Edge background mode وStartup Boost أثناء الوضع المخصص.
+- High Performance power plan عند تفعيل الوضع.
+- اللعبة وOBS إلى AboveNormal أثناء الجلسة، والمحدثات المعروفة إلى BelowNormal فقط.
+- D7 يخفض أولوية نفسه أثناء اللعب كي لا ينافس اللعبة أو OBS.
+- Backup/Restore لكل تعديلات النظام التي يطبقها الوضع.
+- إصلاح نظام التحديث الأونلاين والمحافظة على Online Only + SHA-256.
+- لا HPET/BCD/Timer tweaks، لا RAM purge، لا RealTime priority، لا تعطيل Defender أو Pagefile أو SysMain، ولا تعديلات Network Registry عشوائية.
