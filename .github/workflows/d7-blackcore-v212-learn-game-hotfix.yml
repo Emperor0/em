@@ -33,6 +33,8 @@ jobs:
           if($next -eq $raw){throw 'LearnForeground replacement marker missing'}
           $raw=$next
 
+          # Normalize an old runtime trap that PowerShell parses as a command named "finally".
+          $raw=[regex]::Replace($raw,';\s*finally\s*\{','finally {')
           if($raw -match ';\s*finally\s*\{'){throw 'Invalid semicolon before finally remains'}
           if($raw -match '\\"user32\.dll\\"'){throw 'Invalid escaped DllImport string remains'}
           if(-not $raw.Contains('D7Foreground.NativeMethods')){throw 'New foreground interop type missing'}
