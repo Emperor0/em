@@ -1,11 +1,11 @@
 {
     "product":  "D7 BLACKCORE",
     "channel":  "stable",
-    "version":  "2.1.3",
+    "version":  "2.2.0",
     "minimumWindowsBuild":  19045,
     "updateMode":  "online-only",
-    "packageUrl":  "https://raw.githubusercontent.com/Emperor0/em/main/d7-gaming-engine/stable/D7_BLACKCORE_v2.1.3.zip",
-    "sha256":  "08d27d1d6e8e0dca4d387509402fa49095bb855b3df3f0c5a42fc1b186ebab1d",
-    "changelogAr":  "Runtime Safety: clean rebuild fixes .DisplayName measurement crash; preserves Learn Game and fast tool detection; adds single-instance and guarded measurement errors.",
-    "publishedUtc":  "2026-09-08T13:16:40.3254161Z"
+    "packageUrl":  "https://raw.githubusercontent.com/Emperor0/em/main/d7-gaming-engine/stable/D7_BLACKCORE_v2.2.0.zip",
+    "sha256":  "1a97b88c2b8654b5d358146c05c24ca659031dddfbaef4ec4efcbf53eb68d073",
+    "changelogAr":  "FRAME LAB: automatic verified PresentMon acquisition, 30-second real capture, v2 metrics, same-game A/B comparison, and KEEP/ROLLBACK/INCONCLUSIVE verdict.",
+    "publishedUtc":  "2026-09-08T13:31:02.4280845Z"
 }
