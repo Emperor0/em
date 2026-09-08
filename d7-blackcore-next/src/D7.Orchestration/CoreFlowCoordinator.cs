@@ -33,7 +33,7 @@ public sealed class CoreFlowCoordinator
     {
         var game = await _games.DetectActiveGameAsync(cancellationToken).ConfigureAwait(false);
         if (game is null)
-            return new BaselineFlowResult(false, null, null, "لم يكتشف D7 لعبة نشطة موثوقة في الواجهة الأمامية.");
+            return new BaselineFlowResult(false, null, null, "لم يكتشف D7 لعبة نشطة موثوقة.");
 
         var baseline = await _frames.CaptureAsync(game.ProcessId, duration, cancellationToken).ConfigureAwait(false);
         if (!baseline.Success || baseline.Analysis is null || !baseline.Analysis.Valid)
@@ -139,11 +139,75 @@ public sealed class CoreFlowCoordinator
             var comparison = BenchmarkComparator.Compare(baselineFlow.Baseline.Analysis, candidate.Analysis);
             if (comparison.Verdict == BenchmarkVerdict.Keep)
             {
-                transaction = await _journal.SetStatusAsync(transaction, TransactionStatus.Committed, null, cancellationToken).ConfigureAwait(false);
-                await _logger.WriteAsync("CoreFlow", operationId, "Information", "تم الاحتفاظ بالتعديل بعد تحسن القياس.", new { operation.Id, comparison }, CancellationToken.None);
+                await _logger.WriteAsync(
+                    "CoreFlow",
+                    operationId,
+                    "Information",
+                    "المرور الأول يشير إلى تحسن. بدء قياس تأكيد قبل الاعتماد.",
+                    new { operation.Id, comparison },
+                    CancellationToken.None);
+
+                var confirmation = await _frames.CaptureAsync(game.ProcessId, duration, cancellationToken).ConfigureAwait(false);
+                if (!confirmation.Success || confirmation.Analysis is null || !confirmation.Analysis.Valid)
+                {
+                    rolledBack = await operation.RollbackAsync(context, captured, cancellationToken).ConfigureAwait(false);
+                    transaction = await MarkRollbackAsync(transaction, operation, captured, apply, rolledBack, "Confirmation measurement invalid", cancellationToken).ConfigureAwait(false);
+                    return new OptimizationExperimentResult(
+                        false,
+                        game,
+                        baselineFlow.Baseline,
+                        candidate,
+                        comparison,
+                        transaction.TransactionId,
+                        rolledBack,
+                        "تحسن القياس الأول، لكن قياس التأكيد لم يكن صالحًا؛ لذلك عاد D7 للحالة الأصلية.",
+                        Confirmation: confirmation);
+                }
+
+                var confirmationComparison = BenchmarkComparator.Compare(baselineFlow.Baseline.Analysis, confirmation.Analysis);
+                if (confirmationComparison.Verdict == BenchmarkVerdict.Keep)
+                {
+                    transaction = await _journal.SetStatusAsync(transaction, TransactionStatus.Committed, null, cancellationToken).ConfigureAwait(false);
+                    await _logger.WriteAsync(
+                        "CoreFlow",
+                        operationId,
+                        "Information",
+                        "تم الاحتفاظ بالتعديل بعد نجاح قياسي التحسن والتأكيد.",
+                        new { operation.Id, comparison, confirmationComparison },
+                        CancellationToken.None);
+                    return new OptimizationExperimentResult(
+                        true,
+                        game,
+                        baselineFlow.Baseline,
+                        candidate,
+                        confirmationComparison,
+                        transaction.TransactionId,
+                        false,
+                        "أثبت القياس ثم قياس التأكيد تحسنًا متكررًا؛ تم اعتماد التعديل.",
+                        Confirmation: confirmation,
+                        ConfirmationComparison: confirmationComparison);
+                }
+
+                rolledBack = await operation.RollbackAsync(context, captured, cancellationToken).ConfigureAwait(false);
+                transaction = await MarkRollbackAsync(
+                    transaction,
+                    operation,
+                    captured,
+                    apply,
+                    rolledBack,
+                    "Confirmation did not reproduce improvement",
+                    cancellationToken).ConfigureAwait(false);
                 return new OptimizationExperimentResult(
-                    true, game, baselineFlow.Baseline, candidate, comparison, transaction.TransactionId, false,
-                    "أثبت القياس تحسنًا كافيًا، لذلك تم الاحتفاظ بالتعديل.");
+                    true,
+                    game,
+                    baselineFlow.Baseline,
+                    candidate,
+                    confirmationComparison,
+                    transaction.TransactionId,
+                    rolledBack,
+                    "التحسن لم يتكرر في قياس التأكيد؛ لذلك استعاد D7 الحالة الأصلية.",
+                    Confirmation: confirmation,
+                    ConfirmationComparison: confirmationComparison);
             }
 
             rolledBack = await operation.RollbackAsync(context, captured, cancellationToken).ConfigureAwait(false);
