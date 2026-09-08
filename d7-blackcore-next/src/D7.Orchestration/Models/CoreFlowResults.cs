@@ -18,4 +18,6 @@ public sealed record OptimizationExperimentResult(
     string? TransactionId,
     bool RolledBack,
     string MessageAr,
-    string? Error = null);
+    string? Error = null,
+    BenchmarkCaptureResult? Confirmation = null,
+    BenchmarkComparison? ConfirmationComparison = null);
