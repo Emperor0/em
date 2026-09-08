@@ -12,6 +12,35 @@ public sealed class ProcessPriorityOptimization : IReversibleOptimizationOperati
     public string NameAr => "رفع أولوية اللعبة مؤقتًا";
     public string Risk => "LOW";
 
+    public Task<OperationPreflightResult> PreflightAsync(OperationContext context, CancellationToken cancellationToken)
+    {
+        cancellationToken.ThrowIfCancellationRequested();
+        try
+        {
+            using var process = Process.GetProcessById(context.ProcessId);
+            var current = process.PriorityClass;
+            if (current is ProcessPriorityClass.AboveNormal or ProcessPriorityClass.High or ProcessPriorityClass.RealTime)
+            {
+                return Task.FromResult(new OperationPreflightResult(
+                    false,
+                    "أولوية اللعبة مرتفعة مسبقًا؛ لا توجد فائدة من اختبار هذا التعديل.",
+                    $"Current priority is {current}."));
+            }
+
+            return Task.FromResult(new OperationPreflightResult(
+                true,
+                "أولوية اللعبة الحالية تسمح باختبار AboveNormal بشكل قابل للتراجع."));
+        }
+        catch (ArgumentException)
+        {
+            return Task.FromResult(new OperationPreflightResult(false, "اللعبة أغلقت قبل بدء التجربة.", "Process no longer exists."));
+        }
+        catch (Exception ex) when (ex is InvalidOperationException or System.ComponentModel.Win32Exception or NotSupportedException)
+        {
+            return Task.FromResult(new OperationPreflightResult(false, "تعذر قراءة أولوية اللعبة بأمان، لذلك تم تجاوز التجربة.", ex.Message));
+        }
+    }
+
     public Task<CapturedOperationState> CaptureStateAsync(OperationContext context, CancellationToken cancellationToken)
     {
         cancellationToken.ThrowIfCancellationRequested();
