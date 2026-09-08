@@ -357,6 +357,12 @@ public partial class MainWindow : Window
         {
             try
             {
+                if (_busy)
+                {
+                    await Task.Delay(TimeSpan.FromSeconds(2), cancellationToken);
+                    continue;
+                }
+
                 var sample = await _telemetry.SampleAsync(cancellationToken);
                 CpuUsageText.Text = sample.CpuUtilizationPercent is null
                     ? "الاستخدام: جارٍ المعايرة..."
