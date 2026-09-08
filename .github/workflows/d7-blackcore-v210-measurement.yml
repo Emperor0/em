@@ -27,14 +27,17 @@ jobs:
           $module=Get-Content $mod -Raw -Encoding UTF8
           $raw=$raw.Replace("`$Version='2.0.0'","`$Version='2.1.0'")
           $raw=$raw.Replace("`$form.Text='D7 BLACKCORE v2.0'","`$form.Text='D7 BLACKCORE v2.1'")
-          if(-not $raw.Contains('LoadGames')){throw 'LoadGames marker missing'}
-          $raw=$raw.Replace("LoadGames`r`n`$form=",($module+"`r`n`r`nLoadGames`r`n`$form="))
-          if(-not $raw.Contains("`$bTools=Btn 'TOOL HUB'")){throw 'Tool UI marker missing'}
-          $raw=$raw.Replace("`$bTools=Btn 'TOOL HUB' 30 170 190;`$bWinget=Btn 'REVIEW APP UPDATES' 235 170 190;`$bFolder=Btn 'OPEN SCANS' 440 170 190", "`$bTools=Btn 'TOOL HUB' 30 170 190;`$bWinget=Btn 'REVIEW APP UPDATES' 235 170 190;`$bFolder=Btn 'OPEN SCANS' 440 170 190;`$bMeasure=Btn 'MEASURE BASELINE' 645 170 190;`$bLatency=Btn 'LATENCY LAB' 850 170 120;`$bCompare=Btn 'A/B COMPARE' 980 170 100")
-          $handler="`r`n`$bMeasure.Add_Click({`$stat.Text='State: MEASURING';`$stat.ForeColor=[Drawing.Color]::DeepSkyBlue;[void](Run-MeasurementBaseline);`$stat.Text='State: MEASUREMENT COMPLETE';`$stat.ForeColor=[Drawing.Color]::LawnGreen})`r`n`$bLatency.Add_Click({[void](Run-LatencyAudit)})`r`n`$bCompare.Add_Click({Compare-LastMeasurements})"
-          $marker="`$bTools.Add_Click({`$t=ToolInventory;`$s=`$t|ForEach-Object{('{0,-28} {1,-10} {2}'-f`$_.Name,`$_.Installed,`$_.Version)};[Windows.Forms.MessageBox]::Show((`$s-join\"`n\"),'D7 Tool Hub')|Out-Null})"
-          if(-not $raw.Contains($marker)){throw 'Tool handler marker missing'}
-          $raw=$raw.Replace($marker,($marker+$handler))
+          $loadMarker="LoadGames`r`n`$form="
+          if(-not $raw.Contains($loadMarker)){throw 'LoadGames/form marker missing'}
+          $raw=$raw.Replace($loadMarker,($module+"`r`n`r`nLoadGames`r`n`$form="))
+          $oldButtons="`$bTools=Btn 'TOOL HUB' 30 170 190;`$bWinget=Btn 'REVIEW APP UPDATES' 235 170 190;`$bFolder=Btn 'OPEN SCANS' 440 170 190"
+          $newButtons="`$bTools=Btn 'TOOL HUB' 30 170 190;`$bWinget=Btn 'REVIEW APP UPDATES' 235 170 190;`$bFolder=Btn 'OPEN SCANS' 440 170 190;`$bMeasure=Btn 'MEASURE BASELINE' 645 170 190;`$bLatency=Btn 'LATENCY LAB' 850 170 120;`$bCompare=Btn 'A/B COMPARE' 980 170 100"
+          if(-not $raw.Contains($oldButtons)){throw 'Tool UI marker missing'}
+          $raw=$raw.Replace($oldButtons,$newButtons)
+          $handler="`$bMeasure.Add_Click({`$stat.Text='State: MEASURING';`$stat.ForeColor=[Drawing.Color]::DeepSkyBlue;[void](Run-MeasurementBaseline);`$stat.Text='State: MEASUREMENT COMPLETE';`$stat.ForeColor=[Drawing.Color]::LawnGreen})`r`n`$bLatency.Add_Click({[void](Run-LatencyAudit)})`r`n`$bCompare.Add_Click({Compare-LastMeasurements})`r`n"
+          $timerMarker='`$timer=New-Object Windows.Forms.Timer;'
+          if(-not $raw.Contains($timerMarker)){throw 'Timer marker missing'}
+          $raw=$raw.Replace($timerMarker,($handler+$timerMarker))
           [IO.File]::WriteAllText($out,$raw,(New-Object Text.UTF8Encoding($true)))
           $tokens=$null;$errors=$null
           [System.Management.Automation.Language.Parser]::ParseFile($out,[ref]$tokens,[ref]$errors)|Out-Null
