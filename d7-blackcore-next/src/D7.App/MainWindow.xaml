@@ -1,0 +1,100 @@
+<Window x:Class="D7.App.MainWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="D7 BLACKCORE"
+        Width="1180" Height="760"
+        MinWidth="980" MinHeight="640"
+        WindowStartupLocation="CenterScreen">
+    <Grid Margin="18">
+        <Grid.ColumnDefinitions>
+            <ColumnDefinition Width="235" />
+            <ColumnDefinition Width="18" />
+            <ColumnDefinition Width="*" />
+        </Grid.ColumnDefinitions>
+
+        <Border Grid.Column="0" Background="{StaticResource PanelBrush}" CornerRadius="14" Padding="14">
+            <DockPanel>
+                <StackPanel DockPanel.Dock="Top">
+                    <TextBlock Text="D7 BLACKCORE" FontSize="24" FontWeight="Bold" Foreground="{StaticResource AccentBrush}" />
+                    <TextBlock Text="منسق أداء الألعاب" Margin="0,2,0,18" Foreground="{StaticResource MutedBrush}" />
+                </StackPanel>
+                <StackPanel>
+                    <Button Content="الرئيسية" />
+                    <Button Content="الألعاب" />
+                    <Button Content="الأداء" />
+                    <Button Content="كرت الشاشة" />
+                    <Button Content="المعالج" />
+                    <Button Content="الرام" />
+                    <Button Content="التبريد" />
+                    <Button Content="الشبكة" />
+                    <Button Content="البث و OBS" />
+                    <Button Content="التعريفات" />
+                    <Button Content="الأدوات" />
+                    <Button Content="السجل" />
+                    <Button Content="الإعدادات" />
+                </StackPanel>
+            </DockPanel>
+        </Border>
+
+        <ScrollViewer Grid.Column="2" VerticalScrollBarVisibility="Auto">
+            <StackPanel>
+                <Grid>
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="*" />
+                        <ColumnDefinition Width="Auto" />
+                    </Grid.ColumnDefinitions>
+                    <StackPanel>
+                        <TextBlock Text="حالة الجهاز" FontSize="30" FontWeight="Bold" />
+                        <TextBlock x:Name="SubtitleText" Text="جارٍ تجهيز D7..." Margin="0,5,0,0" Foreground="{StaticResource MutedBrush}" FontSize="15" />
+                    </StackPanel>
+                    <Border Grid.Column="1" Background="#15251B" CornerRadius="12" Padding="18,10" VerticalAlignment="Center">
+                        <TextBlock x:Name="HealthText" Text="جارٍ الفحص" FontSize="17" FontWeight="Bold" Foreground="{StaticResource AccentBrush}" />
+                    </Border>
+                </Grid>
+
+                <UniformGrid Columns="4" Margin="0,22,0,14">
+                    <Border Background="{StaticResource PanelBrush}" CornerRadius="12" Margin="4" Padding="14"><StackPanel><TextBlock Text="المعالج" Foreground="{StaticResource MutedBrush}"/><TextBlock Text="بانتظار القياس" FontSize="18" FontWeight="SemiBold"/></StackPanel></Border>
+                    <Border Background="{StaticResource PanelBrush}" CornerRadius="12" Margin="4" Padding="14"><StackPanel><TextBlock Text="كرت الشاشة" Foreground="{StaticResource MutedBrush}"/><TextBlock Text="بانتظار القياس" FontSize="18" FontWeight="SemiBold"/></StackPanel></Border>
+                    <Border Background="{StaticResource PanelBrush}" CornerRadius="12" Margin="4" Padding="14"><StackPanel><TextBlock Text="الذاكرة" Foreground="{StaticResource MutedBrush}"/><TextBlock Text="بانتظار القياس" FontSize="18" FontWeight="SemiBold"/></StackPanel></Border>
+                    <Border Background="{StaticResource PanelBrush}" CornerRadius="12" Margin="4" Padding="14"><StackPanel><TextBlock Text="ثبات الإطارات" Foreground="{StaticResource MutedBrush}"/><TextBlock Text="بانتظار اللعبة" FontSize="18" FontWeight="SemiBold"/></StackPanel></Border>
+                </UniformGrid>
+
+                <Border Background="{StaticResource PanelBrush}" CornerRadius="14" Padding="18" Margin="0,6,0,14">
+                    <StackPanel>
+                        <TextBlock Text="التجهيز الأولي" FontSize="20" FontWeight="Bold" Margin="0,0,0,10" />
+                        <ItemsControl x:Name="ChecksList">
+                            <ItemsControl.ItemTemplate>
+                                <DataTemplate>
+                                    <Grid Margin="0,4">
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="28" />
+                                            <ColumnDefinition Width="190" />
+                                            <ColumnDefinition Width="*" />
+                                        </Grid.ColumnDefinitions>
+                                        <TextBlock Text="{Binding Icon}" FontSize="16" />
+                                        <TextBlock Grid.Column="1" Text="{Binding Title}" FontWeight="SemiBold" />
+                                        <TextBlock Grid.Column="2" Text="{Binding Detail}" Foreground="{StaticResource MutedBrush}" TextWrapping="Wrap" />
+                                    </Grid>
+                                </DataTemplate>
+                            </ItemsControl.ItemTemplate>
+                        </ItemsControl>
+                    </StackPanel>
+                </Border>
+
+                <Border Background="#10151B" BorderBrush="#27313B" BorderThickness="1" CornerRadius="14" Padding="18">
+                    <Grid>
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*" />
+                            <ColumnDefinition Width="Auto" />
+                        </Grid.ColumnDefinitions>
+                        <StackPanel>
+                            <TextBlock Text="الوضع الذكي" FontSize="22" FontWeight="Bold" />
+                            <TextBlock Text="سيفحص D7 الجهاز ويقيس الأداء قبل أي تعديل. لا يتم الاحتفاظ بأي تغيير يضر الثبات." Foreground="{StaticResource MutedBrush}" TextWrapping="Wrap" Margin="0,5,0,0" />
+                        </StackPanel>
+                        <Button Grid.Column="1" x:Name="OptimizeButton" Content="تحسين جهازي" Width="170" Height="48" Background="{StaticResource AccentBrush}" Foreground="#061009" FontWeight="Bold" IsEnabled="False" />
+                    </Grid>
+                </Border>
+            </StackPanel>
+        </ScrollViewer>
+    </Grid>
+</Window>
