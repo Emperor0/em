@@ -1,11 +1,11 @@
 {
     "product":  "D7 BLACKCORE",
     "channel":  "stable",
-    "version":  "2.1.1",
+    "version":  "2.1.2",
     "minimumWindowsBuild":  19045,
     "updateMode":  "online-only",
-    "packageUrl":  "https://raw.githubusercontent.com/Emperor0/em/main/d7-gaming-engine/stable/D7_BLACKCORE_v2.1.1.zip",
-    "sha256":  "11508735281ed5ae59864f201293f7257ab72206fbda5e281cc763ddf0ede15b",
-    "changelogAr":  "Hotfix: BLACKSCAN no longer recursively scans Program Files for every tool. Fast registry/task/path detection plus UI responsiveness between scan stages.",
-    "publishedUtc":  "2026-09-08T12:36:49.9020301Z"
+    "packageUrl":  "https://raw.githubusercontent.com/Emperor0/em/main/d7-gaming-engine/stable/D7_BLACKCORE_v2.1.2.zip",
+    "sha256":  "94b7c302a6666e7c154de524b3b0c38547f4877a0a153147620ade74aed042a3",
+    "changelogAr":  "Hotfix: Ø¥ØµÙ„Ø§Ø­ Learn Game ÙˆØ®Ø·Ø£ finallyØŒ ÙˆØªØµØ­ÙŠØ­ Windows foreground interopØŒ Ù…Ø¹ Ø±Ø³Ø§Ø¦Ù„ Ù†Ø¬Ø§Ø­/ÙØ´Ù„ ÙˆØ§Ø¶Ø­Ø©.",
+    "publishedUtc":  "2026-09-08T12:58:10.4090469Z"
 }
