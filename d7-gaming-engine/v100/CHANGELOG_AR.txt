@@ -1,13 +1,6 @@
-D7 Gaming Engine v1.0.0 — Adaptive Performance Engine
+D7 Gaming Engine v1.0.1 — Hotfix
 
-- محرك Adaptive جديد يراقب حالة الجهاز كل 2.5 ثانية أثناء اللعب.
-- Telemetry مباشر: CPU الكلي، CPU الخاص باللعبة، GPU utilization، حرارة GPU، VRAM، GPU clock/power، RAM المتاحة.
-- تصنيف ذكي للحالة مع Confidence: GPU_BOUND / CPU_BOUND / THERMAL_LIMIT / MEMORY_PRESSURE / BACKGROUND_INTERFERENCE / BALANCED.
-- Adaptive Scheduler يتدخل فقط عند الحاجة ويخفض أولوية برامج الخلفية المعروفة بدون إغلاقها بالقوة.
-- ذاكرة تعلم لكل لعبة تحفظ عدد الجلسات والعينات وأنواع الاختناقات التي ظهرت على الجهاز.
-- جلسة لعب قابلة للاسترجاع: Game Mode + AboveNormal + High Performance الموجود فقط + استرجاع تلقائي عند خروج اللعبة.
-- تحديثات ONLINE ONLY: يفحص stable/latest.json على GitHub، ينزل الحزمة، يتحقق من SHA-256، ثم يحدث نفس EXE ويعيد تشغيله.
-- زر تحديث أونلاين داخل التطبيق + فحص تلقائي بعد بدء التشغيل.
-- لا BCD/HPET/Timer forcing، لا RAM purge، لا Real-Time priority، لا إغلاق برامج بالقوة، ولا وصول لذاكرة اللعبة/Anti-Cheat.
-
-ملاحظة: v1.0.0 يبني طبقة الذكاء التكيفية والقياس النظامي. قياس frametime/1% lows عبر PresentMon سيكون طبقة Benchmark لاحقة بعد تثبيت هذا الأساس واختباره على الجهاز الحقيقي.
+- إصلاح خطأ التحديث الأونلاين الذي كان يظهر رسالة: You cannot call a method on a null-valued expression.
+- تحسين التحقق من latest.json والقيم الفارغة قبل المقارنة أو التحديث.
+- منع فشل واجهة التطبيق عند تعذر قراءة أي حقل اختياري من Manifest.
+- الإبقاء على Adaptive Performance Engine ونظام ONLINE ONLY كما هو.
