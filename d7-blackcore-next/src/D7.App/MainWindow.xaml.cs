@@ -4,8 +4,8 @@ using D7.Benchmark.Models;
 using D7.Core.Logging;
 using D7.Hardware.Discovery;
 using D7.Hardware.Telemetry;
-using D7.Optimization.Operations;
 using D7.Orchestration;
+using D7.Orchestration.Planning;
 
 namespace D7.App;
 
@@ -16,7 +16,7 @@ public partial class MainWindow : Window
     private readonly WindowsHardwareDiscoveryService _hardwareDiscovery;
     private readonly SystemTelemetrySampler _telemetry;
     private readonly CoreFlowCoordinator _coreFlow;
-    private readonly ProcessPriorityOptimization _priorityExperiment;
+    private readonly OptimizationPlanner _planner;
     private readonly StartupRecoveryService _recovery;
     private readonly bool _safeMode;
     private readonly CancellationTokenSource _lifetime = new();
@@ -29,7 +29,7 @@ public partial class MainWindow : Window
         WindowsHardwareDiscoveryService hardwareDiscovery,
         SystemTelemetrySampler telemetry,
         CoreFlowCoordinator coreFlow,
-        ProcessPriorityOptimization priorityExperiment,
+        OptimizationPlanner planner,
         StartupRecoveryService recovery,
         bool safeMode)
     {
@@ -39,7 +39,7 @@ public partial class MainWindow : Window
         _hardwareDiscovery = hardwareDiscovery;
         _telemetry = telemetry;
         _coreFlow = coreFlow;
-        _priorityExperiment = priorityExperiment;
+        _planner = planner;
         _recovery = recovery;
         _safeMode = safeMode;
         Loaded += OnLoaded;
@@ -175,8 +175,8 @@ public partial class MainWindow : Window
 
             _baselinePassed = true;
             ShowFrameAnalysis(result.Game?.ProcessName ?? "اللعبة", result.Baseline.Analysis);
-            ExperimentText.Text = "تم حفظ خط الأساس. يمكنك الآن تشغيل تجربة A/B القابلة للتراجع.";
-            HealthText.Text = "Baseline جاهز";
+            ExperimentText.Text = "تم حفظ خط الأساس. D7 سيختار الآن فقط تجربة منخفضة المخاطر تنطبق فعلًا على جهازك.";
+            HealthText.Text = "خط الأساس جاهز";
         }
         catch (OperationCanceledException)
         {
@@ -215,11 +215,45 @@ public partial class MainWindow : Window
 
         try
         {
-            HealthText.Text = "تجربة A/B";
-            ExperimentText.Text = "ارجع إلى اللعبة الآن. بعد 5 ثوانٍ سيقيس D7 الحالة الأصلية، يختبر تعديلًا واحدًا، ثم يطلب قياس تأكيد إذا ظهر تحسن.";
+            HealthText.Text = "تحليل التجربة المناسبة";
+            ExperimentText.Text = "ارجع إلى اللعبة الآن. بعد 5 ثوانٍ سيختار D7 تعديلًا منخفض المخاطر ينطبق فعلًا ثم يبدأ A/B.";
             await Task.Delay(TimeSpan.FromSeconds(5), _lifetime.Token);
 
-            var result = await _coreFlow.RunExperimentAsync(_priorityExperiment, TimeSpan.FromSeconds(20), _lifetime.Token);
+            var game = await _coreFlow.DetectGameAsync(_lifetime.Token);
+            if (game is null)
+            {
+                HealthText.Text = "لم يتم اكتشاف لعبة";
+                ExperimentText.Text = "لم يغير D7 أي إعداد. شغّل اللعبة واتركها مفتوحة ثم أعد المحاولة.";
+                return;
+            }
+
+            var plan = await _planner.SelectNextAsync(game, _lifetime.Token);
+            await _logger.WriteAsync(
+                "Planner",
+                "AUTO",
+                "Information",
+                plan.MessageAr,
+                new
+                {
+                    Game = game.ProcessName,
+                    SelectedOperation = plan.Operation?.Id,
+                    plan.Checks
+                },
+                CancellationToken.None);
+
+            if (!plan.HasOperation || plan.Operation is null)
+            {
+                HealthText.Text = "لا يوجد تعديل مفيد الآن";
+                ExperimentText.Text = plan.MessageAr;
+                var lastCheck = plan.Checks.LastOrDefault();
+                if (lastCheck is not null) FrameDetailText.Text = lastCheck.MessageAr;
+                return;
+            }
+
+            HealthText.Text = "تجربة A/B";
+            ExperimentText.Text = $"التجربة المختارة: {plan.Operation.NameAr}. سيقيس D7 الحالة الأصلية ثم التعديل ويطلب تأكيدًا إذا ظهر تحسن.";
+
+            var result = await _coreFlow.RunExperimentAsync(plan.Operation, TimeSpan.FromSeconds(20), _lifetime.Token);
             ExperimentText.Text = result.MessageAr;
 
             var analysis = result.Confirmation?.Analysis ?? result.Candidate?.Analysis ?? result.Baseline?.Analysis;
@@ -229,7 +263,7 @@ public partial class MainWindow : Window
             var finalComparison = result.ConfirmationComparison ?? result.Comparison;
             if (finalComparison is not null)
             {
-                FrameDetailText.Text = $"1% Low: {finalComparison.OnePercentLowDeltaPercent:+0.0;-0.0;0.0}% | P99: {finalComparison.P99DeltaPercent:+0.0;-0.0;0.0}% | فرق التقطيع: {finalComparison.StutterDelta:+#;-#;0}";
+                FrameDetailText.Text = $"أقل 1%: {finalComparison.OnePercentLowDeltaPercent:+0.0;-0.0;0.0}% | P99: {finalComparison.P99DeltaPercent:+0.0;-0.0;0.0}% | فرق التقطيع: {finalComparison.StutterDelta:+#;-#;0}";
             }
 
             HealthText.Text = result.RolledBack
@@ -271,8 +305,8 @@ public partial class MainWindow : Window
 
     private void ShowFrameAnalysis(string gameName, FrameAnalysis analysis)
     {
-        FrameText.Text = $"{gameName} | Avg {analysis.AverageFps:0.0} | 1% {analysis.OnePercentLowAverageFps:0.0}";
-        FrameDetailText.Text = $"P99 {analysis.P99FrameTimeMs:0.00} ms | Stutters {analysis.StutterCount} | Frames {analysis.FrameCount}";
+        FrameText.Text = $"{gameName} | المتوسط {analysis.AverageFps:0.0} FPS | أقل 1% {analysis.OnePercentLowAverageFps:0.0} FPS";
+        FrameDetailText.Text = $"P99 {analysis.P99FrameTimeMs:0.00} ms | التقطعات {analysis.StutterCount} | الإطارات {analysis.FrameCount}";
     }
 
     private async Task RunTelemetryLoopAsync(CancellationToken cancellationToken)
