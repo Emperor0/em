@@ -1,0 +1,5 @@
+<Solution>
+  <Project Path="src/D7.Core/D7.Core.csproj" />
+  <Project Path="src/D7.App/D7.App.csproj" />
+  <Project Path="tests/D7.UnitTests/D7.UnitTests.csproj" />
+</Solution>
