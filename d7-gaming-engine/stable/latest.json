@@ -1,11 +1,11 @@
 {
-    "product":  "D7 Gaming Engine",
+    "product":  "D7 BLACKCORE",
     "channel":  "stable",
-    "version":  "1.1.1",
+    "version":  "2.0.1",
     "minimumWindowsBuild":  19045,
     "updateMode":  "online-only",
-    "packageUrl":  "https://raw.githubusercontent.com/Emperor0/em/main/d7-gaming-engine/stable/D7_Gaming_Engine_v1.1.1.zip",
-    "sha256":  "92b8f3b4fa31704cea2bb68207c77a3793074e9ce33f405aa1cceff91ea17206",
-    "changelogAr":  "D7 Gaming Engine v1.1.1 â€” Runtime Hotfix\r\n\r\n- Ø¥ØµÙ„Ø§Ø­ Ø®Ø·Ø£ PowerShell: The term \u0027return$false\u0027 is not recognized.\r\n- Ø¥ØµÙ„Ø§Ø­ Ø¬Ù…ÙŠØ¹ return$ / return[ / return( Ø§Ù„Ù…Ø´Ø§Ø¨Ù‡Ø© Ù‚Ø¨Ù„ Ø§Ù„Ø¨Ù†Ø§Ø¡ØŒ ÙˆÙ„ÙŠØ³ Ø§Ù„Ù…ÙˆØ¶Ø¹ Ø§Ù„Ø¸Ø§Ù‡Ø± ÙÙ‚Ø·.\r\n- Ø¥Ø¶Ø§ÙØ© ÙØ­Øµ static ÙŠÙ…Ù†Ø¹ Ø±Ø¬ÙˆØ¹ Ù†ÙØ³ ÙØ¦Ø© Ø§Ù„Ø®Ø·Ø£ Ù…Ø³ØªÙ‚Ø¨Ù„Ù‹Ø§.\r\n- Ø§Ù„Ù…Ø­Ø§ÙØ¸Ø© Ø¹Ù„Ù‰ Gaming + Streaming profile Ø§Ù„Ø®ÙÙŠÙ ÙˆØ§Ù„Ù‚Ø§Ø¨Ù„ Ù„Ù„Ø§Ø³ØªØ±Ø¬Ø§Ø¹.\r\n- Ø§Ù„Ù…Ø­Ø§ÙØ¸Ø© Ø¹Ù„Ù‰ Online Only + SHA-256 updater.",
-    "publishedUtc":  "2026-09-08T11:39:49.0055857Z"
+    "packageUrl":  "https://raw.githubusercontent.com/Emperor0/em/main/d7-gaming-engine/stable/D7_BLACKCORE_v2.0.1.zip",
+    "sha256":  "36673d9cea0d6872275b077855bfa3887b2ee4c50f6a11b4577d32767e397650",
+    "changelogAr":  "BLACKSCAN + adaptive local learning + deep reversible gaming/streaming profile + Tool Hub + runtime syntax hardening.",
+    "publishedUtc":  "2026-09-08T11:59:30.4720744Z"
 }
