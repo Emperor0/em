@@ -1,0 +1,88 @@
+name: Build D7 BLACKCORE v2.1.1 Responsive Scan
+
+on:
+  workflow_dispatch:
+  push:
+    paths:
+      - '.github/workflows/d7-blackcore-v211-responsive-scan.yml'
+      - 'd7-gaming-engine/v211/fast-tool-inventory.ps1'
+
+permissions:
+  contents: write
+
+jobs:
+  build-windows:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Compose BLACKCORE v2.1.1 source
+        shell: powershell
+        run: |
+          $base=Join-Path $env:GITHUB_WORKSPACE 'd7-gaming-engine\v210\D7_BLACKCORE.ps1'
+          $patch=Join-Path $env:GITHUB_WORKSPACE 'd7-gaming-engine\v211\fast-tool-inventory.ps1'
+          $outDir=Join-Path $env:GITHUB_WORKSPACE 'd7-gaming-engine\v211'
+          $out=Join-Path $outDir 'D7_BLACKCORE.ps1'
+          $raw=Get-Content $base -Raw -Encoding UTF8
+          $fast=Get-Content $patch -Raw -Encoding UTF8
+          $raw=$raw.Replace("`$Version='2.1.0'","`$Version='2.1.1'")
+          $raw=$raw.Replace("`$form.Text='D7 BLACKCORE v2.1'","`$form.Text='D7 BLACKCORE v2.1.1'")
+          $pattern='(?s)function Find-ExeDeep \{.*?(?=function Get-PresentMonPath \{)'
+          $next=[regex]::Replace($raw,$pattern,($fast+"`r`n`r`n"),1)
+          if($next -eq $raw){throw 'Fast ToolInventory replacement marker missing'}
+          $raw=$next
+          $raw=$raw.Replace("Log 'BLACKSCAN started...';`$ts=", "Log 'BLACKSCAN started - FAST inventory mode...';[Windows.Forms.Application]::DoEvents();`$ts=")
+          $old="`$nvidia=GetNvidia;`$tools=ToolInventory;`$startup=GetStartup;`$drivers=GetDrivers;`$apps=InstalledApps;`$tasks=GetTasks;`$net=GetNet;`$hags="
+          $new="`$nvidia=GetNvidia;[Windows.Forms.Application]::DoEvents();`r`n `$tools=ToolInventory;[Windows.Forms.Application]::DoEvents();`r`n `$startup=GetStartup;[Windows.Forms.Application]::DoEvents();`r`n `$drivers=GetDrivers;[Windows.Forms.Application]::DoEvents();`r`n `$apps=InstalledApps;[Windows.Forms.Application]::DoEvents();`r`n `$tasks=GetTasks;[Windows.Forms.Application]::DoEvents();`r`n `$net=GetNet;[Windows.Forms.Application]::DoEvents();`r`n `$hags="
+          if(-not $raw.Contains($old)){throw 'BLACKSCAN stage marker missing'}
+          $raw=$raw.Replace($old,$new)
+          [IO.File]::WriteAllText($out,$raw,(New-Object Text.UTF8Encoding($true)))
+          $tokens=$null;$errors=$null
+          [System.Management.Automation.Language.Parser]::ParseFile($out,[ref]$tokens,[ref]$errors)|Out-Null
+          if($errors.Count -gt 0){$errors|ForEach-Object{Write-Host ('PARSER: '+$_.Message+' line '+$_.Extent.StartLineNumber)};throw ('Parser errors: '+$errors.Count)}
+          foreach($bad in @('return$false','return$true','return$null','return[','return(')){if($raw.Contains($bad)){throw ('Runtime-dangerous token remains: '+$bad)}}
+          "D7_SRC=$out"|Out-File $env:GITHUB_ENV -Encoding utf8 -Append
+
+      - name: Install PS2EXE
+        shell: powershell
+        run: |
+          Set-PSRepository -Name PSGallery -InstallationPolicy Trusted
+          Install-Module ps2exe -Scope CurrentUser -Force -AllowClobber
+          Import-Module ps2exe -Force
+
+      - name: Build D7 BLACKCORE v2.1.1
+        shell: powershell
+        run: |
+          $out=Join-Path $env:RUNNER_TEMP 'D7Blackcore211';New-Item $out -ItemType Directory -Force|Out-Null
+          $iconPath=Join-Path $env:RUNNER_TEMP 'D7.ico';$oldPkg=Join-Path $env:GITHUB_WORKSPACE 'd7-gaming-engine\stable\D7_BLACKCORE_v2.1.0.zip'
+          if(Test-Path $oldPkg){$tmp=Join-Path $env:RUNNER_TEMP 'Old211';Expand-Archive $oldPkg $tmp -Force;$old=Get-ChildItem $tmp -Recurse -Filter D7_Gaming_Engine.exe|Select-Object -First 1;if($old){Add-Type -AssemblyName System.Drawing;$ic=[Drawing.Icon]::ExtractAssociatedIcon($old.FullName);$st=[IO.File]::Create($iconPath);try{$ic.Save($st)}finally{$st.Dispose();$ic.Dispose()}}}
+          $a=@{inputFile=$env:D7_SRC;outputFile=(Join-Path $out 'D7_Gaming_Engine.exe');x64=$true;STA=$true;noConsole=$true;requireAdmin=$true;title='D7 BLACKCORE';product='D7 BLACKCORE Gaming System Orchestrator';company='D7';version='2.1.1.0'};if(Test-Path $iconPath){$a.iconFile=$iconPath};Invoke-ps2exe @a
+          Set-Content (Join-Path $out 'version.txt') '2.1.1' -Encoding ASCII
+          Set-Content (Join-Path $out 'README_HOTFIX.txt') @'
+          D7 BLACKCORE v2.1.1
+          Responsive BLACKSCAN hotfix.
+          Fixes the freeze caused by recursively scanning Program Files once per tool.
+          Tool detection now uses known paths, PATH, installed-app registry entries and scheduled-task executable paths.
+          BLACKSCAN yields UI events between expensive inventory stages.
+          '@ -Encoding UTF8
+          "D7_OUT=$out"|Out-File $env:GITHUB_ENV -Encoding utf8 -Append
+
+      - name: Package and publish stable
+        shell: powershell
+        run: |
+          $zip=Join-Path $env:RUNNER_TEMP 'D7_BLACKCORE_v2.1.1.zip';Compress-Archive -Path (Join-Path $env:D7_OUT '*') -DestinationPath $zip -Force
+          $hash=(Get-FileHash $zip -Algorithm SHA256).Hash.ToLowerInvariant();$stable=Join-Path $env:GITHUB_WORKSPACE 'd7-gaming-engine\stable';Copy-Item $zip (Join-Path $stable 'D7_BLACKCORE_v2.1.1.zip') -Force
+          $m=[ordered]@{product='D7 BLACKCORE';channel='stable';version='2.1.1';minimumWindowsBuild=19045;updateMode='online-only';packageUrl='https://raw.githubusercontent.com/Emperor0/em/main/d7-gaming-engine/stable/D7_BLACKCORE_v2.1.1.zip';sha256=$hash;changelogAr='Hotfix: BLACKSCAN no longer recursively scans Program Files for every tool. Fast registry/task/path detection plus UI responsiveness between scan stages.';publishedUtc=(Get-Date).ToUniversalTime().ToString('o')}
+          [IO.File]::WriteAllText((Join-Path $stable 'latest.json'),($m|ConvertTo-Json -Depth 5),(New-Object Text.UTF8Encoding($false)))
+          git config user.name 'D7 Release Bot';git config user.email 'd7-release-bot@users.noreply.github.com'
+          git add d7-gaming-engine/v211/D7_BLACKCORE.ps1 d7-gaming-engine/stable/D7_BLACKCORE_v2.1.1.zip d7-gaming-engine/stable/latest.json
+          git commit -m 'Publish D7 BLACKCORE v2.1.1 responsive scan hotfix'
+          git pull --rebase origin main
+          git push
+          "D7_ZIP=$zip"|Out-File $env:GITHUB_ENV -Encoding utf8 -Append
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: D7-BLACKCORE-v2.1.1-Windows
+          path: ${{ env.D7_ZIP }}
+          retention-days: 30
