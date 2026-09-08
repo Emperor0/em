@@ -53,10 +53,34 @@
                 </Grid>
 
                 <UniformGrid Columns="4" Margin="0,22,0,14">
-                    <Border Background="{StaticResource PanelBrush}" CornerRadius="12" Margin="4" Padding="14"><StackPanel><TextBlock Text="المعالج" Foreground="{StaticResource MutedBrush}"/><TextBlock Text="بانتظار القياس" FontSize="18" FontWeight="SemiBold"/></StackPanel></Border>
-                    <Border Background="{StaticResource PanelBrush}" CornerRadius="12" Margin="4" Padding="14"><StackPanel><TextBlock Text="كرت الشاشة" Foreground="{StaticResource MutedBrush}"/><TextBlock Text="بانتظار القياس" FontSize="18" FontWeight="SemiBold"/></StackPanel></Border>
-                    <Border Background="{StaticResource PanelBrush}" CornerRadius="12" Margin="4" Padding="14"><StackPanel><TextBlock Text="الذاكرة" Foreground="{StaticResource MutedBrush}"/><TextBlock Text="بانتظار القياس" FontSize="18" FontWeight="SemiBold"/></StackPanel></Border>
-                    <Border Background="{StaticResource PanelBrush}" CornerRadius="12" Margin="4" Padding="14"><StackPanel><TextBlock Text="ثبات الإطارات" Foreground="{StaticResource MutedBrush}"/><TextBlock Text="بانتظار اللعبة" FontSize="18" FontWeight="SemiBold"/></StackPanel></Border>
+                    <Border Background="{StaticResource PanelBrush}" CornerRadius="12" Margin="4" Padding="14">
+                        <StackPanel>
+                            <TextBlock Text="المعالج" Foreground="{StaticResource MutedBrush}" />
+                            <TextBlock x:Name="CpuText" Text="جارٍ الاكتشاف" FontSize="17" FontWeight="SemiBold" TextWrapping="Wrap" />
+                            <TextBlock x:Name="CpuUsageText" Text="الاستخدام: —" Foreground="{StaticResource MutedBrush}" Margin="0,4,0,0" />
+                        </StackPanel>
+                    </Border>
+                    <Border Background="{StaticResource PanelBrush}" CornerRadius="12" Margin="4" Padding="14">
+                        <StackPanel>
+                            <TextBlock Text="كرت الشاشة" Foreground="{StaticResource MutedBrush}" />
+                            <TextBlock x:Name="GpuText" Text="جارٍ الاكتشاف" FontSize="17" FontWeight="SemiBold" TextWrapping="Wrap" />
+                            <TextBlock x:Name="GpuUsageText" Text="الاستخدام: —" Foreground="{StaticResource MutedBrush}" Margin="0,4,0,0" />
+                        </StackPanel>
+                    </Border>
+                    <Border Background="{StaticResource PanelBrush}" CornerRadius="12" Margin="4" Padding="14">
+                        <StackPanel>
+                            <TextBlock Text="الذاكرة" Foreground="{StaticResource MutedBrush}" />
+                            <TextBlock x:Name="MemoryText" Text="جارٍ الاكتشاف" FontSize="17" FontWeight="SemiBold" TextWrapping="Wrap" />
+                            <TextBlock x:Name="MemoryUsageText" Text="الاستخدام: —" Foreground="{StaticResource MutedBrush}" Margin="0,4,0,0" />
+                        </StackPanel>
+                    </Border>
+                    <Border Background="{StaticResource PanelBrush}" CornerRadius="12" Margin="4" Padding="14">
+                        <StackPanel>
+                            <TextBlock Text="ثبات الإطارات" Foreground="{StaticResource MutedBrush}" />
+                            <TextBlock x:Name="FrameText" Text="بانتظار لعبة نشطة" FontSize="17" FontWeight="SemiBold" TextWrapping="Wrap" />
+                            <TextBlock Text="القياس قبل أي تعديل" Foreground="{StaticResource MutedBrush}" Margin="0,4,0,0" />
+                        </StackPanel>
+                    </Border>
                 </UniformGrid>
 
                 <Border Background="{StaticResource PanelBrush}" CornerRadius="14" Padding="18" Margin="0,6,0,14">
