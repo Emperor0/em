@@ -38,6 +38,9 @@ jobs:
           $timerMarker="`$timer=New-Object Windows.Forms.Timer;"
           if(-not $raw.Contains($timerMarker)){throw 'Timer marker missing'}
           $raw=$raw.Replace($timerMarker,($handler+$timerMarker))
+          $raw=[regex]::Replace($raw,'\breturn(?=\$|\[|\()','return ')
+          $raw=[regex]::Replace($raw,'\bif(?=\()','if ')
+          $raw=[regex]::Replace($raw,'\bforeach(?=\()','foreach ')
           [IO.File]::WriteAllText($out,$raw,(New-Object Text.UTF8Encoding($true)))
           $tokens=$null;$errors=$null
           [System.Management.Automation.Language.Parser]::ParseFile($out,[ref]$tokens,[ref]$errors)|Out-Null
