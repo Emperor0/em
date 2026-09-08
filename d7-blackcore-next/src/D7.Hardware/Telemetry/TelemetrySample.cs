@@ -21,4 +21,7 @@ public sealed record SystemTelemetrySample(
     double D7CpuTimeSeconds,
     long D7WorkingSetBytes,
     long D7PrivateBytes,
-    int D7ThreadCount);
+    int D7ThreadCount)
+{
+    public double? D7CpuUtilizationPercent { get; init; }
+}
