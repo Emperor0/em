@@ -18,5 +18,7 @@
     <ProjectReference Include="..\..\src\D7.Rollback\D7.Rollback.csproj" />
     <ProjectReference Include="..\..\src\D7.Games\D7.Games.csproj" />
     <ProjectReference Include="..\..\src\D7.Hardware\D7.Hardware.csproj" />
+    <ProjectReference Include="..\..\src\D7.Optimization\D7.Optimization.csproj" />
+    <ProjectReference Include="..\..\src\D7.Orchestration\D7.Orchestration.csproj" />
   </ItemGroup>
 </Project>
