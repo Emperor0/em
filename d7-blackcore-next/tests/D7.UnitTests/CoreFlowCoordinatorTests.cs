@@ -7,7 +7,8 @@ using D7.Games.Detection;
 using D7.Optimization.Contracts;
 using D7.Orchestration;
 using D7.Rollback.Journal;
-using D7.Rollback.Models;
+using D7.Stability;
+using D7.Stability.Models;
 using Xunit;
 
 namespace D7.UnitTests;
@@ -45,9 +46,7 @@ public sealed class CoreFlowCoordinatorTests
         Assert.Equal(3, fixture.FrameCapture.Calls);
         Assert.Equal(1, operation.ApplyCalls);
         Assert.Equal(0, operation.RollbackCalls);
-
-        var incomplete = await fixture.Journal.FindIncompleteAsync(CancellationToken.None);
-        Assert.Empty(incomplete);
+        Assert.Empty(await fixture.Journal.FindIncompleteAsync(CancellationToken.None));
     }
 
     [Fact]
@@ -66,6 +65,28 @@ public sealed class CoreFlowCoordinatorTests
         Assert.Equal(BenchmarkVerdict.Inconclusive, result.ConfirmationComparison!.Verdict);
         Assert.True(result.RolledBack);
         Assert.Equal(1, operation.RollbackCalls);
+    }
+
+    [Fact]
+    public async Task NewWheaEvent_ForcesRollbackEvenWhenFramesImprove()
+    {
+        var baseline = Capture(60, 20, 5);
+        var candidate = Capture(66, 18, 2);
+        var before = Stability([]);
+        var after = Stability([
+            new StabilityIssue(9001, DateTimeOffset.UtcNow, "Microsoft-Windows-WHEA-Logger", 18, "WHEA", "Critical")
+        ]);
+        using var fixture = new Fixture(Game(), [baseline, candidate], new FakeStabilityProbe([before, after]));
+        var operation = new FakeOperation();
+
+        var result = await fixture.Coordinator.RunExperimentAsync(operation, TimeSpan.FromSeconds(5), CancellationToken.None);
+
+        Assert.True(result.Success);
+        Assert.NotNull(result.Comparison);
+        Assert.Equal(BenchmarkVerdict.Rollback, result.Comparison!.Verdict);
+        Assert.True(result.RolledBack);
+        Assert.Equal(1, operation.RollbackCalls);
+        Assert.Equal(2, fixture.FrameCapture.Calls);
     }
 
     [Fact]
@@ -110,6 +131,9 @@ public sealed class CoreFlowCoordinatorTests
         return new BenchmarkCaptureResult(true, 777, DateTimeOffset.UtcNow, TimeSpan.FromSeconds(5), "test.csv", analysis, "ok");
     }
 
+    private static StabilitySnapshot Stability(IReadOnlyList<StabilityIssue> issues) =>
+        new(true, DateTimeOffset.UtcNow, issues);
+
     private sealed class Fixture : IDisposable
     {
         private readonly string _root;
@@ -117,7 +141,7 @@ public sealed class CoreFlowCoordinatorTests
         public TransactionJournal Journal { get; }
         public CoreFlowCoordinator Coordinator { get; }
 
-        public Fixture(ActiveGame? game, IReadOnlyList<BenchmarkCaptureResult> captures)
+        public Fixture(ActiveGame? game, IReadOnlyList<BenchmarkCaptureResult> captures, IStabilityProbe? stability = null)
         {
             _root = Path.Combine(Path.GetTempPath(), "D7-CoreFlow-Tests", Guid.NewGuid().ToString("N"));
             var paths = new AppPaths(Path.Combine(_root, "pd"), Path.Combine(_root, "la"));
@@ -125,7 +149,7 @@ public sealed class CoreFlowCoordinatorTests
             var logger = new JsonLineLogger(paths);
             Journal = new TransactionJournal(paths);
             FrameCapture = new FakeFrameCapture(captures);
-            Coordinator = new CoreFlowCoordinator(new FakeGameDetector(game), FrameCapture, Journal, logger);
+            Coordinator = new CoreFlowCoordinator(new FakeGameDetector(game), FrameCapture, Journal, logger, stability);
         }
 
         public void Dispose()
@@ -149,6 +173,17 @@ public sealed class CoreFlowCoordinatorTests
             Calls++;
             if (_index >= results.Count) throw new InvalidOperationException("No fake capture result configured.");
             return Task.FromResult(results[_index++]);
+        }
+    }
+
+    private sealed class FakeStabilityProbe(IReadOnlyList<StabilitySnapshot> snapshots) : IStabilityProbe
+    {
+        private int _index;
+
+        public Task<StabilitySnapshot> CaptureAsync(CancellationToken cancellationToken)
+        {
+            if (_index >= snapshots.Count) return Task.FromResult(snapshots[^1]);
+            return Task.FromResult(snapshots[_index++]);
         }
     }
 
