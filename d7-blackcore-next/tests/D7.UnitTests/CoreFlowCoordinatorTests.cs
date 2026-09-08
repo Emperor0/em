@@ -26,11 +26,12 @@ public sealed class CoreFlowCoordinatorTests
     }
 
     [Fact]
-    public async Task StrongImprovement_CommitsWithoutRollback()
+    public async Task StrongImprovement_RequiresConfirmationBeforeCommit()
     {
         var baseline = Capture(60, 20, 5);
         var candidate = Capture(65, 19, 4);
-        using var fixture = new Fixture(Game(), [baseline, candidate]);
+        var confirmation = Capture(64.5, 19.2, 4);
+        using var fixture = new Fixture(Game(), [baseline, candidate, confirmation]);
         var operation = new FakeOperation();
 
         var result = await fixture.Coordinator.RunExperimentAsync(operation, TimeSpan.FromSeconds(5), CancellationToken.None);
@@ -38,12 +39,33 @@ public sealed class CoreFlowCoordinatorTests
         Assert.True(result.Success);
         Assert.NotNull(result.Comparison);
         Assert.Equal(BenchmarkVerdict.Keep, result.Comparison!.Verdict);
+        Assert.NotNull(result.Confirmation);
+        Assert.NotNull(result.ConfirmationComparison);
         Assert.False(result.RolledBack);
+        Assert.Equal(3, fixture.FrameCapture.Calls);
         Assert.Equal(1, operation.ApplyCalls);
         Assert.Equal(0, operation.RollbackCalls);
 
         var incomplete = await fixture.Journal.FindIncompleteAsync(CancellationToken.None);
         Assert.Empty(incomplete);
+    }
+
+    [Fact]
+    public async Task FirstPassGainThatDoesNotRepeat_IsRolledBack()
+    {
+        var baseline = Capture(60, 20, 5);
+        var candidate = Capture(65, 19, 4);
+        var confirmation = Capture(60.5, 20.1, 5);
+        using var fixture = new Fixture(Game(), [baseline, candidate, confirmation]);
+        var operation = new FakeOperation();
+
+        var result = await fixture.Coordinator.RunExperimentAsync(operation, TimeSpan.FromSeconds(5), CancellationToken.None);
+
+        Assert.True(result.Success);
+        Assert.NotNull(result.ConfirmationComparison);
+        Assert.Equal(BenchmarkVerdict.Inconclusive, result.ConfirmationComparison!.Verdict);
+        Assert.True(result.RolledBack);
+        Assert.Equal(1, operation.RollbackCalls);
     }
 
     [Fact]
