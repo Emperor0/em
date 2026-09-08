@@ -1,0 +1,89 @@
+name: Build D7 BLACKCORE v2.1.2 Learn Game Hotfix
+
+on:
+  workflow_dispatch:
+  push:
+    paths:
+      - '.github/workflows/d7-blackcore-v212-learn-game-hotfix.yml'
+      - 'd7-gaming-engine/v212/learn-game-hotfix.ps1'
+
+permissions:
+  contents: write
+
+jobs:
+  build-windows:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Compose BLACKCORE v2.1.2 source
+        shell: powershell
+        run: |
+          $base=Join-Path $env:GITHUB_WORKSPACE 'd7-gaming-engine\v211\D7_BLACKCORE.ps1'
+          $patch=Join-Path $env:GITHUB_WORKSPACE 'd7-gaming-engine\v212\learn-game-hotfix.ps1'
+          $outDir=Join-Path $env:GITHUB_WORKSPACE 'd7-gaming-engine\v212'
+          $out=Join-Path $outDir 'D7_BLACKCORE.ps1'
+          $raw=Get-Content $base -Raw -Encoding UTF8
+          $learn=Get-Content $patch -Raw -Encoding UTF8
+          $raw=$raw.Replace("`$Version='2.1.1'","`$Version='2.1.2'")
+          $raw=$raw.Replace("`$form.Text='D7 BLACKCORE v2.1.1'","`$form.Text='D7 BLACKCORE v2.1.2'")
+
+          $pattern='(?s)function LearnForeground\s*\{.*?(?=function SetPrioritySafe\()'
+          $next=[regex]::Replace($raw,$pattern,($learn+"`r`n`r`n"),1)
+          if($next -eq $raw){throw 'LearnForeground replacement marker missing'}
+          $raw=$next
+
+          if($raw -match ';\s*finally\s*\{'){throw 'Invalid semicolon before finally remains'}
+          if($raw -match '\\"user32\.dll\\"'){throw 'Invalid escaped DllImport string remains'}
+          if(-not $raw.Contains('D7Foreground.NativeMethods')){throw 'New foreground interop type missing'}
+
+          [IO.File]::WriteAllText($out,$raw,(New-Object Text.UTF8Encoding($true)))
+          $tokens=$null;$errors=$null
+          [System.Management.Automation.Language.Parser]::ParseFile($out,[ref]$tokens,[ref]$errors)|Out-Null
+          if($errors.Count -gt 0){$errors|ForEach-Object{Write-Host ('PARSER: '+$_.Message+' line '+$_.Extent.StartLineNumber)};throw ('Parser errors: '+$errors.Count)}
+          foreach($bad in @('return$false','return$true','return$null','return[','return(')){if($raw.Contains($bad)){throw ('Runtime-dangerous token remains: '+$bad)}}
+          "D7_SRC=$out"|Out-File $env:GITHUB_ENV -Encoding utf8 -Append
+
+      - name: Install PS2EXE
+        shell: powershell
+        run: |
+          Set-PSRepository -Name PSGallery -InstallationPolicy Trusted
+          Install-Module ps2exe -Scope CurrentUser -Force -AllowClobber
+          Import-Module ps2exe -Force
+
+      - name: Build D7 BLACKCORE v2.1.2
+        shell: powershell
+        run: |
+          $out=Join-Path $env:RUNNER_TEMP 'D7Blackcore212';New-Item $out -ItemType Directory -Force|Out-Null
+          $iconPath=Join-Path $env:RUNNER_TEMP 'D7.ico';$oldPkg=Join-Path $env:GITHUB_WORKSPACE 'd7-gaming-engine\stable\D7_BLACKCORE_v2.1.1.zip'
+          if(Test-Path $oldPkg){$tmp=Join-Path $env:RUNNER_TEMP 'Old212';Expand-Archive $oldPkg $tmp -Force;$old=Get-ChildItem $tmp -Recurse -Filter D7_Gaming_Engine.exe|Select-Object -First 1;if($old){Add-Type -AssemblyName System.Drawing;$ic=[Drawing.Icon]::ExtractAssociatedIcon($old.FullName);$st=[IO.File]::Create($iconPath);try{$ic.Save($st)}finally{$st.Dispose();$ic.Dispose()}}}
+          $a=@{inputFile=$env:D7_SRC;outputFile=(Join-Path $out 'D7_Gaming_Engine.exe');x64=$true;STA=$true;noConsole=$true;requireAdmin=$true;title='D7 BLACKCORE';product='D7 BLACKCORE Gaming System Orchestrator';company='D7';version='2.1.2.0'};if(Test-Path $iconPath){$a.iconFile=$iconPath};Invoke-ps2exe @a
+          Set-Content (Join-Path $out 'version.txt') '2.1.2' -Encoding ASCII
+          Set-Content (Join-Path $out 'README_HOTFIX.txt') @'
+          D7 BLACKCORE v2.1.2
+          Learn Game hotfix.
+          Fixes the runtime "finally is not recognized" error.
+          Replaces the foreground-window interop with valid C# DllImport code.
+          Learn Game now reports success/failure cleanly and always restores the D7 window.
+          '@ -Encoding UTF8
+          "D7_OUT=$out"|Out-File $env:GITHUB_ENV -Encoding utf8 -Append
+
+      - name: Package and publish stable
+        shell: powershell
+        run: |
+          $zip=Join-Path $env:RUNNER_TEMP 'D7_BLACKCORE_v2.1.2.zip';Compress-Archive -Path (Join-Path $env:D7_OUT '*') -DestinationPath $zip -Force
+          $hash=(Get-FileHash $zip -Algorithm SHA256).Hash.ToLowerInvariant();$stable=Join-Path $env:GITHUB_WORKSPACE 'd7-gaming-engine\stable';Copy-Item $zip (Join-Path $stable 'D7_BLACKCORE_v2.1.2.zip') -Force
+          $m=[ordered]@{product='D7 BLACKCORE';channel='stable';version='2.1.2';minimumWindowsBuild=19045;updateMode='online-only';packageUrl='https://raw.githubusercontent.com/Emperor0/em/main/d7-gaming-engine/stable/D7_BLACKCORE_v2.1.2.zip';sha256=$hash;changelogAr='Hotfix: إصلاح Learn Game وخطأ finally، وتصحيح Windows foreground interop، مع رسائل نجاح/فشل واضحة.';publishedUtc=(Get-Date).ToUniversalTime().ToString('o')}
+          [IO.File]::WriteAllText((Join-Path $stable 'latest.json'),($m|ConvertTo-Json -Depth 5),(New-Object Text.UTF8Encoding($false)))
+          git config user.name 'D7 Release Bot';git config user.email 'd7-release-bot@users.noreply.github.com'
+          git add d7-gaming-engine/v212/D7_BLACKCORE.ps1 d7-gaming-engine/stable/D7_BLACKCORE_v2.1.2.zip d7-gaming-engine/stable/latest.json
+          git commit -m 'Publish D7 BLACKCORE v2.1.2 Learn Game hotfix'
+          git pull --rebase origin main
+          git push
+          "D7_ZIP=$zip"|Out-File $env:GITHUB_ENV -Encoding utf8 -Append
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: D7-BLACKCORE-v2.1.2-Windows
+          path: ${{ env.D7_ZIP }}
+          retention-days: 30
