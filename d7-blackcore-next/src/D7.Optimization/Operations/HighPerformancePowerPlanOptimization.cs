@@ -13,6 +13,33 @@ public sealed class HighPerformancePowerPlanOptimization : IReversibleOptimizati
     public string NameAr => "خطة الطاقة عالية الأداء";
     public string Risk => "LOW";
 
+    public Task<OperationPreflightResult> PreflightAsync(OperationContext context, CancellationToken cancellationToken)
+    {
+        cancellationToken.ThrowIfCancellationRequested();
+        try
+        {
+            var current = GetActiveScheme();
+            if (current == HighPerformance)
+            {
+                return Task.FromResult(new OperationPreflightResult(
+                    false,
+                    "خطة الطاقة عالية الأداء مفعلة مسبقًا؛ تم تجاوز التجربة.",
+                    $"Current scheme is {current:D}."));
+            }
+
+            return Task.FromResult(new OperationPreflightResult(
+                true,
+                "خطة الطاقة الحالية مختلفة ويمكن اختبار High Performance مع حفظ الخطة الأصلية."));
+        }
+        catch (Exception ex)
+        {
+            return Task.FromResult(new OperationPreflightResult(
+                false,
+                "تعذر قراءة خطة الطاقة الحالية بأمان، لذلك لن يغير D7 هذا الإعداد.",
+                ex.Message));
+        }
+    }
+
     public Task<CapturedOperationState> CaptureStateAsync(OperationContext context, CancellationToken cancellationToken)
     {
         cancellationToken.ThrowIfCancellationRequested();
