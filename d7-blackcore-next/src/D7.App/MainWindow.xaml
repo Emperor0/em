@@ -78,7 +78,7 @@
                         <StackPanel>
                             <TextBlock Text="ثبات الإطارات" Foreground="{StaticResource MutedBrush}" />
                             <TextBlock x:Name="FrameText" Text="بانتظار لعبة نشطة" FontSize="17" FontWeight="SemiBold" TextWrapping="Wrap" />
-                            <TextBlock Text="القياس قبل أي تعديل" Foreground="{StaticResource MutedBrush}" Margin="0,4,0,0" />
+                            <TextBlock x:Name="FrameDetailText" Text="القياس قبل أي تعديل" Foreground="{StaticResource MutedBrush}" Margin="0,4,0,0" TextWrapping="Wrap" />
                         </StackPanel>
                     </Border>
                 </UniformGrid>
@@ -113,9 +113,13 @@
                         </Grid.ColumnDefinitions>
                         <StackPanel>
                             <TextBlock Text="الوضع الذكي" FontSize="22" FontWeight="Bold" />
-                            <TextBlock Text="سيفحص D7 الجهاز ويقيس الأداء قبل أي تعديل. لا يتم الاحتفاظ بأي تغيير يضر الثبات." Foreground="{StaticResource MutedBrush}" TextWrapping="Wrap" Margin="0,5,0,0" />
+                            <TextBlock Text="يقيس D7 اللعبة أولًا، ثم يختبر تعديلًا واحدًا قابلًا للتراجع ويحتفظ به فقط إذا أثبت القياس تحسنًا واضحًا." Foreground="{StaticResource MutedBrush}" TextWrapping="Wrap" Margin="0,5,0,0" />
+                            <TextBlock x:Name="ExperimentText" Text="ابدأ بقياس خط أساس أثناء اللعب." Foreground="{StaticResource MutedBrush}" TextWrapping="Wrap" Margin="0,8,0,0" />
                         </StackPanel>
-                        <Button Grid.Column="1" x:Name="OptimizeButton" Content="تحسين جهازي" Width="170" Height="48" Background="{StaticResource AccentBrush}" Foreground="#061009" FontWeight="Bold" IsEnabled="False" />
+                        <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center">
+                            <Button x:Name="MeasureButton" Content="قياس اللعبة" Width="145" Height="48" IsEnabled="False" />
+                            <Button x:Name="OptimizeButton" Content="تجربة A/B آمنة" Width="170" Height="48" Background="{StaticResource AccentBrush}" Foreground="#061009" FontWeight="Bold" IsEnabled="False" />
+                        </StackPanel>
                     </Grid>
                 </Border>
             </StackPanel>
