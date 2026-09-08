@@ -1,11 +1,11 @@
 {
     "product":  "D7 Gaming Engine",
     "channel":  "stable",
-    "version":  "1.1.0",
+    "version":  "1.1.1",
     "minimumWindowsBuild":  19045,
     "updateMode":  "online-only",
-    "packageUrl":  "https://raw.githubusercontent.com/Emperor0/em/main/d7-gaming-engine/stable/D7_Gaming_Engine_v1.1.0.zip",
-    "sha256":  "8e41691916a9050d75afa971411bccc1b527da9d0c6bfd7ae41e701214ead44c",
-    "changelogAr":  "D7 Gaming Engine v1.1.0 — Gaming + Streaming Edition\r\n\r\n- إعادة بناء الحلقة الحية لتكون أخف بكثير على الجهاز.\r\n- إزالة WMI/CIM من المراقبة المستمرة؛ تستخدم فقط في الفحص العميق اليدوي.\r\n- CPU/RAM عبر Win32 مباشرة، وGPU كل 5 ثوانٍ أثناء اللعب فقط.\r\n- إضافة وضع ألعاب + بث قابل للاسترجاع بالكامل.\r\n- Game Mode ON وBackground Capture OFF.\r\n- تقليل المؤثرات المرئية وتطبيقات الخلفية غير الضرورية.\r\n- إيقاف Edge background mode وStartup Boost أثناء الوضع المخصص.\r\n- High Performance power plan عند تفعيل الوضع.\r\n- اللعبة وOBS إلى AboveNormal أثناء الجلسة، والمحدثات المعروفة إلى BelowNormal فقط.\r\n- D7 يخفض أولوية نفسه أثناء اللعب كي لا ينافس اللعبة أو OBS.\r\n- Backup/Restore لكل تعديلات النظام التي يطبقها الوضع.\r\n- إصلاح نظام التحديث الأونلاين والمحافظة على Online Only + SHA-256.\r\n- لا HPET/BCD/Timer tweaks، لا RAM purge، لا RealTime priority، لا تعطيل Defender أو Pagefile أو SysMain، ولا تعديلات Network Registry عشوائية.",
-    "publishedUtc":  "2026-09-08T11:35:32.4283585Z"
+    "packageUrl":  "https://raw.githubusercontent.com/Emperor0/em/main/d7-gaming-engine/stable/D7_Gaming_Engine_v1.1.1.zip",
+    "sha256":  "92b8f3b4fa31704cea2bb68207c77a3793074e9ce33f405aa1cceff91ea17206",
+    "changelogAr":  "D7 Gaming Engine v1.1.1 â€” Runtime Hotfix\r\n\r\n- Ø¥ØµÙ„Ø§Ø­ Ø®Ø·Ø£ PowerShell: The term \u0027return$false\u0027 is not recognized.\r\n- Ø¥ØµÙ„Ø§Ø­ Ø¬Ù…ÙŠØ¹ return$ / return[ / return( Ø§Ù„Ù…Ø´Ø§Ø¨Ù‡Ø© Ù‚Ø¨Ù„ Ø§Ù„Ø¨Ù†Ø§Ø¡ØŒ ÙˆÙ„ÙŠØ³ Ø§Ù„Ù…ÙˆØ¶Ø¹ Ø§Ù„Ø¸Ø§Ù‡Ø± ÙÙ‚Ø·.\r\n- Ø¥Ø¶Ø§ÙØ© ÙØ­Øµ static ÙŠÙ…Ù†Ø¹ Ø±Ø¬ÙˆØ¹ Ù†ÙØ³ ÙØ¦Ø© Ø§Ù„Ø®Ø·Ø£ Ù…Ø³ØªÙ‚Ø¨Ù„Ù‹Ø§.\r\n- Ø§Ù„Ù…Ø­Ø§ÙØ¸Ø© Ø¹Ù„Ù‰ Gaming + Streaming profile Ø§Ù„Ø®ÙÙŠÙ ÙˆØ§Ù„Ù‚Ø§Ø¨Ù„ Ù„Ù„Ø§Ø³ØªØ±Ø¬Ø§Ø¹.\r\n- Ø§Ù„Ù…Ø­Ø§ÙØ¸Ø© Ø¹Ù„Ù‰ Online Only + SHA-256 updater.",
+    "publishedUtc":  "2026-09-08T11:39:49.0055857Z"
 }
