@@ -10,6 +10,7 @@ mod persistence;
 mod profiles;
 mod rules;
 mod runtime;
+mod scene_items;
 mod scenes;
 mod settings;
 mod tiktok;
@@ -248,6 +249,40 @@ async fn media_input_property_items(app: tauri::AppHandle, name: String, propert
     media_inputs::property_items(app, name, property).await
 }
 
+#[tauri::command]
+async fn media_scene_item_state(app: tauri::AppHandle, scene: String, source: String) -> Result<scene_items::SceneItemState, String> {
+    scene_items::state(app, scene, source).await
+}
+
+#[tauri::command]
+async fn media_scene_item_set_transform(
+    app: tauri::AppHandle,
+    scene: String,
+    source: String,
+    x: f32,
+    y: f32,
+    rotation: f32,
+    scale_x: f32,
+    scale_y: f32,
+) -> Result<(), String> {
+    scene_items::set_transform(app, scene, source, x, y, rotation, scale_x, scale_y).await
+}
+
+#[tauri::command]
+async fn media_scene_item_set_enabled(app: tauri::AppHandle, scene: String, source: String, enabled: bool) -> Result<(), String> {
+    scene_items::set_enabled(app, scene, source, enabled).await
+}
+
+#[tauri::command]
+async fn media_scene_item_set_locked(app: tauri::AppHandle, scene: String, source: String, locked: bool) -> Result<(), String> {
+    scene_items::set_locked(app, scene, source, locked).await
+}
+
+#[tauri::command]
+async fn media_scene_item_set_index(app: tauri::AppHandle, scene: String, source: String, index: u32) -> Result<(), String> {
+    scene_items::set_index(app, scene, source, index).await
+}
+
 pub fn run() {
     logging::init();
     tauri::Builder::default()
@@ -270,7 +305,9 @@ pub fn run() {
             media_set_rtmp, media_stream_start, media_stream_stop, media_shutdown,
             media_inputs_list, media_input_kinds, media_input_create, media_input_remove, media_input_rename,
             media_input_set_muted, media_input_toggle_mute, media_input_set_volume_db,
-            media_input_settings, media_input_set_settings, media_input_property_items
+            media_input_settings, media_input_set_settings, media_input_property_items,
+            media_scene_item_state, media_scene_item_set_transform, media_scene_item_set_enabled,
+            media_scene_item_set_locked, media_scene_item_set_index
         ])
         .run(tauri::generate_context!())
         .expect("error while running D7 LIVE");
