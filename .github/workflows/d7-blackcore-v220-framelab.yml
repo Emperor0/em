@@ -93,7 +93,7 @@ jobs:
         run: |
           $zip=Join-Path $env:RUNNER_TEMP 'D7_BLACKCORE_v2.2.0.zip';Compress-Archive -Path (Join-Path $env:D7_OUT '*') -DestinationPath $zip -Force
           $hash=(Get-FileHash $zip -Algorithm SHA256).Hash.ToLowerInvariant();$stable=Join-Path $env:GITHUB_WORKSPACE 'd7-gaming-engine\stable';Copy-Item $zip (Join-Path $stable 'D7_BLACKCORE_v2.2.0.zip') -Force
-          $m=[ordered]@{product='D7 BLACKCORE';channel='stable';version='2.2.0';minimumWindowsBuild=19045;updateMode='online-only';packageUrl='https://raw.githubusercontent.com/Emperor0/em/main/d7-gaming-engine/stable/D7_BLACKCORE_v2.2.0.zip';sha256=$hash;changelogAr='FRAME LAB: تنزيل PresentMon الرسمي تلقائيا مع تحقق SHA256، قياس 30 ثانية فعلي، PresentMon v2 metrics، مقارنة A/B لنفس اللعبة وحكم KEEP/ROLLBACK/INCONCLUSIVE.';publishedUtc=(Get-Date).ToUniversalTime().ToString('o')}
+          $m=[ordered]@{product='D7 BLACKCORE';channel='stable';version='2.2.0';minimumWindowsBuild=19045;updateMode='online-only';packageUrl='https://raw.githubusercontent.com/Emperor0/em/main/d7-gaming-engine/stable/D7_BLACKCORE_v2.2.0.zip';sha256=$hash;changelogAr='FRAME LAB: automatic verified PresentMon acquisition, 30-second real capture, v2 metrics, same-game A/B comparison, and KEEP/ROLLBACK/INCONCLUSIVE verdict.';publishedUtc=(Get-Date).ToUniversalTime().ToString('o')}
           [IO.File]::WriteAllText((Join-Path $stable 'latest.json'),($m|ConvertTo-Json -Depth 5),(New-Object Text.UTF8Encoding($false)))
           git config user.name 'D7 Release Bot';git config user.email 'd7-release-bot@users.noreply.github.com'
           git add d7-gaming-engine/v220/D7_BLACKCORE.ps1 d7-gaming-engine/stable/D7_BLACKCORE_v2.2.0.zip d7-gaming-engine/stable/latest.json
