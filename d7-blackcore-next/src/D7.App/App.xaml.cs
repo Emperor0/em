@@ -71,6 +71,7 @@ public partial class App : Application
         var journal = new TransactionJournal(paths);
         var coreFlow = new CoreFlowCoordinator(gameDetector, frameCapture, journal, _logger);
         var priorityExperiment = new ProcessPriorityOptimization();
+        var recovery = new StartupRecoveryService(journal, [priorityExperiment], _logger);
 
         var window = new MainWindow(
             bootstrap,
@@ -79,6 +80,7 @@ public partial class App : Application
             telemetry,
             coreFlow,
             priorityExperiment,
+            recovery,
             safeMode);
         MainWindow = window;
         window.Show();
