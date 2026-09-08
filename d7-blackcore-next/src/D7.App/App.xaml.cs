@@ -3,10 +3,17 @@ using System.Threading;
 using System.Windows;
 using System.Windows.Threading;
 using D7.App.Services;
+using D7.Benchmark.Capture;
 using D7.Core.Foundation;
 using D7.Core.Logging;
+using D7.Games.Detection;
+using D7.Games.Profiles;
 using D7.Hardware.Discovery;
 using D7.Hardware.Telemetry;
+using D7.Optimization.Operations;
+using D7.Orchestration;
+using D7.Rollback.Journal;
+using D7.Tools.Acquisition;
 
 namespace D7.App;
 
@@ -14,6 +21,8 @@ public partial class App : Application
 {
     private Mutex? _singleInstanceMutex;
     private JsonLineLogger? _logger;
+    private HttpClient? _bootstrapHttp;
+    private HttpClient? _toolsHttp;
 
     protected override void OnStartup(StartupEventArgs e)
     {
@@ -42,10 +51,35 @@ public partial class App : Application
         TaskScheduler.UnobservedTaskException += OnUnobservedTaskException;
 
         var safeMode = e.Args.Any(x => string.Equals(x, "--safe-mode", StringComparison.OrdinalIgnoreCase));
-        var bootstrap = new BootstrapService(paths, _logger, new HttpClient());
+
+        _bootstrapHttp = new HttpClient();
+        _toolsHttp = new HttpClient();
+
+        var bootstrap = new BootstrapService(paths, _logger, _bootstrapHttp);
         var hardwareDiscovery = new WindowsHardwareDiscoveryService();
         var telemetry = new SystemTelemetrySampler();
-        var window = new MainWindow(bootstrap, _logger, hardwareDiscovery, telemetry, safeMode);
+
+        var profiles = new GameProfileStore(paths);
+        var gameDetector = new GameDetectionService(
+            new ForegroundProcessReader(),
+            new RunningProcessReader(),
+            new GameProcessClassifier(),
+            profiles);
+
+        var tools = new ToolAcquisitionService(paths, _logger, _toolsHttp);
+        var frameCapture = new PresentMonCaptureService(paths, _logger, tools);
+        var journal = new TransactionJournal(paths);
+        var coreFlow = new CoreFlowCoordinator(gameDetector, frameCapture, journal, _logger);
+        var priorityExperiment = new ProcessPriorityOptimization();
+
+        var window = new MainWindow(
+            bootstrap,
+            _logger,
+            hardwareDiscovery,
+            telemetry,
+            coreFlow,
+            priorityExperiment,
+            safeMode);
         MainWindow = window;
         window.Show();
     }
@@ -54,6 +88,8 @@ public partial class App : Application
     {
         try
         {
+            _bootstrapHttp?.Dispose();
+            _toolsHttp?.Dispose();
             if (_singleInstanceMutex is not null)
             {
                 _singleInstanceMutex.ReleaseMutex();
