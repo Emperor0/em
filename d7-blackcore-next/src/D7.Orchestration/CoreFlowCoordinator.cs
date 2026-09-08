@@ -33,17 +33,16 @@ public sealed class CoreFlowCoordinator
         _stability = stability ?? new NullStabilityProbe();
     }
 
+    public Task<ActiveGame?> DetectGameAsync(CancellationToken cancellationToken) =>
+        _games.DetectActiveGameAsync(cancellationToken);
+
     public async Task<BaselineFlowResult> CaptureBaselineAsync(TimeSpan duration, CancellationToken cancellationToken)
     {
         var game = await _games.DetectActiveGameAsync(cancellationToken).ConfigureAwait(false);
         if (game is null)
             return new BaselineFlowResult(false, null, null, "لم يكتشف D7 لعبة نشطة موثوقة.");
 
-        var baseline = await _frames.CaptureAsync(game.ProcessId, duration, cancellationToken).ConfigureAwait(false);
-        if (!baseline.Success || baseline.Analysis is null || !baseline.Analysis.Valid)
-            return new BaselineFlowResult(false, game, baseline, baseline.MessageAr);
-
-        return new BaselineFlowResult(true, game, baseline, "اكتمل القياس الأساسي وحُفظت بيانات الإطارات قبل أي تعديل.");
+        return await CaptureBaselineForGameAsync(game, duration, cancellationToken).ConfigureAwait(false);
     }
 
     public async Task<OptimizationExperimentResult> RunExperimentAsync(
@@ -51,13 +50,79 @@ public sealed class CoreFlowCoordinator
         TimeSpan duration,
         CancellationToken cancellationToken)
     {
+        ArgumentNullException.ThrowIfNull(operation);
         var operationId = $"EXP-{DateTimeOffset.UtcNow:yyyyMMddHHmmssfff}";
-        var baselineFlow = await CaptureBaselineAsync(duration, cancellationToken).ConfigureAwait(false);
-        if (!baselineFlow.Success || baselineFlow.Game is null || baselineFlow.Baseline?.Analysis is null)
+        var game = await _games.DetectActiveGameAsync(cancellationToken).ConfigureAwait(false);
+        if (game is null)
         {
             return new OptimizationExperimentResult(
                 false,
-                baselineFlow.Game,
+                null,
+                null,
+                null,
+                null,
+                null,
+                false,
+                "لم يبدأ D7 أي تعديل لأنه لم يكتشف لعبة نشطة موثوقة.");
+        }
+
+        var context = new OperationContext(game.ProcessId, game.ProcessName, game.ExecutablePath);
+        OperationPreflightResult preflight;
+        try
+        {
+            preflight = await operation.PreflightAsync(context, cancellationToken).ConfigureAwait(false);
+        }
+        catch (OperationCanceledException)
+        {
+            throw;
+        }
+        catch (Exception ex)
+        {
+            await _logger.WriteAsync(
+                "Preflight",
+                operationId,
+                "Warning",
+                "فشل فحص ما قبل التنفيذ وتم تجاوز التعديل.",
+                new { operation.Id, ex.Message },
+                CancellationToken.None);
+            return new OptimizationExperimentResult(
+                false,
+                game,
+                null,
+                null,
+                null,
+                null,
+                false,
+                "تعذر التحقق من صلاحية التعديل قبل التنفيذ؛ لم يغير D7 أي إعداد.",
+                ex.Message);
+        }
+
+        if (!preflight.Applicable)
+        {
+            await _logger.WriteAsync(
+                "Preflight",
+                operationId,
+                "Information",
+                "تم تجاوز تعديل غير قابل للتطبيق.",
+                new { operation.Id, preflight.MessageAr, preflight.TechnicalReason },
+                CancellationToken.None);
+            return new OptimizationExperimentResult(
+                true,
+                game,
+                null,
+                null,
+                null,
+                null,
+                false,
+                preflight.MessageAr);
+        }
+
+        var baselineFlow = await CaptureBaselineForGameAsync(game, duration, cancellationToken).ConfigureAwait(false);
+        if (!baselineFlow.Success || baselineFlow.Baseline?.Analysis is null)
+        {
+            return new OptimizationExperimentResult(
+                false,
+                game,
                 baselineFlow.Baseline,
                 null,
                 null,
@@ -66,8 +131,6 @@ public sealed class CoreFlowCoordinator
                 "لم يبدأ D7 أي تعديل لأن القياس الأساسي غير صالح.");
         }
 
-        var game = baselineFlow.Game;
-        var context = new OperationContext(game.ProcessId, game.ProcessName, game.ExecutablePath);
         OptimizationTransaction? transaction = null;
         CapturedOperationState? captured = null;
         var rolledBack = false;
@@ -304,6 +367,18 @@ public sealed class CoreFlowCoordinator
                 false, game, baselineFlow.Baseline, null, null, transaction?.TransactionId, rolledBack,
                 "حدث خطأ أثناء التجربة ولم يعتمد D7 التعديل.", ex.Message);
         }
+    }
+
+    private async Task<BaselineFlowResult> CaptureBaselineForGameAsync(
+        ActiveGame game,
+        TimeSpan duration,
+        CancellationToken cancellationToken)
+    {
+        var baseline = await _frames.CaptureAsync(game.ProcessId, duration, cancellationToken).ConfigureAwait(false);
+        if (!baseline.Success || baseline.Analysis is null || !baseline.Analysis.Valid)
+            return new BaselineFlowResult(false, game, baseline, baseline.MessageAr);
+
+        return new BaselineFlowResult(true, game, baseline, "اكتمل القياس الأساسي وحُفظت بيانات الإطارات قبل أي تعديل.");
     }
 
     private async Task<OptimizationTransaction> MarkRollbackAsync(
