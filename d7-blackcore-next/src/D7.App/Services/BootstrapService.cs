@@ -4,6 +4,8 @@ using System.Security.Principal;
 using D7.Core.Foundation;
 using D7.Core.Logging;
 using D7.Core.Models;
+using D7.Tools.Acquisition;
+using D7.Tools.Catalog;
 
 namespace D7.App.Services;
 
@@ -12,12 +14,18 @@ public sealed class BootstrapService
     private readonly AppPaths _paths;
     private readonly JsonLineLogger _logger;
     private readonly HttpClient _httpClient;
+    private readonly ToolAcquisitionService _tools;
 
-    public BootstrapService(AppPaths paths, JsonLineLogger logger, HttpClient httpClient)
+    public BootstrapService(
+        AppPaths paths,
+        JsonLineLogger logger,
+        HttpClient httpClient,
+        ToolAcquisitionService tools)
     {
         _paths = paths;
         _logger = logger;
         _httpClient = httpClient;
+        _tools = tools;
         _httpClient.Timeout = TimeSpan.FromSeconds(4);
     }
 
@@ -94,6 +102,35 @@ public sealed class BootstrapService
             online,
             false,
             online ? "الاتصال متاح." : "الوضع الأساسي سيعمل دون إنترنت؛ التنزيلات والتحديثات ستنتظر عودة الاتصال."));
+
+        try
+        {
+            var presentMon = await _tools.EnsurePortableAsync(OfficialToolCatalog.PresentMon, cancellationToken).ConfigureAwait(false);
+            checks.Add(new BootstrapCheck(
+                "presentmon",
+                "محرك قياس الإطارات",
+                presentMon.Ready,
+                false,
+                presentMon.Ready
+                    ? "تم تجهيز محرك القياس والتحقق من سلامته تلقائيًا."
+                    : presentMon.MessageAr));
+        }
+        catch (OperationCanceledException)
+        {
+            throw;
+        }
+        catch (Exception ex)
+        {
+            checks.Add(new BootstrapCheck(
+                "presentmon",
+                "محرك قياس الإطارات",
+                false,
+                false,
+                online
+                    ? "تعذر تجهيز محرك القياس الآن؛ سيعيد D7 المحاولة عند بدء القياس."
+                    : "محرك القياس غير مخزن محليًا ويتطلب اتصالًا بالإنترنت لتجهيزه."));
+            await _logger.WriteAsync("Bootstrap", op, "Warning", "تعذر تجهيز PresentMon أثناء الإقلاع.", new { ex.Message }, CancellationToken.None);
+        }
 
         checks.Add(new BootstrapCheck(
             "safe-mode",
