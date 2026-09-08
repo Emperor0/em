@@ -1,11 +1,11 @@
 {
     "product":  "D7 BLACKCORE",
     "channel":  "stable",
-    "version":  "2.0.1",
+    "version":  "2.1.0",
     "minimumWindowsBuild":  19045,
     "updateMode":  "online-only",
-    "packageUrl":  "https://raw.githubusercontent.com/Emperor0/em/main/d7-gaming-engine/stable/D7_BLACKCORE_v2.0.1.zip",
-    "sha256":  "36673d9cea0d6872275b077855bfa3887b2ee4c50f6a11b4577d32767e397650",
-    "changelogAr":  "BLACKSCAN + adaptive local learning + deep reversible gaming/streaming profile + Tool Hub + runtime syntax hardening.",
-    "publishedUtc":  "2026-09-08T11:59:30.4720744Z"
+    "packageUrl":  "https://raw.githubusercontent.com/Emperor0/em/main/d7-gaming-engine/stable/D7_BLACKCORE_v2.1.0.zip",
+    "sha256":  "ab91d51697c4b5bf68b0aa6242e9acc2ace6c243ed027f3dc0621f9df2aaac4f",
+    "changelogAr":  "Measurement Core: improved tool detection, PresentMon capture and frametime analysis, stability/WHEA audit, MSI and interrupt read-only audit, deep network audit, A/B compare. No blind low-level tuning.",
+    "publishedUtc":  "2026-09-08T12:28:41.2085929Z"
 }
