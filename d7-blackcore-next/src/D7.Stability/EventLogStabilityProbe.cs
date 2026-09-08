@@ -33,8 +33,8 @@ public sealed class EventLogStabilityProbe : IStabilityProbe
 
                 var provider = record.ProviderName ?? "Unknown";
                 var eventId = record.Id;
-                var time = record.TimeCreated is null ? null : new DateTimeOffset(record.TimeCreated.Value);
-                var recordId = record.RecordId ?? HashCode.Combine(provider, eventId, time?.UtcTicks ?? 0L);
+                DateTimeOffset? time = record.TimeCreated is DateTime created ? new DateTimeOffset(created) : null;
+                var recordId = record.RecordId ?? (long)HashCode.Combine(provider, eventId, time?.UtcTicks ?? 0L);
                 var (category, severity) = Classify(provider, eventId);
                 issues.Add(new StabilityIssue(recordId, time, provider, eventId, category, severity));
             }
