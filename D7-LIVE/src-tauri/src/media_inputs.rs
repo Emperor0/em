@@ -83,7 +83,7 @@ pub async fn create(
         enabled: Some(true),
     };
     let created = client.inputs().create(request).await.map_err(|e| e.to_string())?;
-    Ok(CreatedInput { name: name.to_string(), scene_item_id: created.id as i64 })
+    Ok(CreatedInput { name: name.to_string(), scene_item_id: created.scene_item_id })
 }
 
 pub async fn remove(app: AppHandle, name: String) -> Result<(), String> {
