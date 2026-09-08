@@ -13,5 +13,7 @@
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\..\src\D7.Core\D7.Core.csproj" />
+    <ProjectReference Include="..\..\src\D7.Tools\D7.Tools.csproj" />
+    <ProjectReference Include="..\..\src\D7.Benchmark\D7.Benchmark.csproj" />
   </ItemGroup>
 </Project>
