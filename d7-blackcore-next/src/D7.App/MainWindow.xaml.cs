@@ -17,6 +17,7 @@ public partial class MainWindow : Window
     private readonly SystemTelemetrySampler _telemetry;
     private readonly CoreFlowCoordinator _coreFlow;
     private readonly ProcessPriorityOptimization _priorityExperiment;
+    private readonly StartupRecoveryService _recovery;
     private readonly bool _safeMode;
     private readonly CancellationTokenSource _lifetime = new();
     private bool _baselinePassed;
@@ -29,6 +30,7 @@ public partial class MainWindow : Window
         SystemTelemetrySampler telemetry,
         CoreFlowCoordinator coreFlow,
         ProcessPriorityOptimization priorityExperiment,
+        StartupRecoveryService recovery,
         bool safeMode)
     {
         InitializeComponent();
@@ -38,6 +40,7 @@ public partial class MainWindow : Window
         _telemetry = telemetry;
         _coreFlow = coreFlow;
         _priorityExperiment = priorityExperiment;
+        _recovery = recovery;
         _safeMode = safeMode;
         Loaded += OnLoaded;
         Closed += OnClosed;
@@ -49,6 +52,17 @@ public partial class MainWindow : Window
     {
         try
         {
+            MeasureButton.IsEnabled = false;
+            OptimizeButton.IsEnabled = false;
+            SubtitleText.Text = "جارٍ فحص سجل التراجع السابق...";
+
+            var recovery = await _recovery.RecoverAsync(_lifetime.Token);
+            if (recovery.TransactionsFound > 0)
+            {
+                ExperimentText.Text = recovery.MessageAr;
+                HealthText.Text = recovery.OperationsUnresolved == 0 ? "تمت الاستعادة" : "استعادة جزئية";
+            }
+
             SubtitleText.Text = _safeMode
                 ? "يعمل D7 في وضع الأمان. لن يتم تنفيذ تحسينات تلقائية."
                 : "جارٍ التحقق من النظام واكتشاف العتاد...";
@@ -93,13 +107,19 @@ public partial class MainWindow : Window
                 },
                 _lifetime.Token);
 
-            if (result.Ready)
+            if (result.Ready && recovery.OperationsUnresolved == 0)
             {
                 HealthText.Text = _safeMode ? "وضع الأمان" : "جاهز للقياس";
                 SubtitleText.Text = _safeMode
                     ? "تم فحص الجهاز. القياس متاح، بينما التعديلات معطلة في وضع الأمان."
                     : $"تم التعرف على الجهاز: {hardware.Board.Manufacturer} {hardware.Board.Product}. ابدأ بقياس اللعبة قبل أي تجربة.";
                 MeasureButton.IsEnabled = true;
+            }
+            else if (recovery.OperationsUnresolved > 0)
+            {
+                HealthText.Text = "استعادة مطلوبة";
+                SubtitleText.Text = "توجد عملية سابقة لم يتمكن D7 من استعادتها تلقائيًا. القياس والتعديلات مقفلة حتى تتم مراجعتها.";
+                MeasureButton.IsEnabled = false;
             }
             else
             {
