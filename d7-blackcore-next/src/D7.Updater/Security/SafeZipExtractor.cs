@@ -31,7 +31,7 @@ public static class SafeZipExtractor
         foreach (var entry in archive.Entries)
         {
             var raw = entry.FullName.Replace('\\', '/');
-            var isDirectory = raw.EndsWith('/', StringComparison.Ordinal);
+            var isDirectory = raw.EndsWith("/", StringComparison.Ordinal);
             var relative = isDirectory ? raw.TrimEnd('/') : raw;
 
             if (!UpdateManifestValidator.IsSafeRelativePath(relative))
