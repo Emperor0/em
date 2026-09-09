@@ -1,0 +1,9 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <AssemblyName>D7.Updater</AssemblyName>
+    <RootNamespace>D7.Updater</RootNamespace>
+  </PropertyGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\D7.Core\D7.Core.csproj" />
+  </ItemGroup>
+</Project>

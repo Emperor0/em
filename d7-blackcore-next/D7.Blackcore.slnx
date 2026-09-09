@@ -9,6 +9,7 @@
   <Project Path="src/D7.Optimization/D7.Optimization.csproj" />
   <Project Path="src/D7.Orchestration/D7.Orchestration.csproj" />
   <Project Path="src/D7.Diagnostics/D7.Diagnostics.csproj" />
+  <Project Path="src/D7.Updater/D7.Updater.csproj" />
   <Project Path="src/D7.App/D7.App.csproj" />
   <Project Path="tests/D7.UnitTests/D7.UnitTests.csproj" />
 </Solution>
