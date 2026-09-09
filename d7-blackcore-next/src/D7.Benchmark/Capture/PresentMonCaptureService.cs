@@ -1,5 +1,6 @@
 using System.Diagnostics;
 using System.Text.Json;
+using D7.Benchmark.Confidence;
 using D7.Benchmark.Csv;
 using D7.Benchmark.Models;
 using D7.Core.Foundation;
@@ -97,10 +98,11 @@ public sealed class PresentMonCaptureService : IFrameCaptureService
             }
 
             var analysis = await PresentMonCsvParser.ParseAsync(csvPath, cancellationToken).ConfigureAwait(false);
+            var confidence = BenchmarkConfidenceEvaluator.Evaluate(analysis, duration);
             var manifestPath = await TryWriteManifestAsync(
                 directory,
                 new MeasurementManifest(
-                    "D7.Measurement.v1",
+                    "D7.Measurement.v2",
                     started,
                     processId,
                     duration.TotalSeconds,
@@ -110,21 +112,24 @@ public sealed class PresentMonCaptureService : IFrameCaptureService
                     descriptor.Sha256,
                     descriptor.AssetName,
                     Path.GetFileName(csvPath),
-                    analysis),
+                    analysis,
+                    confidence),
                 operationId,
                 cancellationToken).ConfigureAwait(false);
 
             var success = process.ExitCode == 0 && analysis.Valid;
             var message = success
-                ? "اكتمل قياس الأداء الحقيقي بنجاح."
+                ? confidence.AutomaticDecisionAllowed
+                    ? $"اكتمل قياس الأداء الحقيقي بنجاح. موثوقية القياس {confidence.LabelAr} ({confidence.Score}/100)."
+                    : $"اكتمل القياس لكن موثوقيته {confidence.LabelAr} ({confidence.Score}/100)، لذلك لن يعتمد D7 عليه في قرار تلقائي."
                 : "تم إنشاء القياس لكن البيانات غير كافية أو غير متوافقة لإصدار حكم.";
 
             await _logger.WriteAsync(
                 "Benchmark",
                 operationId,
-                success ? "Information" : "Warning",
+                success && confidence.AutomaticDecisionAllowed ? "Information" : "Warning",
                 message,
-                new { process.ExitCode, analysis, manifestPath },
+                new { process.ExitCode, analysis, confidence, manifestPath },
                 CancellationToken.None);
             return new BenchmarkCaptureResult(
                 success,
@@ -135,7 +140,8 @@ public sealed class PresentMonCaptureService : IFrameCaptureService
                 analysis,
                 message,
                 string.IsNullOrWhiteSpace(stderr) ? null : stderr,
-                manifestPath);
+                manifestPath,
+                confidence);
         }
         catch (OperationCanceledException)
         {
