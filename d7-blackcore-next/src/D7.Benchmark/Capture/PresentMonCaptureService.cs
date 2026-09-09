@@ -117,19 +117,20 @@ public sealed class PresentMonCaptureService : IFrameCaptureService
                 operationId,
                 cancellationToken).ConfigureAwait(false);
 
-            var success = process.ExitCode == 0 && analysis.Valid;
-            var message = success
-                ? confidence.AutomaticDecisionAllowed
+            var captureValid = process.ExitCode == 0 && analysis.Valid;
+            var success = captureValid && confidence.AutomaticDecisionAllowed;
+            var message = !captureValid
+                ? "تم إنشاء القياس لكن البيانات غير كافية أو غير متوافقة لإصدار حكم."
+                : success
                     ? $"اكتمل قياس الأداء الحقيقي بنجاح. موثوقية القياس {confidence.LabelAr} ({confidence.Score}/100)."
-                    : $"اكتمل القياس لكن موثوقيته {confidence.LabelAr} ({confidence.Score}/100)، لذلك لن يعتمد D7 عليه في قرار تلقائي."
-                : "تم إنشاء القياس لكن البيانات غير كافية أو غير متوافقة لإصدار حكم.";
+                    : $"اكتمل القياس لكن موثوقيته {confidence.LabelAr} ({confidence.Score}/100)، لذلك لن يعتمد D7 عليه في قرار تلقائي.";
 
             await _logger.WriteAsync(
                 "Benchmark",
                 operationId,
-                success && confidence.AutomaticDecisionAllowed ? "Information" : "Warning",
+                success ? "Information" : "Warning",
                 message,
-                new { process.ExitCode, analysis, confidence, manifestPath },
+                new { process.ExitCode, captureValid, analysis, confidence, manifestPath },
                 CancellationToken.None);
             return new BenchmarkCaptureResult(
                 success,
