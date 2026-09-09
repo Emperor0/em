@@ -1,3 +1,5 @@
+using D7.Benchmark.Confidence;
+
 namespace D7.Benchmark.Models;
 
 public sealed record MeasurementManifest(
@@ -11,4 +13,5 @@ public sealed record MeasurementManifest(
     string PresentMonSha256,
     string PresentMonAsset,
     string CsvFile,
-    FrameAnalysis Analysis);
+    FrameAnalysis Analysis,
+    BenchmarkConfidence? Confidence = null);
