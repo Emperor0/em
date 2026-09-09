@@ -17,9 +17,10 @@ public static class SafeZipExtractor
 
         var destinationRoot = Path.GetFullPath(destinationDirectory);
         Directory.CreateDirectory(destinationRoot);
-        var rootPrefix = destinationRoot.EndsWith(Path.DirectorySeparatorChar)
+        var separator = Path.DirectorySeparatorChar.ToString();
+        var rootPrefix = destinationRoot.EndsWith(separator, StringComparison.Ordinal)
             ? destinationRoot
-            : destinationRoot + Path.DirectorySeparatorChar;
+            : destinationRoot + separator;
 
         using var archive = ZipFile.OpenRead(zipPath);
         if (archive.Entries.Count > MaxEntries)
