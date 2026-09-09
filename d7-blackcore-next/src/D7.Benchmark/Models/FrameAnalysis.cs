@@ -1,3 +1,5 @@
+using D7.Benchmark.Confidence;
+
 namespace D7.Benchmark.Models;
 
 public sealed record FrameAnalysis(
@@ -26,7 +28,8 @@ public sealed record BenchmarkCaptureResult(
     FrameAnalysis? Analysis,
     string MessageAr,
     string? TechnicalError = null,
-    string? ManifestPath = null);
+    string? ManifestPath = null,
+    BenchmarkConfidence? Confidence = null);
 
 public enum BenchmarkVerdict
 {
