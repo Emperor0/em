@@ -55,7 +55,7 @@ public static class UpdateManifestValidator
         if (Path.IsPathRooted(path)) return false;
 
         var normalized = path.Replace('\\', '/');
-        if (normalized.StartsWith('/', StringComparison.Ordinal)) return false;
+        if (normalized.StartsWith("/", StringComparison.Ordinal)) return false;
         var parts = normalized.Split('/', StringSplitOptions.RemoveEmptyEntries);
         if (parts.Length == 0) return false;
         return parts.All(part => part is not "." and not ".." && !part.Contains(':'));
